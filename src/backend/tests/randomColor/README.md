@@ -2,7 +2,7 @@
 
 1. New account on supabase and new project and new table named as `colors` with column names as `hex_code` and `description`.
 2. Create a metamask wallet with sepolia testnet and get free coins from here: https://cloud.google.com/application/web3/faucet/ethereum/sepolia
-3. Go to Remix IDE.
+3. Go to Remix IDE (https://remix.ethereum.org/).
 Create a new file ColorRegistry.sol and paste the code.
 Go to the "Solidity Compiler" tab, select a compatible compiler version (e.g., 0.8.9 or newer), and click "Compile ColorRegistry.sol".
 Go to the "Deploy & Run Transactions" tab.
@@ -11,7 +11,7 @@ Account: Your MetaMask account (with Sepolia ETH) should be selected.
 Contract: Select ColorRegistry.
 Click "Deploy". MetaMask will ask you to confirm the transaction (pay gas fees).
 Once deployed, you'll see the deployed contract address at the bottom of the "Deploy & Run Transactions" tab. Copy this address.
-Also, go back to the "Solidity Compiler" tab, and under "Contract: ColorRegistry", click the "ABI" button to copy the contract's ABI. Save this ABI.
+Also, go back to the "Solidity Compiler" tab, and under "Contract: ColorRegistry", click the "ABI" button to copy the contract's ABI. Save this ABI and paste it where it needs to be pasted in app.py.
 4. Signup on https://developer.metamask.io/ and get your api key and then paste that api key in the `.env` as `METAMASK_API_KEY`.
 5. add your wallet address as contact address in the configure section of the api key on the metamask developer portal and then also set it as the `CONTRACT_ADDRESS` and `BACKEND_WALLET_ADDRESS`.
 6. Open MetaMask and make sure you have the correct account selected (0xa29...).

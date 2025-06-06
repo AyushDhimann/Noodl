@@ -6,7 +6,6 @@ from functools import wraps
 from flask import Flask, request, jsonify
 from dotenv import load_dotenv
 from web3 import Web3
-# from web3.middleware import geth_poa_middleware  # For PoA chains like Sepolia
 import google.generativeai as genai
 from supabase import create_client, Client
 from web3.middleware import ExtraDataToPOAMiddleware
@@ -43,7 +42,6 @@ if not all([ETHEREUM_NODE_URL, CONTRACT_ADDRESS, BACKEND_WALLET_PRIVATE_KEY, BAC
 
 w3 = Web3(Web3.HTTPProvider(ETHEREUM_NODE_URL))
 # If connecting to a PoA network like Sepolia, Goerli, Rinkeby (you might need this)
-# w3.middleware_onion.inject(geth_poa_middleware, layer=0)
 w3.middleware_onion.inject(ExtraDataToPOAMiddleware, layer=0)
 if not w3.is_connected():
     raise ConnectionError("Failed to connect to Ethereum node")
@@ -53,6 +51,24 @@ if not w3.is_connected():
 # For simplicity, pasting a snippet. Replace with your full ABI.
 CONTRACT_ABI = json.loads("""
 [
+	{
+		"inputs": [
+			{
+				"internalType": "string",
+				"name": "_hexCode",
+				"type": "string"
+			},
+			{
+				"internalType": "string",
+				"name": "_description",
+				"type": "string"
+			}
+		],
+		"name": "addColor",
+		"outputs": [],
+		"stateMutability": "nonpayable",
+		"type": "function"
+	},
 	{
 		"inputs": [],
 		"stateMutability": "nonpayable",
@@ -90,19 +106,8 @@ CONTRACT_ABI = json.loads("""
 		"type": "event"
 	},
 	{
-		"inputs": [
-			{
-				"internalType": "string",
-				"name": "_hexCode",
-				"type": "string"
-			},
-			{
-				"internalType": "string",
-				"name": "_description",
-				"type": "string"
-			}
-		],
-		"name": "addColor",
+		"inputs": [],
+		"name": "withdraw",
 		"outputs": [],
 		"stateMutability": "nonpayable",
 		"type": "function"
@@ -219,16 +224,9 @@ CONTRACT_ABI = json.loads("""
 		],
 		"stateMutability": "view",
 		"type": "function"
-	},
-	{
-		"inputs": [],
-		"name": "withdraw",
-		"outputs": [],
-		"stateMutability": "nonpayable",
-		"type": "function"
 	}
 ]
-""")  # Replace with your actual full ABI
+""")
 
 color_registry_contract = w3.eth.contract(address=Web3.to_checksum_address(CONTRACT_ADDRESS), abi=CONTRACT_ABI)
 
