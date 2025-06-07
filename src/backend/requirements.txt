@@ -1,0 +1,8 @@
+Flask
+python-dotenv
+web3
+google-generativeai
+supabase
+requests
+fastapi
+uvicorn
