@@ -6,3 +6,5 @@ supabase
 requests
 fastapi
 uvicorn
+Pillow
+gradio

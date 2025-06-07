@@ -6,9 +6,10 @@ from functools import wraps
 from flask import Flask, request, jsonify
 from dotenv import load_dotenv
 from web3 import Web3
+from web3.middleware import ExtraDataToPOAMiddleware
 import google.generativeai as genai
 from supabase import create_client, Client
-from web3.middleware import ExtraDataToPOAMiddleware
+
 
 # Load environment variables
 load_dotenv()
