@@ -7,8 +7,15 @@ import 'package:frontend/pages/quiz.dart';
 import 'package:frontend/providers/quiz_page_provider.dart';
 import 'package:frontend/test/metamask_service.dart';
 import 'package:provider/provider.dart';
+import 'package:firebase_auth/firebase_auth.dart';
+import 'package:firebase_core/firebase_core.dart';
+import 'firebase_options.dart';
 
-void main() {
+void main() async{
+  WidgetsFlutterBinding.ensureInitialized();
+  await Firebase.initializeApp(
+    options: DefaultFirebaseOptions.currentPlatform
+  );
 
   runApp(const MyApp());
 }
@@ -31,19 +38,18 @@ class MyApp extends StatelessWidget {
         ),
         // ignore: prefer_const_constructors
         // home: QuizPage(),
-        // home: LoginPage(),
-        home: HomePage(),
+        // home: HomePage(),
         // ignore: prefer_const_constructors
-      //   home: StreamBuilder(
-      //   stream: FirebaseAuth.instance.authStateChanges(),
-      //   builder: (context, snapshot) {
-      //     if(snapshot.hasData){
-      //       return const QuizPage();
-      //     } else {
-      //       return const LoginPage();
-      //     }
-      //   },
-      // ),
+        home: StreamBuilder(
+        stream: FirebaseAuth.instance.authStateChanges(),
+        builder: (context, snapshot) {
+          if(snapshot.hasData){
+            return const QuizPage();
+          } else {
+            return const LoginPage();
+          }
+        },
+      ),
         // home: HomePage(),
       ),
     );
