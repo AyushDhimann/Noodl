@@ -1,152 +1,186 @@
-# SETUP
+# 🍜 Noodl Backend
+[![Python](https://img.shields.io/badge/Python-3.11+-blue?style=for-the-badge&logo=python)](https://www.python.org/)
+[![Flask](https://img.shields.io/badge/Flask-2.3+-black?style=for-the-badge&logo=flask)](https://flask.palletsprojects.com/)
+[![Web3.py](https://img.shields.io/badge/Web3.py-6.x-orange?style=for-the-badge)](https://web3py.readthedocs.io/)
+[![Supabase](https://img.shields.io/badge/Supabase-2.x-darkgreen?style=for-the-badge&logo=supabase)](https://supabase.com/)
+[![Google Gemini](https://img.shields.io/badge/Google_Gemini-AI-4285F4?style=for-the-badge&logo=google)](https://ai.google.dev/)
 
-### **Overview of the Project**
+The complete backend for **Noodl**, a next-generation, AI-powered educational platform with Web3 integration. This project provides a robust API for creating dynamic learning paths, tracking user progress, and issuing on-chain NFT certificates.
 
-We will build the complete backend for "Noodl," a Duolingo-like educational app.
+## ✨ Features
 
-*   **Functionality:**
-    1.  AI dynamically generates a full curriculum (variable number of levels) for any given topic.
-    2.  AI generates slides and quizzes for each level.
-    3.  AI checks for and prevents the creation of duplicate or very similar topics.
-    4.  A hash of the course content is stored on the blockchain for immutable proof.
-    5.  Upon completion, a user is rewarded with an NFT certificate featuring a unique, AI-generated image.
-*   **Tech Stack:**
-    *   **Backend:** Python with Flask
-    *   **AI:** Google Gemini (for text, embeddings, and image generation)
-    *   **Database:** Supabase (with pgvector for similarity search)
-    *   **Blockchain:** Ethereum (Sepolia Testnet) via Web3.py
-    *   **Testing UI:** Gradio
-
----
-
-### **Step 1: Prerequisites & Initial Setup**
-
-Before writing any code, you need accounts and keys from the following services:
-
-1.  **MetaMask:** Install the [MetaMask browser extension](https://metamask.io/). Create a wallet and switch it to the **Sepolia Testnet**. Get free test ETH from a faucet like [sepoliafaucet.com](https://sepoliafaucet.com/).
-2.  **Infura:** Sign up for a free [Infura](https://www.infura.io/) account. Create a new project and get your **Sepolia RPC URL**.
-3.  **Google AI Studio:** Go to [Google AI Studio](https://aistudio.google.com/) and get a **Gemini API Key**.
-4.  **Supabase:** Sign up for a free [Supabase](https://supabase.io/) account. Create a new project and note down your **Project URL** and your **`service_role` key** (from Project Settings > API).
+- **Dynamic AI Curriculum:** Automatically generates a full, multi-level curriculum for any given topic using Google Gemini.
+- **Interleaved Learning:** Creates a rich learning experience with a mix of detailed markdown-based slides and interactive quizzes.
+- **AI-Generated Explanations:** Quizzes include fun facts or detailed explanations for correct answers, enhancing the learning loop.
+- **Web3 Integration:**
+    - **Immutable Proof:** Registers a hash of each learning path's content on the Ethereum blockchain for tamper-proof verification.
+    - **NFT Certificates:** Mints unique, on-chain SVG-based NFT certificates to users upon path completion.
+- **Asynchronous Task Progress:** Uses a background thread and a polling endpoint to provide status updates for long-running content generation tasks.
+- **Scalable Architecture:** Built with a modular, service-oriented structure for easy maintenance and expansion.
+- **Comprehensive Testing UI:** Includes a standalone Gradio interface for testing all API endpoints and simulating the user learning experience.
 
 ---
 
-### **Step 2: Smart Contracts (Solidity)**
+## 🏛️ Architecture
 
-We need two smart contracts. You will deploy these using the [Remix IDE](https://remix.ethereum.org/).
-
-**Deployment Instructions:**
-1.  Open Remix. Create two new files: `LearningPathRegistry.sol` and `NoodlCertificate.sol`.
-2.  Paste the code below into the respective files.
-3.  For `NoodlCertificate.sol`, Remix will automatically fetch the OpenZeppelin contracts.
-4.  Go to the "Solidity Compiler" tab, select a compiler version like `0.8.18`, and compile both contracts.
-5.  Go to the "Deploy & Run Transactions" tab.
-    *   Set ENVIRONMENT to "Injected Provider - MetaMask" (ensure MetaMask is on Sepolia).
-    *   Select each contract from the dropdown and click "Deploy".
-    *   Confirm both transactions in MetaMask.
-6.  **Crucially, copy the deployed addresses for both contracts.** You will need them for your `.env` file.
-7.  Also, from the "Solidity Compiler" tab, copy the **ABI** for both contracts.
-
----
-
-### **Step 3: Supabase Database Setup**
-
-1.  In your Supabase project dashboard, go to **Database** > **Extensions**. Find `vector` and enable it.
-2.  Go to the **SQL Editor** > **New query**. Paste and run the entire script below.
-
-```sql
--- 1. Create the table for learning paths
-CREATE TABLE learning_paths (
-  id BIGINT PRIMARY KEY GENERATED ALWAYS AS IDENTITY,
-  title TEXT NOT NULL,
-  description TEXT,
-  creator_wallet TEXT,
-  content_hash TEXT,
-  is_premade BOOLEAN DEFAULT false,
-  title_embedding vector(768), -- For similarity search
-  created_at TIMESTAMPTZ DEFAULT now()
-);
-
--- 2. Create the table for level content
-CREATE TABLE levels (
-  id BIGINT PRIMARY KEY GENERATED ALWAYS AS IDENTITY,
-  path_id BIGINT REFERENCES learning_paths(id) ON DELETE CASCADE,
-  level_number INT NOT NULL,
-  level_title TEXT, -- Title for the dynamic level
-  content JSONB, -- Stores the slides and quiz JSON
-  created_at TIMESTAMPTZ DEFAULT now(),
-  UNIQUE(path_id, level_number)
-);
-
--- 3. Create the function for similarity search
-CREATE OR REPLACE FUNCTION match_similar_paths(
-  query_embedding vector(768),
-  match_threshold float,
-  match_count int
-)
-RETURNS TABLE (
-  id bigint,
-  title text,
-  description text,
-  similarity float
-)
-LANGUAGE plpgsql
-AS $$
-BEGIN
-  RETURN QUERY
-  SELECT
-    lp.id,
-    lp.title,
-    lp.description,
-    1 - (lp.title_embedding <=> query_embedding) AS similarity
-  FROM
-    learning_paths lp
-  WHERE 1 - (lp.title_embedding <=> query_embedding) > match_threshold
-  ORDER BY
-    similarity DESC
-  LIMIT match_count;
-END;
-$$;
-```
-
----
-
-### **Step 4: Backend Project Structure & Setup**
-
-Create a project folder for your backend. Inside it, create the following files and folders:
+The project follows a clean, modular architecture to separate concerns:
 
 ```
-noodl_backend/
-├── templates/
-│   └── index.html  (We won't use this, but Flask likes the folder)
-├── app.py
-├── test_ui.py
+backend/
+├── app/                  # Core Flask application package
+│   ├── __init__.py       # Initializes the Flask app and services
+│   ├── config.py         # Manages all environment variables and feature flags
+│   ├── services/         # Business logic layer
+│   │   ├── ai_service.py
+│   │   ├── blockchain_service.py
+│   │   └── supabase_service.py
+│   └── routes/           # API endpoint definitions (Blueprints)
+│       ├── path_routes.py
+│       ├── user_routes.py
+│       ├── progress_routes.py
+│       └── nft_routes.py
+│
+├── contracts/            # Solidity smart contracts and their ABIs
+│
+├── database/             # SQL schema for the database
+│
+├── ui/                   # Standalone Gradio testing UI
+│   └── testing_ui.py
+│
+├── main.py               # Main entry point to run the application
 ├── requirements.txt
 └── .env
 ```
 
+---
 
-#### `.env` file
-Rename `.env.example` to `.env` file and fill it with your own keys and addresses. **NEVER commit this file to Git.**
+## 🚀 Getting Started
+
+Follow these steps to set up and run the project locally.
+
+### 1. Prerequisites
+
+Ensure you have the following installed:
+- [Python 3.11+](https://www.python.org/downloads/)
+- [pip](https://pip.pypa.io/en/stable/installation/) for package management
+- A virtual environment tool like `venv` (recommended)
+
+You will also need accounts and API keys from:
+- **MetaMask:** A wallet with Sepolia test ETH.
+- **Infura:** An RPC URL for the Sepolia testnet.
+- **Google AI Studio:** A Gemini API Key.
+- **Supabase:** A project URL and `service_role` key.
+
+### 2. Initial Setup
+
+**Clone the repository:**
+```bash
+git clone https://github.com/AyushDhimann/DuoLingo
+cd DuoLingo/src/backend/
+```
+
+**Create and activate a virtual environment:**
+```bash
+# On Windows
+python -m venv .venv
+.venv\Scripts\activate
+
+# On macOS/Linux
+python3 -m venv .venv
+source .venv/bin/activate
+```
+
+**Install dependencies:**
+```bash
+pip install -r requirements.txt
+```
+
+### 3. Environment Configuration
+
+Create a `.env` file in the `backend` directory by copying `.env.example` or creating a new one. Fill in all the required values with your keys and addresses.
+
+```env
+# .env
+FLASK_APP=main.py
+FLASK_DEBUG=True
+
+# --- APIs and Services ---
+GEMINI_API_KEY="YOUR_GEMINI_API_KEY"
+SUPABASE_URL="YOUR_SUPABASE_PROJECT_URL"
+# ... (fill in all other variables) ...
+
+# --- FEATURE FLAGS ---
+RUN_API_SERVER="true"
+RUN_TESTING_UI="true"
+FEATURE_FLAG_ENABLE_BLOCKCHAIN_REGISTRATION="true"
+FEATURE_FLAG_ENABLE_NFT_MINTING="true"
+```
+
+### 4. Smart Contract Deployment
+
+1.  Open the [Remix IDE](https://remix.ethereum.org/).
+2.  Create and paste the content of the `.sol` files from the `contracts/` directory.
+3.  Compile both contracts using a `0.8.20` (or compatible) compiler version.
+4.  Connect your MetaMask wallet (on Sepolia network).
+5.  Deploy `LearningPathRegistry.sol`.
+6.  Deploy `NoodlCertificate.sol`, making sure to **provide your wallet address** as the `initialOwner` argument in the Remix deploy panel.
+7.  Copy the deployed contract addresses into your `.env` file.
+8.  From the "Solidity Compiler" tab in Remix, copy the ABI for each contract and save them as `LearningPathRegistry.json` and `NoodlCertificate.json` inside the `contracts/` directory.
+
+### 5. Database Setup
+
+1.  In your Supabase project dashboard, navigate to **Database** > **Extensions**.
+2.  Search for `vector` and enable it.
+3.  Go to the **SQL Editor**, paste the entire content of `database/schema.sql`, and run the query.
 
 ---
 
+## 🏃‍♂️ Running the Application
 
+This project uses a central entry point to manage the API server and the testing UI.
 
-# **Usage**
+**To run the application:**
+(Ensure `RUN_API_SERVER` and `RUN_TESTING_UI` are set to `true` in your `.env` file)
 
-1.  **Install Dependencies:** Open your terminal in the project folder and run:
-    ```bash
-    pip install -r requirements.txt
-    ```
-2.  **Run the Backend:** In the same terminal, start the Flask server. It will run on `http://localhost:5000`.
-    ```bash
-    flask run
-    ```
-3.  **Run the UI:** Open a **new, separate terminal** in the same project folder. Start the Gradio UI.
-    ```bash
-    python UITesting.py
-    ```
-4.  **Test:** Your terminal will print a URL (like `http://127.0.0.1:7860`). Open this URL in your browser. You can now use the interface to interact with your running backend.
-    *   Go to the "Generate New Path" tab, enter a topic and your MetaMask wallet address, and click generate. Watch the Flask server's console for logs.
-    *   Once a path is created, go to the "View Content" tab to fetch it.
-    *   Finally, go to the "Mint NFT" tab to receive your certificate. You can view it by connecting your wallet to [https://testnets.opensea.io/](https://testnets.opensea.io/).
+```bash
+python main.py
+```
+
+This will:
+- Start the Flask API server in a background thread on `http://localhost:5000`.
+- Start the Gradio Testing UI in the main thread on `http://localhost:7000`.
+
+### Using the Testing UI
+
+Navigate to `http://localhost:7000` in your browser. The UI is organized into tabs that allow you to test every feature of the backend:
+- **Interactive Learner:** Simulate a user's journey through a lesson.
+- **Paths & Content:** Generate new learning paths with real-time progress updates via polling.
+- **Users:** Create and manage user profiles.
+- **Progress & Scoring:** Track user progress and fetch scores.
+- **Mint NFT:** Award a certificate of completion.
+
+---
+
+## 🔌 API Endpoints
+
+The backend exposes the following RESTful API endpoints:
+
+#### User Routes (`/users`)
+- `POST /users`: Create or update a user.
+- `GET /users/<wallet_address>`: Fetch a user's profile.
+
+#### Path Routes (`/paths`)
+- `GET /paths`: Get a list of all available learning paths.
+- `POST /paths/generate`: **(Async)** Starts a background task to generate a new path and returns a `task_id`.
+- `GET /paths/generate/status/<task_id>`: (5000) Poll this endpoint to get progress updates for a generation task.
+- `GET /paths/<id>/levels/<num>`: Get the interleaved content for a specific level.
+
+#### Progress Routes
+- `POST /progress/start`: Start a learning path for a user or get existing progress.
+- `POST /progress/update`: Log a quiz attempt and update user progress.
+- `GET /scores/<wallet_address>`: Get all scores for a specific user.
+
+#### NFT Routes
+- `POST /paths/<id>/complete`: Mint an NFT certificate for a completed path.
+- `GET /nft/metadata/<id>`: Get the JSON metadata for a specific NFT.
+- `GET /nft/image/<id>`: Get the SVG image for a specific NFT.
