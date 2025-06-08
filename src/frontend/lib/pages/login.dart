@@ -1,7 +1,9 @@
+import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_svg/svg.dart';
 import 'package:frontend/constants/colors.dart' as appColors;
-import 'package:frontend/services/metamask_service.dart';
+import 'package:frontend/services/authentication.dart';
+import 'package:frontend/test/metamask_service.dart';
 import 'package:provider/provider.dart';
 
 class LoginPage extends StatelessWidget {
@@ -82,7 +84,7 @@ class LoginPage extends StatelessWidget {
             Center(
               child: Material(
               borderRadius: const BorderRadius.all(Radius.circular(12.5)),
-              color: appColors.bgColor,
+              color: appColors.white,
               child: InkWell(
                 splashColor: Colors.black12,
               borderRadius: const BorderRadius.all(Radius.circular(12.5)),
@@ -90,24 +92,30 @@ class LoginPage extends StatelessWidget {
                 child: Container(
                   height: 50,
                   width: size.width-24,
-                  decoration: BoxDecoration(
-                    borderRadius: const BorderRadius.all(Radius.circular(12.5)),
-                    border: Border.all(width: 1.5, color: appColors.white)
+                  decoration: const BoxDecoration(
+                    borderRadius: BorderRadius.all(Radius.circular(12.5)),
+                    // border: Border.all(width: 1.5, color: appColors.white)
                   ),
                   padding: const EdgeInsets.symmetric(horizontal: 12),
                   child:  Row(
                     mainAxisAlignment: MainAxisAlignment.spaceBetween,
                     children: [
-                      SvgPicture.asset('assets/images/metamask.svg', height: 20,),
+                      Image.asset('assets/images/google.png', height: 25,),
                       Text(
-                        'Connect with MetaMask',
+                        'Continue with Google',
                         style: TextStyle(
-                          color: appColors.white,
+                          color: appColors.black,
                           fontSize: 16,
                           fontFamily: 'NSansM'
                         ),
                       ),
-                      Opacity(opacity: 0,child: SvgPicture.asset('assets/images/metamask.svg', height: 20,))
+                      SizedBox(
+                        width: 25,
+                        child: Icon(
+                          CupertinoIcons.arrow_right,
+                          color: appColors.black,
+                        ),
+                      )
                     ],
                   ),
                 ),
