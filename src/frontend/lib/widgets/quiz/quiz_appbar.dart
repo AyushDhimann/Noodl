@@ -16,23 +16,25 @@ class QuizAppBar extends StatelessWidget {
         crossAxisAlignment: CrossAxisAlignment.center,
         children: const [
           Opacity(opacity: 1,child: QuizAppbarButton()),
+          SizedBox(width: 12,),
           Expanded(
             child: Padding(
               padding: EdgeInsets.symmetric(vertical: 8),
               child: FittedBox(
                 child: Text(
-                  'Finance - India',
+                  '💵 Finance',
                   style: TextStyle(
                     fontFamily: 'NSansB',
                     fontSize: 30,
                   ),
                 ),
               ),
-            )
+            ),
           ),
           // SizedBox(width: 20,),
-          // QuizAppbarButton(),
+          SizedBox(width: 12,),
           Opacity(opacity: 0,child: QuizAppbarButton()),
+          // QuizAppbarButton(),
 
         ],
       ),

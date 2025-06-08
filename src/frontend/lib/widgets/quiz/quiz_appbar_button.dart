@@ -18,7 +18,7 @@ class QuizAppbarButton extends StatelessWidget {
           height: 45,
           alignment: Alignment.center,
           child: Icon(
-            CupertinoIcons.clear,
+            CupertinoIcons.clear_thick,
             size: 24,
             color: appColors.white,
           ),
