@@ -2,7 +2,6 @@
 [![Python](https://img.shields.io/badge/Python-3.11+-blue?style=for-the-badge&logo=python)](https://www.python.org/)
 [![Flask](https://img.shields.io/badge/Flask-2.3+-black?style=for-the-badge&logo=flask)](https://flask.palletsprojects.com/)
 [![Web3.py](https://img.shields.io/badge/Web3.py-6.x-orange?style=for-the-badge)](https://web3py.readthedocs.io/)
-[![Socket.IO](https://img.shields.io/badge/Socket.IO-5.x-yellow?style=for-the-badge&logo=socket.io)](https://python-socketio.readthedocs.io/)
 [![Supabase](https://img.shields.io/badge/Supabase-2.x-darkgreen?style=for-the-badge&logo=supabase)](https://supabase.com/)
 [![Google Gemini](https://img.shields.io/badge/Google_Gemini-AI-4285F4?style=for-the-badge&logo=google)](https://ai.google.dev/)
 
@@ -16,7 +15,7 @@ The complete backend for **Noodl**, a next-generation, AI-powered educational pl
 - **Web3 Integration:**
     - **Immutable Proof:** Registers a hash of each learning path's content on the Ethereum blockchain for tamper-proof verification.
     - **NFT Certificates:** Mints unique, on-chain SVG-based NFT certificates to users upon path completion.
-- **Real-time Progress Updates:** Utilizes WebSockets to provide live feedback to the frontend during the long-running content generation process.
+- **Asynchronous Task Progress:** Uses a background thread and a polling endpoint to provide status updates for long-running content generation tasks.
 - **Scalable Architecture:** Built with a modular, service-oriented structure for easy maintenance and expansion.
 - **Comprehensive Testing UI:** Includes a standalone Gradio interface for testing all API endpoints and simulating the user learning experience.
 
@@ -29,7 +28,7 @@ The project follows a clean, modular architecture to separate concerns:
 ```
 backend/
 ├── app/                  # Core Flask application package
-│   ├── __init__.py       # Initializes the Flask app, extensions, and services
+│   ├── __init__.py       # Initializes the Flask app and services
 │   ├── config.py         # Manages all environment variables and feature flags
 │   ├── services/         # Business logic layer
 │   │   ├── ai_service.py
@@ -39,10 +38,9 @@ backend/
 │       ├── path_routes.py
 │       ├── user_routes.py
 │       ├── progress_routes.py
-│       ├── nft_routes.py
-│       └── websocket_routes.py
+│       └── nft_routes.py
 │
-├── contracts/            # Solidity smart contracts
+├── contracts/            # Solidity smart contracts and their ABIs
 │
 ├── database/             # SQL schema for the database
 │
@@ -77,8 +75,8 @@ You will also need accounts and API keys from:
 
 **Clone the repository:**
 ```bash
-git clone <your-repo-url>
-cd backend
+git clone https://github.com/AyushDhimann/DuoLingo
+cd DuoLingo/src/backend/
 ```
 
 **Create and activate a virtual environment:**
@@ -99,7 +97,7 @@ pip install -r requirements.txt
 
 ### 3. Environment Configuration
 
-Rename the `.env.example` file to `.env` and fill in all the required values with your keys and addresses.
+Create a `.env` file in the `backend` directory by copying `.env.example` or creating a new one. Fill in all the required values with your keys and addresses.
 
 ```env
 # .env
@@ -108,11 +106,14 @@ FLASK_DEBUG=True
 
 # --- APIs and Services ---
 GEMINI_API_KEY="YOUR_GEMINI_API_KEY"
+SUPABASE_URL="YOUR_SUPABASE_PROJECT_URL"
 # ... (fill in all other variables) ...
 
 # --- FEATURE FLAGS ---
 RUN_API_SERVER="true"
 RUN_TESTING_UI="true"
+FEATURE_FLAG_ENABLE_BLOCKCHAIN_REGISTRATION="true"
+FEATURE_FLAG_ENABLE_NFT_MINTING="true"
 ```
 
 ### 4. Smart Contract Deployment
@@ -138,7 +139,7 @@ RUN_TESTING_UI="true"
 
 This project uses a central entry point to manage the API server and the testing UI.
 
-**To run both the API and the UI:**
+**To run the application:**
 (Ensure `RUN_API_SERVER` and `RUN_TESTING_UI` are set to `true` in your `.env` file)
 
 ```bash
@@ -146,25 +147,14 @@ python main.py
 ```
 
 This will:
-- Start the Flask API server on `http://localhost:5000`.
-- Start the Gradio Testing UI on `http://localhost:7000`.
-
-**To run only the API server:**
-```bash
-python main.py api
-```
-
-**To run only the testing UI:**
-(Assumes the API server is already running separately)
-```bash
-python main.py ui
-```
+- Start the Flask API server in a background thread on `http://localhost:5000`.
+- Start the Gradio Testing UI in the main thread on `http://localhost:7000`.
 
 ### Using the Testing UI
 
 Navigate to `http://localhost:7000` in your browser. The UI is organized into tabs that allow you to test every feature of the backend:
 - **Interactive Learner:** Simulate a user's journey through a lesson.
-- **Paths & Content:** Generate new learning paths with real-time WebSocket progress updates.
+- **Paths & Content:** Generate new learning paths with real-time progress updates via polling.
 - **Users:** Create and manage user profiles.
 - **Progress & Scoring:** Track user progress and fetch scores.
 - **Mint NFT:** Award a certificate of completion.
@@ -181,7 +171,8 @@ The backend exposes the following RESTful API endpoints:
 
 #### Path Routes (`/paths`)
 - `GET /paths`: Get a list of all available learning paths.
-- `POST /paths/generate`: Generate a new learning path (long-running, uses WebSockets for progress).
+- `POST /paths/generate`: **(Async)** Starts a background task to generate a new path and returns a `task_id`.
+- `GET /paths/generate/status/<task_id>`: (5000) Poll this endpoint to get progress updates for a generation task.
 - `GET /paths/<id>/levels/<num>`: Get the interleaved content for a specific level.
 
 #### Progress Routes

@@ -8,6 +8,9 @@ bp = Blueprint('nft_routes', __name__)
 
 @bp.route('/paths/<int:path_id>/complete', methods=['POST'])
 def complete_path_and_mint_nft_route(path_id):
+    if not config.FEATURE_FLAG_ENABLE_NFT_MINTING:
+        return jsonify({"message": "NFT minting is currently disabled."})
+
     user_wallet = request.get_json().get('user_wallet')
     if not user_wallet:
         return jsonify({"error": "user_wallet is required"}), 400
@@ -25,8 +28,15 @@ def complete_path_and_mint_nft_route(path_id):
         else:
             return jsonify({"error": "Mint succeeded but failed to parse Token ID."}), 500
     except Exception as e:
-        # Error handling logic
-        return jsonify({"error": "NFT minting failed.", "detail": str(e)}), 500
+        error_message = str(e)
+        if 'Certificate already minted' in error_message:
+            detail = "Certificate already minted for this user/path."
+        elif 'insufficient funds' in error_message:
+            detail = "The server's wallet has insufficient funds to pay for gas."
+        else:
+            detail = "An unknown blockchain error occurred."
+        logger.error(f"NFT: Minting failed. Detail: {detail} | Original Error: {e}")
+        return jsonify({"error": "NFT minting failed.", "detail": detail}), 500
 
 
 @bp.route('/nft/metadata/<int:path_id>', methods=['GET'])

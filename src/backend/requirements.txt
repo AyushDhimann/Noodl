@@ -1,5 +1,4 @@
 Flask
-Flask-SocketIO
 python-dotenv
 web3
 google-generativeai
@@ -7,5 +6,3 @@ supabase
 requests
 Pillow
 gradio
-python-socketio[client]
-eventlet

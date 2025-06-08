@@ -1,20 +1,16 @@
 import logging
 from flask import Flask
-from flask_socketio import SocketIO
 from supabase import create_client, Client
 from web3 import Web3
 from web3.middleware import ExtraDataToPOAMiddleware
 import google.generativeai as genai
-
 from app.config import config
 
 # --- Initialize Logging ---
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(module)s - %(message)s')
 logger = logging.getLogger(__name__)
 
-# --- Initialize App and Extensions ---
-# async_mode=None will auto-select the best async library (eventlet or gevent)
-socketio = SocketIO(async_mode=None, cors_allowed_origins="*")
+# --- Initialize App ---
 app = Flask(__name__)
 app.config.from_object(config)
 
@@ -37,22 +33,11 @@ else:
     logger.error("CRITICAL: Failed to connect to Ethereum node.")
     account = None
 
-# --- Import and Register Blueprints & Routes ---
-# This must be done after app and socketio are created to avoid circular imports
-def register_blueprints(flask_app):
-    from app.routes import user_routes, path_routes, progress_routes, nft_routes
-    flask_app.register_blueprint(user_routes.bp)
-    flask_app.register_blueprint(path_routes.bp)
-    flask_app.register_blueprint(progress_routes.bp)
-    flask_app.register_blueprint(nft_routes.bp)
+# --- Import and Register Blueprints ---
+# This must be done after app is created to avoid circular imports
+from app.routes import user_routes, path_routes, progress_routes, nft_routes
 
-def register_socketio_events(socketio_instance):
-    from app.routes import websocket_routes
-    # This function call registers the event handlers
-    websocket_routes.register_events(socketio_instance)
-
-register_blueprints(app)
-register_socketio_events(socketio)
-
-# Attach SocketIO to the Flask app
-socketio.init_app(app)
+app.register_blueprint(user_routes.bp)
+app.register_blueprint(path_routes.bp)
+app.register_blueprint(progress_routes.bp)
+app.register_blueprint(nft_routes.bp)

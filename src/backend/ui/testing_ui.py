@@ -1,12 +1,10 @@
 import gradio as gr
 import requests
 import json
-import socketio
+import time
 
 # --- Configuration ---
 BACKEND_URL = "http://localhost:5000"
-SOCKETIO_URL = "http://localhost:5000"
-sio = socketio.Client(logger=True, engineio_logger=True)
 
 
 # --- API Client Functions ---
@@ -16,10 +14,7 @@ def make_api_request(method, endpoint, payload=None, timeout=60):
             response = requests.get(endpoint, timeout=timeout)
         elif method.upper() == 'POST':
             response = requests.post(endpoint, json=payload, timeout=timeout)
-        else:
-            return {"error": f"Unsupported HTTP method: {method}"}
-
-        response.raise_for_status()  # Raise an exception for bad status codes
+        response.raise_for_status()
         return response.json()
     except requests.exceptions.HTTPError as e:
         try:
@@ -31,7 +26,6 @@ def make_api_request(method, endpoint, payload=None, timeout=60):
         return {"error": "Connection to backend failed.", "details": str(e)}
 
 
-# ... (All other client functions: create_user, get_user, etc. are the same) ...
 def create_user(wallet, name, country):
     return make_api_request("POST", f"{BACKEND_URL}/users",
                             {"wallet_address": wallet, "name": name, "country": country})
@@ -68,42 +62,34 @@ def mint_nft(path_id, wallet):
     return make_api_request("POST", f"{BACKEND_URL}/paths/{path_id}/complete", {"user_wallet": wallet}, timeout=180)
 
 
-# --- WebSocket Path Generation ---
 def generate_path_with_progress(topic, wallet):
-    log = []
-    try:
-        if not sio.connected:
-            sio.connect(SOCKETIO_URL, namespaces=['/pathProgress'])
+    start_res = make_api_request("POST", f"{BACKEND_URL}/paths/generate", {"topic": topic, "creator_wallet": wallet})
+    if "error" in start_res:
+        yield f"Error starting task: {json.dumps(start_res, indent=2)}"
+        return
 
-        # This event handler will append messages to our log list
-        @sio.on('status_update', namespace='/pathProgress')
-        def on_status_update(data):
-            log.append(data['status'])
+    task_id = start_res['task_id']
+    log = [f"Task started with ID: {task_id}"]
+    yield "\n".join(log)
 
-        # Fire-and-forget HTTP request to trigger the backend process
-        payload = {"topic": topic, "creator_wallet": wallet, "sid": sio.sid}
-        requests.post(f"{BACKEND_URL}/paths/generate", json=payload, timeout=5)
+    last_log_count = 0
+    while True:
+        time.sleep(2)
+        status_res = make_api_request("GET", f"{BACKEND_URL}/paths/generate/status/{task_id}")
+        if "error" in status_res:
+            log.append(f"Error fetching status: {json.dumps(status_res, indent=2)}")
+            yield "\n".join(log)
+            break
 
-        # Poll the log list and yield updates to Gradio
-        last_log_count = 0
-        timeout_counter = 0
-        while True:
-            if len(log) > last_log_count:
-                new_messages = log[last_log_count:]
-                last_log_count = len(log)
-                yield "\n".join(log)
-                if any("SUCCESS" in msg or "ERROR" in msg for msg in new_messages):
-                    break
-            sio.sleep(1)
-            timeout_counter += 1
-            if timeout_counter > 300:  # 5 minute timeout
-                yield "\n".join(log) + "\n\nERROR: Timed out waiting for response from server."
-                break
-    except Exception as e:
-        yield f"An error occurred: {e}"
-    finally:
-        if sio.connected:
-            sio.disconnect()
+        progress_data = status_res.get('progress', [])
+        if len(progress_data) > last_log_count:
+            new_messages = [item['status'] for item in progress_data[last_log_count:]]
+            log.extend(new_messages)
+            last_log_count = len(progress_data)
+            yield "\n".join(log)
+
+        if any("SUCCESS" in item['status'] or "ERROR" in item['status'] for item in progress_data):
+            break
 
 
 # --- Interactive Learner Logic ---
@@ -178,7 +164,7 @@ def process_next_step(session_state, selected_answer=None):
 # --- Gradio UI Definition ---
 def create_and_launch_ui():
     with gr.Blocks(theme=gr.themes.Soft(), title="Noodl Backend Tester") as demo:
-        # ... (The entire gr.Blocks definition from the previous response)
+        # ... (The entire gr.Blocks definition is the same as the previous response)
         gr.Markdown("# 🍜 Noodl Backend Tester (Full Suite)")
         with gr.Tabs():
             with gr.TabItem("🎓 Interactive Learner"):
@@ -206,7 +192,7 @@ def create_and_launch_ui():
 
             with gr.TabItem("📚 Paths & Content"):
                 with gr.Accordion("Generate New Path (with Live Progress)", open=True):
-                    gr.Markdown("Watch the generation progress in real-time via WebSockets.")
+                    gr.Markdown("Watch the generation progress by polling the status endpoint.")
                     with gr.Row():
                         gen_topic_input = gr.Textbox(label="Learning Topic", scale=2)
                         gen_wallet_input = gr.Textbox(label="Creator's Wallet Address", scale=2)

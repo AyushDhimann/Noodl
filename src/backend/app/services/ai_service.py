@@ -3,6 +3,7 @@ import base64
 from io import BytesIO
 from PIL import Image, ImageDraw, ImageFont
 from app import text_model, logger
+import google.generativeai as genai
 
 def get_embedding(text):
     """Generates a vector embedding for a given text."""
