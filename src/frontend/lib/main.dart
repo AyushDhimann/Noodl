@@ -1,7 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:frontend/pages/login.dart';
+import 'package:frontend/pages/metamasktest.dart';
 import 'package:frontend/pages/quiz.dart';
 import 'package:frontend/providers/quiz_page_provider.dart';
+import 'package:frontend/services/metamask_service.dart';
 import 'package:provider/provider.dart';
 
 void main() {
@@ -16,7 +19,8 @@ class MyApp extends StatelessWidget {
     SystemChrome.setSystemUIOverlayStyle(SystemUiOverlayStyle.light);
     return MultiProvider(
       providers: [
-        ChangeNotifierProvider(create: (context) => QuizPageProvider(),)
+        ChangeNotifierProvider(create: (context) => QuizPageProvider(),),
+        // ChangeNotifierProvider(create: (context) => MetaMaskProvider(),)
       ],
       child: MaterialApp(
         debugShowCheckedModeBanner: false,
@@ -24,7 +28,10 @@ class MyApp extends StatelessWidget {
           useMaterial3: true
         ),
         // ignore: prefer_const_constructors
-        home: QuizPage(),
+        // home: QuizPage(),
+        // ignore: prefer_const_constructors
+        // home: LoginPage(),
+        home: WalletConnector(),
       ),
     );
   }
