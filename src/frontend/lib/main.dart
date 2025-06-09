@@ -39,17 +39,18 @@ class MyApp extends StatelessWidget {
         // ignore: prefer_const_constructors
         // home: QuizPage(),
         // home: LoginPage(),
-        home: Consumer<MetaMaskProvider>(
-          builder: (context, provider, child) {
-            if (provider.isConnected && provider.isOnboardingComplete) {
-              return const HomePage();
-            } else if (provider.isConnected && !provider.isOnboardingComplete) {
-              return const OnboardingPage();
-            } else {
-              return const LoginPage();
-            }
-          },
-        ),
+        // home: Consumer<MetaMaskProvider>(
+        //   builder: (context, provider, child) {
+        //     if (provider.isConnected && provider.isOnboardingComplete) {
+        //       return const HomePage();
+        //     } else if (provider.isConnected && !provider.isOnboardingComplete) {
+        //       return const OnboardingPage();
+        //     } else {
+        //       return const LoginPage();
+        //     }
+        //   },
+        // ),
+        // home: OnboardingPage(),
         // ignore: prefer_const_constructors
       //   home: StreamBuilder(
       //   stream: FirebaseAuth.instance.authStateChanges(),
@@ -72,7 +73,7 @@ class MyApp extends StatelessWidget {
       //     }
       //   },
       // ),
-        // home: HomePage(),
+        home: HomePage(),
       ),
     );
   }

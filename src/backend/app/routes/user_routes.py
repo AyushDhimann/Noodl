@@ -33,3 +33,28 @@ def get_user_route(wallet_address):
     except Exception as e:
         logger.error(f"ROUTE: /users GET failed: {e}", exc_info=True)
         return jsonify({"error": "Failed to retrieve user."}), 500
+
+
+@bp.route('/<wallet_address>/paths', methods=['GET'])
+def get_user_created_paths_route(wallet_address):
+    logger.info(f"ROUTE: /users/<wallet>/paths GET for wallet: {wallet_address}")
+    try:
+        paths_res = supabase_service.get_paths_by_creator(wallet_address)
+        return jsonify(paths_res.data)
+    except Exception as e:
+        logger.error(f"ROUTE: /users/<wallet>/paths GET failed: {e}", exc_info=True)
+        return jsonify({"error": "Failed to retrieve user-created paths."}), 500
+
+
+@bp.route('/<wallet_address>/paths/count', methods=['GET'])
+def get_user_created_paths_count_route(wallet_address):
+    logger.info(f"ROUTE: /users/<wallet>/paths/count GET for wallet: {wallet_address}")
+    try:
+        count = supabase_service.get_path_count_by_creator(wallet_address)
+        return jsonify({
+            "creator_wallet": wallet_address,
+            "path_count": count
+        })
+    except Exception as e:
+        logger.error(f"ROUTE: /users/<wallet>/paths/count GET failed: {e}", exc_info=True)
+        return jsonify({"error": "Failed to retrieve user-created path count."}), 500

@@ -15,12 +15,14 @@ class Config:
     FEATURE_FLAG_ENABLE_BLOCKCHAIN_REGISTRATION = os.getenv("FEATURE_FLAG_ENABLE_BLOCKCHAIN_REGISTRATION",
                                                             "true").lower() == "true"
     FEATURE_FLAG_ENABLE_NFT_MINTING = os.getenv("FEATURE_FLAG_ENABLE_NFT_MINTING", "true").lower() == "true"
+    FEATURE_FLAG_ENABLE_DUPLICATE_CHECK = os.getenv("FEATURE_FLAG_ENABLE_DUPLICATE_CHECK", "true").lower() == "true"
 
     # API Keys and URLs
     GEMINI_API_KEY = os.getenv("GEMINI_API_KEY")
     SUPABASE_URL = os.getenv("SUPABASE_URL")
     SUPABASE_SERVICE_KEY = os.getenv("SUPABASE_SERVICE_KEY")
     ETHEREUM_NODE_URL = os.getenv("ETHEREUM_NODE_URL")
+    BLOCK_EXPLORER_URL = os.getenv("BLOCK_EXPLORER_URL")
 
     # Gemini Models
     GEMINI_MODEL_TEXT = os.getenv("GEMINI_MODEL_TEXT", "gemini-1.5-flash-latest")

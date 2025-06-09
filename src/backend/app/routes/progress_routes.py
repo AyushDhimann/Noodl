@@ -64,3 +64,20 @@ def get_user_scores_route(wallet_address):
     except Exception as e:
         logger.error(f"ROUTE: /scores failed: {e}", exc_info=True)
         return jsonify({"error": "Failed to fetch scores."}), 500
+
+
+@bp.route('/progress/location', methods=['POST'])
+def update_location_route():
+    data = request.get_json()
+    progress_id = data.get('progress_id')
+    item_index = data.get('item_index')
+
+    if progress_id is None or item_index is None:
+        return jsonify({"error": "progress_id and item_index are required"}), 400
+
+    try:
+        supabase_service.update_user_progress_item(progress_id, item_index)
+        return jsonify({"message": "Location updated successfully"})
+    except Exception as e:
+        logger.error(f"ROUTE: /progress/location failed: {e}", exc_info=True)
+        return jsonify({"error": "Failed to update location."}), 500

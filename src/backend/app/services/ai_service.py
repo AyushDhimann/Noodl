@@ -14,7 +14,7 @@ def get_embedding(text):
 def generate_curriculum(topic):
     """Asks AI to generate a dynamic curriculum (list of level titles)."""
     logger.info(f"AI: Generating curriculum for topic: '{topic}'")
-    prompt = f"""You are an expert curriculum designer for a learning app. For the topic "{topic}", create a syllabus. The output MUST be a single, valid JSON object with one key: "levels". "levels" should be an array of strings, where each string is a concise title for a learning level. The number of levels should be appropriate for the topic's complexity (3-10 levels). Do not include any text outside of the JSON object. Also make sure the title of the level starts with an emoji which is appropriate to the level please, a single emoji at the starting is a must."""
+    prompt = f"""You are an expert curriculum designer for a learning app. For the topic "{topic}", create a syllabus. The output MUST be a single, valid JSON object with one key: "levels". "levels" should be an array of strings, where each string is a concise title for a learning level. The number of levels should be appropriate for the topic's complexity (decent number of levels and depth to give maximum information along with fast and easy learning). Do not include any text outside of the JSON object. Also make sure the title of the level starts with an emoji which is appropriate to the level please, a single emoji at the starting is a must."""
     response = text_model.generate_content(prompt)
     cleaned_response = response.text.strip().replace("```json", "").replace("```", "")
     return json.loads(cleaned_response)['levels']
@@ -26,6 +26,7 @@ def generate_interleaved_level_content(topic, level_title):
     You are an expert educator creating a lesson for a learning app. The main topic is "{topic}", and this specific lesson is titled "{level_title}".
     Your task is to create an interleaved learning experience with slides and quizzes.
     The output MUST be a single, valid JSON object with one key: "items".
+    Also make sure the title of the level starts with an emoji which is appropriate to the level please, a single emoji at the starting is a must.
     "items" must be an array of objects. Each object must have a "type" ('slide' or 'quiz') and a "content" field.
 
     1.  For a 'slide' item:

@@ -13,6 +13,20 @@ def upsert_user(wallet_address, name, country):
     }, on_conflict='wallet_address').execute()
 
 
+def get_paths_by_creator(wallet_address):
+    return supabase_client.table('learning_paths').select("id, title, description, total_levels, created_at").eq(
+        'creator_wallet', wallet_address).order('created_at', desc=True).execute()
+
+
+def get_path_count_by_creator(wallet_address):
+    """Efficiently gets the count of paths created by a user."""
+    # Using count='exact' is more efficient than fetching all rows.
+    # We select a minimal column ('id') just to perform the count query.
+    response = supabase_client.table('learning_paths').select('id', count='exact').eq('creator_wallet', wallet_address).execute()
+    # The count is an attribute on the response object
+    return response.count
+
+
 # --- Path & Content Functions ---
 def get_all_paths():
     return supabase_client.table('learning_paths').select("id, title, description, total_levels").execute()
@@ -53,6 +67,16 @@ def get_content_items_for_level(level_id):
     return supabase_client.table('content_items').select('id, item_index, item_type, content').eq('level_id',
                                                                                                   level_id).order(
         'item_index').execute()
+
+
+def find_similar_paths(embedding, threshold, count):
+    """Calls the match_similar_paths RPC in Supabase."""
+    logger.info(f"DB: Finding similar paths with threshold {threshold}")
+    return supabase_client.rpc('match_similar_paths', {
+        'query_embedding': embedding,
+        'match_threshold': threshold,
+        'match_count': count
+    }).execute()
 
 
 # --- Progress & Scoring Functions ---

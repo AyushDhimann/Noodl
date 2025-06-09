@@ -25,7 +25,7 @@ def send_tx_and_get_receipt(contract_function, task_id=None, progress_callback=N
             progress_callback(task_id, status, data)
 
     try:
-        update_status(f"TX PREP: Building transaction for function: {contract_function.fn_name}")
+        update_status(f"Building transaction for '{contract_function.fn_name}'...")
         tx_params = {
             'from': account.address,
             'nonce': w3.eth.get_transaction_count(account.address),
@@ -34,24 +34,24 @@ def send_tx_and_get_receipt(contract_function, task_id=None, progress_callback=N
         }
         gas_estimate = contract_function.estimate_gas({'from': account.address})
         tx_params['gas'] = int(gas_estimate * 1.2)
-        update_status(f"TX PREP: Gas estimated at {gas_estimate}. Using {tx_params['gas']} with buffer.")
+        update_status(f"Gas estimated. Preparing to send.")
 
         transaction = contract_function.build_transaction(tx_params)
-        update_status("TX PREP: Signing transaction...")
+        update_status("Signing transaction with backend wallet...")
         signed_tx = w3.eth.account.sign_transaction(transaction, private_key=account.key)
 
-        update_status("TX SEND: Sending raw transaction...")
+        update_status("Sending transaction to the network...")
         tx_hash = w3.eth.send_raw_transaction(signed_tx.raw_transaction)
-        update_status(f"TX SEND: Transaction sent. Hash: {tx_hash.hex()}", {'txHash': tx_hash.hex()})
+        update_status(f"Transaction sent. Hash: {tx_hash.hex()}", {'txHash': tx_hash.hex()})
 
-        update_status("TX WAIT: Waiting for transaction receipt...")
+        update_status("Waiting for confirmation from the network (this can take a moment)...")
         tx_receipt = w3.eth.wait_for_transaction_receipt(tx_hash, timeout=180)
         status_msg = 'Success' if tx_receipt.status == 1 else 'Failed'
-        update_status(f"TX WAIT: Transaction receipt received. Status: {status_msg}")
+        update_status(f"Transaction confirmed on the blockchain. Status: {status_msg}")
         return tx_receipt
     except Exception as e:
         logger.error(f"TX FAILED: {e}")
-        update_status(f"TX FAILED: {str(e)}")
+        update_status(f"Blockchain transaction failed: {str(e)}")
         raise e
 
 

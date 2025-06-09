@@ -11,11 +11,12 @@ The complete backend for **Noodl**, a next-generation, AI-powered educational pl
 
 - **Dynamic AI Curriculum:** Automatically generates a full, multi-level curriculum for any given topic using Google Gemini.
 - **Interleaved Learning:** Creates a rich learning experience with a mix of detailed markdown-based slides and interactive quizzes.
-- **AI-Generated Explanations:** Quizzes include fun facts or detailed explanations for correct answers, enhancing the learning loop.
+- **Duplicate Path Detection:** Uses vector embeddings to check for and prevent the creation of learning paths with highly similar topics.
 - **Web3 Integration:**
     - **Immutable Proof:** Registers a hash of each learning path's content on the Ethereum blockchain for tamper-proof verification.
     - **NFT Certificates:** Mints unique, on-chain SVG-based NFT certificates to users upon path completion.
-- **Asynchronous Task Progress:** Uses a background thread and a polling endpoint to provide status updates for long-running content generation tasks.
+- **User-Friendly Asynchronous Progress:** Uses a background thread and a polling endpoint to provide clear, user-friendly status updates for long-running content generation tasks, including a direct link to the blockchain transaction.
+- **Live Progress Tracking:** Logs a user's real-time location within a learning path as they navigate through content.
 - **Scalable Architecture:** Built with a modular, service-oriented structure for easy maintenance and expansion.
 - **Comprehensive Testing UI:** Includes a standalone Gradio interface for testing all API endpoints and simulating the user learning experience.
 
@@ -107,13 +108,18 @@ FLASK_DEBUG=True
 # --- APIs and Services ---
 GEMINI_API_KEY="YOUR_GEMINI_API_KEY"
 SUPABASE_URL="YOUR_SUPABASE_PROJECT_URL"
+SUPABASE_SERVICE_KEY="YOUR_SUPABASE_SERVICE_KEY"
 # ... (fill in all other variables) ...
+
+# --- Smart Contracts ---
+BLOCK_EXPLORER_URL="https://sepolia.etherscan.io"
 
 # --- FEATURE FLAGS ---
 RUN_API_SERVER="true"
 RUN_TESTING_UI="true"
 FEATURE_FLAG_ENABLE_BLOCKCHAIN_REGISTRATION="true"
 FEATURE_FLAG_ENABLE_NFT_MINTING="true"
+FEATURE_FLAG_ENABLE_DUPLICATE_CHECK="true"
 ```
 
 ### 4. Smart Contract Deployment
@@ -153,9 +159,9 @@ This will:
 ### Using the Testing UI
 
 Navigate to `http://localhost:7000` in your browser. The UI is organized into tabs that allow you to test every feature of the backend:
-- **Interactive Learner:** Simulate a user's journey through a lesson.
-- **Paths & Content:** Generate new learning paths with real-time progress updates via polling.
-- **Users:** Create and manage user profiles.
+- **Interactive Learner:** Simulate a user's journey through a lesson, with live progress tracking.
+- **Paths & Content:** Generate new learning paths with real-time, user-friendly progress updates.
+- **Users:** Create, manage, and view user profiles and their created paths.
 - **Progress & Scoring:** Track user progress and fetch scores.
 - **Mint NFT:** Award a certificate of completion.
 
@@ -167,20 +173,29 @@ The backend exposes the following RESTful API endpoints:
 
 #### User Routes (`/users`)
 - `POST /users`: Create or update a user.
+  - **Body Example**: `{"wallet_address": "0x...", "name": "Alice", "country": "USA"}`
 - `GET /users/<wallet_address>`: Fetch a user's profile.
+- `GET /users/<wallet_address>/paths`: Fetch all learning paths created by a specific user.
+- `GET /users/<wallet_address>/paths/count`: Get the number of paths created by a user.
 
 #### Path Routes (`/paths`)
 - `GET /paths`: Get a list of all available learning paths.
-- `POST /paths/generate`: **(Async)** Starts a background task to generate a new path and returns a `task_id`.
-- `GET /paths/generate/status/<task_id>`: (5000) Poll this endpoint to get progress updates for a generation task.
+- `POST /paths/generate`: **(Async)** Starts a background task to generate a new path and returns a `task_id`. Returns `409 Conflict` if a similar path exists.
+  - **Body Example**: `{"topic": "Quantum Computing", "creator_wallet": "0x..."}`
+- `GET /paths/generate/status/<task_id>`: Poll this endpoint to get progress updates for a generation task.
 - `GET /paths/<id>/levels/<num>`: Get the interleaved content for a specific level.
 
 #### Progress Routes
 - `POST /progress/start`: Start a learning path for a user or get existing progress.
+  - **Body Example**: `{"user_wallet": "0x...", "path_id": 1}`
 - `POST /progress/update`: Log a quiz attempt and update user progress.
+  - **Body Example**: `{"progress_id": 1, "content_item_id": 123, "user_answer_index": 2}`
+- `POST /progress/location`: Update the user's current location (item index) within a path.
+  - **Body Example**: `{"progress_id": 1, "item_index": 5}`
 - `GET /scores/<wallet_address>`: Get all scores for a specific user.
 
 #### NFT Routes
 - `POST /paths/<id>/complete`: Mint an NFT certificate for a completed path.
+  - **Body Example**: `{"user_wallet": "0x..."}`
 - `GET /nft/metadata/<id>`: Get the JSON metadata for a specific NFT.
 - `GET /nft/image/<id>`: Get the SVG image for a specific NFT.

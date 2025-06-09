@@ -1,6 +1,7 @@
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 import 'package:frontend/constants/colors.dart' as appColors;
+import 'package:frontend/pages/generate.dart';
 
 class GenerateNoodlButton extends StatelessWidget {
   const GenerateNoodlButton({super.key});
@@ -53,8 +54,7 @@ class GenerateNoodlButton extends StatelessWidget {
               child: InkWell(
                 borderRadius: BorderRadius.all(Radius.circular(100)),
                 splashColor: appColors.white.withOpacity(0.5),
-                onTap: () {
-                },
+                onTap: () => Navigator.of(context).push(MaterialPageRoute(builder: (context) => GenerateNoodlPage(),)),
                 child: Container(
                   padding: EdgeInsets.symmetric(horizontal: 12, vertical: 8),
                   child: Row(

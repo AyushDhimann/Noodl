@@ -90,22 +90,22 @@ class GenerateNoodlPage extends StatelessWidget {
                             // StartingGenerationWidget() 
                       // LogsDisplay(items: testData.logdisplaytestdata),
                       // SizedBox(height: 12,),
-                      Align(
-                        alignment: Alignment.centerLeft,
-                        child: Text(
-                              'Your Generated Noodl',
-                              style: TextStyle(
-                                fontFamily: 'NSansB',
-                                fontSize: 20, 
-                                color: appColors.white
-                              ),
-                            ),
-                      ),
-                      SizedBox(height: 12,),
-                      NoodlButton(
-                        title: '👨🏽‍⚖️ Law in India',
-                        description: "A user-generated learning path about Law in India.",
-                      ),
+                      // Align(
+                      //   alignment: Alignment.centerLeft,
+                      //   child: Text(
+                      //         'Your Generated Noodl',
+                      //         style: TextStyle(
+                      //           fontFamily: 'NSansB',
+                      //           fontSize: 20, 
+                      //           color: appColors.white
+                      //         ),
+                      //       ),
+                      // ),
+                      // SizedBox(height: 12,),
+                      // NoodlButton(
+                      //   title: '👨🏽‍⚖️ Law in India',
+                      //   description: "A user-generated learning path about Law in India.",
+                      // ),
                     ],
                   ),
                 ),

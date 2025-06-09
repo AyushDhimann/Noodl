@@ -35,6 +35,16 @@ def get_user(wallet):
     return make_api_request("GET", f"{BACKEND_URL}/users/{wallet}")
 
 
+def get_user_created_paths(wallet):
+    if not wallet: return {"error": "Wallet address is required."}
+    return make_api_request("GET", f"{BACKEND_URL}/users/{wallet}/paths")
+
+
+def get_user_created_paths_count(wallet):
+    if not wallet: return {"error": "Wallet address is required."}
+    return make_api_request("GET", f"{BACKEND_URL}/users/{wallet}/paths/count")
+
+
 def get_all_paths():
     return make_api_request("GET", f"{BACKEND_URL}/paths")
 
@@ -52,6 +62,14 @@ def start_progress(wallet, path_id):
 def update_progress(progress_id, item_id, answer_idx):
     return make_api_request("POST", f"{BACKEND_URL}/progress/update",
                             {"progress_id": progress_id, "content_item_id": item_id, "user_answer_index": answer_idx})
+
+
+def update_location(progress_id, item_index):
+    # This is a "fire-and-forget" call for the UI. We don't need to display the result.
+    # The backend will handle logging any errors.
+    print(f"UI: Updating location for progress_id {progress_id} to item_index {item_index}")
+    make_api_request("POST", f"{BACKEND_URL}/progress/location",
+                     {"progress_id": progress_id, "item_index": item_index})
 
 
 def get_scores(wallet):
@@ -83,8 +101,15 @@ def generate_path_with_progress(topic, wallet):
 
         progress_data = status_res.get('progress', [])
         if len(progress_data) > last_log_count:
-            new_messages = [item['status'] for item in progress_data[last_log_count:]]
-            log.extend(new_messages)
+            new_logs = progress_data[last_log_count:]
+            for item in new_logs:
+                log.append(item['status'])
+                # Check for the explorer URL in the data payload
+                if 'data' in item and item.get('data') and 'explorer_url' in item.get('data', {}):
+                    url = item['data']['explorer_url']
+                    if url:
+                        log.append(f"🔗 View Transaction: {url}")
+
             last_log_count = len(progress_data)
             yield "\n".join(log)
 
@@ -93,12 +118,14 @@ def generate_path_with_progress(topic, wallet):
 
 
 # --- Interactive Learner Logic ---
-# ... (This logic is identical to the final version in the previous response) ...
 def start_interactive_session(wallet, path_id):
     progress_data = start_progress(wallet, path_id)
     if "error" in progress_data:
         return progress_data, None, f"## Error Starting Session\n\nDetails:\n\n```json\n{json.dumps(progress_data, indent=2)}\n```", gr.update(
             visible=False), gr.update(visible=False)
+
+    # Log the user's starting position (item 0)
+    update_location(progress_data['id'], 0)
 
     level_content_response = get_level_content(path_id, 1)
     if "error" in level_content_response:
@@ -129,42 +156,54 @@ def process_next_step(session_state, selected_answer=None):
     if not session_state:
         return session_state, "Start a session first.", gr.update(visible=False), gr.update(visible=False), ""
 
-    if session_state['current_item_index'] >= len(session_state['level_content']):
-        return session_state, "🎉 Level Complete! 🎉", gr.update(visible=False), gr.update(visible=False), ""
+    current_item_index_before = session_state['current_item_index']
+    current_item = session_state['level_content'][current_item_index_before]
+    explanation_text = ""
 
-    current_item_index = session_state['current_item_index']
-    current_item = session_state['level_content'][current_item_index]
-
+    # If the current item is a quiz, process the answer first
     if current_item['item_type'] == 'quiz' and selected_answer is not None:
         quiz_options = current_item['content']['options']
         answer_index = quiz_options.index(selected_answer)
         update_progress(session_state['progress_data']['id'], current_item['id'], answer_index)
-        explanation = current_item['content']['explanation']
-        session_state['current_item_index'] += 1
-        return session_state, explanation, gr.update(visible=True), gr.update(visible=False), ""
-
-    if current_item['item_type'] == 'slide':
+        explanation_text = current_item['content']['explanation']
         session_state['current_item_index'] += 1
 
+    # If the current item is a slide, just advance
+    elif current_item['item_type'] == 'slide':
+        session_state['current_item_index'] += 1
+
+    # If we advanced, update the location in the backend
+    if session_state['current_item_index'] > current_item_index_before:
+        update_location(session_state['progress_data']['id'], session_state['current_item_index'])
+
+    # Check for level completion
     if session_state['current_item_index'] >= len(session_state['level_content']):
-        return session_state, "🎉 Level Complete! 🎉", gr.update(visible=False), gr.update(visible=False), ""
+        final_message = "🎉 Level Complete! 🎉"
+        if explanation_text:
+            final_message = f"{explanation_text}\n\n---\n\n{final_message}"
+        return session_state, final_message, gr.update(visible=False), gr.update(visible=False), ""
 
+    # Display the next item
     next_item = session_state['level_content'][session_state['current_item_index']]
+    display_content = ""
     if next_item['item_type'] == 'slide':
-        return session_state, next_item['content'], gr.update(visible=True), gr.update(visible=False), ""
-    else:
+        display_content = next_item['content']
+        if explanation_text:
+            display_content = f"{explanation_text}\n\n---\n\n{display_content}"
+        return session_state, display_content, gr.update(visible=True), gr.update(visible=False), ""
+    else:  # next item is a quiz
         quiz_content = next_item['content']
-        return session_state, f"### {quiz_content['question']}", gr.update(visible=False), gr.update(visible=True,
-                                                                                                     choices=
-                                                                                                     quiz_content[
-                                                                                                         'options'],
-                                                                                                     value=None), ""
+        display_content = f"### {quiz_content['question']}"
+        if explanation_text:
+            display_content = f"{explanation_text}\n\n---\n\n{display_content}"
+        return session_state, display_content, gr.update(visible=False), gr.update(visible=True,
+                                                                                    choices=quiz_content['options'],
+                                                                                    value=None), ""
 
 
 # --- Gradio UI Definition ---
 def create_and_launch_ui():
     with gr.Blocks(theme=gr.themes.Soft(), title="Noodl Backend Tester") as demo:
-        # ... (The entire gr.Blocks definition is the same as the previous response)
         gr.Markdown("# 🍜 Noodl Backend Tester (Full Suite)")
         with gr.Tabs():
             with gr.TabItem("🎓 Interactive Learner"):
@@ -192,7 +231,7 @@ def create_and_launch_ui():
 
             with gr.TabItem("📚 Paths & Content"):
                 with gr.Accordion("Generate New Path (with Live Progress)", open=True):
-                    gr.Markdown("Watch the generation progress by polling the status endpoint.")
+                    gr.Markdown("Watch the generation progress by polling the status endpoint. The backend now checks for duplicates.")
                     with gr.Row():
                         gen_topic_input = gr.Textbox(label="Learning Topic", scale=2)
                         gen_wallet_input = gr.Textbox(label="Creator's Wallet Address", scale=2)
@@ -214,17 +253,23 @@ def create_and_launch_ui():
                                           level_content_output)
 
             with gr.TabItem("👤 Users"):
-                gr.Markdown("Create and manage users.")
+                gr.Markdown("Create, manage, and view user-specific data.")
                 with gr.Row():
-                    user_wallet_input = gr.Textbox(label="User Wallet Address")
+                    user_wallet_input = gr.Textbox(label="User Wallet Address", scale=2)
                     user_name_input = gr.Textbox(label="Name")
                     user_country_input = gr.Textbox(label="Country")
-                create_user_btn = gr.Button("Create/Update User")
-                get_user_btn = gr.Button("Get User by Wallet")
-                user_output = gr.JSON()
+                with gr.Row():
+                    create_user_btn = gr.Button("Create/Update User")
+                    get_user_btn = gr.Button("Get User by Wallet")
+                    get_created_paths_btn = gr.Button("Get Created Paths")
+                    get_created_paths_count_btn = gr.Button("Get Created Path Count")
+                user_output = gr.JSON(label="User Info / Path Count")
+                created_paths_output = gr.JSON(label="User-Created Paths")
                 create_user_btn.click(create_user, [user_wallet_input, user_name_input, user_country_input],
                                       user_output)
                 get_user_btn.click(get_user, [user_wallet_input], user_output)
+                get_created_paths_btn.click(get_user_created_paths, [user_wallet_input], created_paths_output)
+                get_created_paths_count_btn.click(get_user_created_paths_count, [user_wallet_input], user_output)
 
             with gr.TabItem("🏃‍♂️ Progress & Scoring"):
                 gr.Markdown("Track user progress and view scores.")
