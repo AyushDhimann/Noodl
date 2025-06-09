@@ -4,7 +4,12 @@ import 'package:flutter_svg/flutter_svg.dart';
 import 'package:frontend/constants/colors.dart' as appColors;
 
 class Topbar extends StatelessWidget {
-  const Topbar({super.key});
+  final IconData? leftIcon;
+  final VoidCallback? leftOnTap;
+  final IconData? rightIcon;
+  final VoidCallback? rightOnTap;
+
+  const Topbar({super.key, this.leftIcon, this.leftOnTap, this.rightIcon, this.rightOnTap});
 
   @override
   Widget build(BuildContext context) {
@@ -20,18 +25,39 @@ class Topbar extends StatelessWidget {
         crossAxisAlignment: CrossAxisAlignment.center,
         mainAxisAlignment: MainAxisAlignment.spaceBetween,
         children: [
-          SvgPicture.asset('assets/images/noodl_alt.svg', height: 30,),
-          InkWell(
-            splashColor: appColors.white.withOpacity(0.75),
-            borderRadius: BorderRadius.all(Radius.circular(20)),
-            onTap: () {},
-            child: SizedBox(
-              width: 40,
-              height: 40,
-              child: Icon(CupertinoIcons.line_horizontal_3))
+          leftIcon==null?
+            SvgPicture.asset('assets/images/noodl_alt.svg', height: 30,)
+            : TopbarButton(
+              icon: leftIcon,
+              onTap: leftOnTap,
+            ),
+
+          TopbarButton(
+            icon: rightIcon,
+            onTap: rightOnTap,
           )
         ],
       ),
+    );
+  }
+}
+
+class TopbarButton extends StatelessWidget {
+  final IconData? icon;
+  final VoidCallback? onTap;
+  const TopbarButton({super.key, this.icon, this.onTap});
+
+  @override
+  Widget build(BuildContext context) {
+    return InkWell(
+      splashColor: appColors.white.withOpacity(0.85),
+      borderRadius: BorderRadius.all(Radius.circular(20)),
+      onTap: onTap,
+      child: SizedBox(
+        width: 40,
+        height: 40,
+        child: Icon(icon)
+      )
     );
   }
 }

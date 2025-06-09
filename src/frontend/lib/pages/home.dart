@@ -1,3 +1,4 @@
+import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 import 'package:frontend/constants/colors.dart' as appColors;
 import 'package:frontend/services/services.dart';
@@ -68,7 +69,12 @@ class HomePage extends StatelessWidget {
               ],
             ),
           ),
-          Topbar()
+          Topbar(
+            rightIcon: CupertinoIcons.line_horizontal_3,
+            rightOnTap: () {
+              
+            },
+          )
         ],
       ),
     );

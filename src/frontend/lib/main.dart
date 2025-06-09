@@ -3,6 +3,7 @@ import 'package:flutter/services.dart';
 import 'package:frontend/pages/home.dart';
 import 'package:frontend/pages/home.dart';
 import 'package:frontend/pages/login.dart';
+import 'package:frontend/providers/generate_page_provider.dart';
 import 'package:frontend/test/metamasktest.dart';
 import 'package:frontend/test/metamasktest.dart';
 import 'package:frontend/pages/quiz.dart';
@@ -26,6 +27,7 @@ class MyApp extends StatelessWidget {
     return MultiProvider(
       providers: [
         ChangeNotifierProvider(create: (context) => QuizPageProvider(),),
+        ChangeNotifierProvider(create: (context) => GeneratePageProvider(),),
         // ChangeNotifierProvider(create: (context) => MetaMaskProvider(),)
       ],
       child: MaterialApp(

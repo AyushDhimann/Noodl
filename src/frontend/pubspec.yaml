@@ -90,13 +90,16 @@ flutter:
   - family: NSansM
     fonts:
       - asset: assets/fonts/NSans/Netflix Sans Medium.otf
-<<<<<<< HEAD
 
   - family: MonolisaBB
     fonts:
       - asset: assets/fonts/Monolisa/MonoLisa-Black.ttf
-=======
->>>>>>> feda6623128a42b07953ca6510d116390a607cbd
+  - family: MonolisaRI
+    fonts:
+      - asset: assets/fonts/Monolisa/MonoLisa-RegularItalic.ttf
+  - family: MonolisaLI
+    fonts:
+      - asset: assets/fonts/Monolisa/MonoLisa-LightItalic.ttf
   # fonts:
   #   - family: Schyler
   #     fonts:
