@@ -1,0 +1,2032 @@
+
+
+--- src\backend\.env ---
+
+FLASK_APP=main.py
+FLASK_DEBUG=True
+
+# --- APIs and Services ---
+GEMINI_API_KEY="AIzaSyCQe2NiHoZ8HJbp-xkqvm5-MNvbNJlYJcA"
+SUPABASE_URL="https://whyqekdfbqknfzyxrkio.supabase.co"
+SUPABASE_SERVICE_KEY="eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6IndoeXFla2RmYnFrbmZ6eXhya2lvIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc0OTI0MDMwNSwiZXhwIjoyMDY0ODE2MzA1fQ.Tmo9Rr4cZr1OEB9YMx2Pn0Jes9yh7aNEp3uVzQjqCW0"
+INFURA_PROJECT_ID="86cf48c4ca5d4ee697ba08f37a58be0e"
+
+# --- Gemini Configuration ---
+GEMINI_MODEL_TEXT="gemini-2.0-flash-lite"
+GEMINI_MODEL_VISION="gemini-2.0-flash-lite"
+
+# --- Web3 ---
+ETHEREUM_NODE_URL="https://sepolia.infura.io/v3/86cf48c4ca5d4ee697ba08f37a58be0e"
+BACKEND_WALLET_PRIVATE_KEY="3346f30d4edc2408c55c1b1c712a746355d010eedf03b08dc2fa8c4ee12de176"
+BACKEND_WALLET_ADDRESS="0xa2948def51A43CBbc504Ac5e756E4a3563A60347"
+
+# --- Smart Contracts ---
+PATH_REGISTRY_CONTRACT_ADDRESS="0xa7323772075a27EdF91A53ecf596Db1E362760E1"
+NFT_CONTRACT_ADDRESS="0x500b42055C4078019958D9BD3B59d4b32Bb6a720"
+
+# --- Feature Flags (use "true" or "false") ---
+FEATURE_FLAG_ENABLE_BLOCKCHAIN_REGISTRATION="true"
+FEATURE_FLAG_ENABLE_NFT_MINTING="true"
+FEATURE_FLAG_ENABLE_DUPLICATE_CHECK="true"
+
+# --- Application Logic ---
+SIMILARITY_THRESHOLD="0.85"
+
+# Set to "true" to run the API server, "false" to disable
+RUN_API_SERVER="true"
+# Set to "true" to run the Gradio UI, "false" to disable
+RUN_TESTING_UI="true"
+
+--- src\backend\.env.example ---
+
+FLASK_APP=main.py
+FLASK_DEBUG=True
+
+# --- APIs and Services ---
+GEMINI_API_KEY="AIza...cA"
+SUPABASE_URL="https://wh...csio.supabase.co"
+SUPABASE_SERVICE_KEY="eyJhb...CJ9....1fQ.Tmo...W0"
+INFURA_PROJECT_ID="86c...0e"
+
+# --- Gemini Configuration ---
+GEMINI_MODEL_TEXT="gemini-2.0-flash-lite"
+GEMINI_MODEL_VISION="gemini-2.0-flash-lite"
+
+# --- Web3 ---
+ETHEREUM_NODE_URL="https://sepolia.infura.io/v3/86c..."
+BACKEND_WALLET_PRIVATE_KEY="3346f30d..."
+BACKEND_WALLET_ADDRESS="0xa2948de..."
+
+# --- Smart Contracts ---
+PATH_REGISTRY_CONTRACT_ADDRESS="0xa7323772075a..."
+NFT_CONTRACT_ADDRESS="0x500b42055C4..."
+
+# --- Feature Flags (use "true" or "false") ---
+FEATURE_FLAG_ENABLE_BLOCKCHAIN_REGISTRATION="true"
+FEATURE_FLAG_ENABLE_NFT_MINTING="true"
+FEATURE_FLAG_ENABLE_DUPLICATE_CHECK="true"
+
+# --- Application Logic ---
+SIMILARITY_THRESHOLD="0.85"
+
+# Set to "true" to run the API server, "false" to disable
+RUN_API_SERVER="true"
+# Set to "true" to run the Gradio UI, "false" to disable
+RUN_TESTING_UI="true"
+
+--- src\backend\app\config.py ---
+
+import os
+from dotenv import load_dotenv
+
+# Load environment variables from .env file
+load_dotenv()
+
+
+class Config:
+    """
+    Manages all configuration for the application, loaded from environment variables.
+    """
+    # Feature Flags
+    RUN_API_SERVER = os.getenv("RUN_API_SERVER", "true").lower() == "true"
+    RUN_TESTING_UI = os.getenv("RUN_TESTING_UI", "false").lower() == "true"
+    FEATURE_FLAG_ENABLE_BLOCKCHAIN_REGISTRATION = os.getenv("FEATURE_FLAG_ENABLE_BLOCKCHAIN_REGISTRATION",
+                                                            "true").lower() == "true"
+    FEATURE_FLAG_ENABLE_NFT_MINTING = os.getenv("FEATURE_FLAG_ENABLE_NFT_MINTING", "true").lower() == "true"
+
+    # API Keys and URLs
+    GEMINI_API_KEY = os.getenv("GEMINI_API_KEY")
+    SUPABASE_URL = os.getenv("SUPABASE_URL")
+    SUPABASE_SERVICE_KEY = os.getenv("SUPABASE_SERVICE_KEY")
+    ETHEREUM_NODE_URL = os.getenv("ETHEREUM_NODE_URL")
+
+    # Gemini Models
+    GEMINI_MODEL_TEXT = os.getenv("GEMINI_MODEL_TEXT", "gemini-1.5-flash-latest")
+
+    # Web3
+    BACKEND_WALLET_PRIVATE_KEY = os.getenv("BACKEND_WALLET_PRIVATE_KEY")
+    BACKEND_WALLET_ADDRESS = os.getenv("BACKEND_WALLET_ADDRESS")
+
+    # Smart Contracts
+    PATH_REGISTRY_CONTRACT_ADDRESS = os.getenv("PATH_REGISTRY_CONTRACT_ADDRESS")
+    NFT_CONTRACT_ADDRESS = os.getenv("NFT_CONTRACT_ADDRESS")
+
+    # App Logic
+    SIMILARITY_THRESHOLD = float(os.getenv("SIMILARITY_THRESHOLD", 0.85))
+
+    # Flask
+    SECRET_KEY = os.getenv("FLASK_SECRET_KEY", "a_very_secret_noodl_key_for_dev")
+
+
+# A single, importable instance of the configuration
+config = Config()
+
+--- src\backend\app\routes\nft_routes.py ---
+
+from flask import Blueprint, request, jsonify, Response
+from app import logger
+from app.services import supabase_service, blockchain_service, ai_service
+from app.config import config
+
+bp = Blueprint('nft_routes', __name__)
+
+
+@bp.route('/paths/<int:path_id>/complete', methods=['POST'])
+def complete_path_and_mint_nft_route(path_id):
+    if not config.FEATURE_FLAG_ENABLE_NFT_MINTING:
+        return jsonify({"message": "NFT minting is currently disabled."})
+
+    user_wallet = request.get_json().get('user_wallet')
+    if not user_wallet:
+        return jsonify({"error": "user_wallet is required"}), 400
+
+    metadata_url = f"{request.host_url.rstrip('/')}/nft/metadata/{path_id}"
+
+    try:
+        minted_token_id = blockchain_service.mint_nft_on_chain(user_wallet, path_id, metadata_url)
+        if minted_token_id is not None:
+            return jsonify({
+                "message": "NFT minted successfully!",
+                "token_id": minted_token_id,
+                "nft_contract_address": config.NFT_CONTRACT_ADDRESS
+            })
+        else:
+            return jsonify({"error": "Mint succeeded but failed to parse Token ID."}), 500
+    except Exception as e:
+        error_message = str(e)
+        if 'Certificate already minted' in error_message:
+            detail = "Certificate already minted for this user/path."
+        elif 'insufficient funds' in error_message:
+            detail = "The server's wallet has insufficient funds to pay for gas."
+        else:
+            detail = "An unknown blockchain error occurred."
+        logger.error(f"NFT: Minting failed. Detail: {detail} | Original Error: {e}")
+        return jsonify({"error": "NFT minting failed.", "detail": detail}), 500
+
+
+@bp.route('/nft/metadata/<int:path_id>', methods=['GET'])
+def get_nft_metadata_route(path_id):
+    path_res = supabase_service.get_path_by_id(path_id)
+    if not path_res or not path_res.data:
+        return jsonify({"error": "Path not found"}), 404
+
+    path_data = path_res.data
+    metadata = {
+        "name": f"Noodl Certificate: {path_data['title']}",
+        "description": f"Proves completion of the '{path_data['title']}' learning path on Noodl.",
+        "image": f"{request.host_url.rstrip('/')}/nft/image/{path_id}",
+        "attributes": [{"trait_type": "Platform", "value": "Noodl"}]
+    }
+    return jsonify(metadata)
+
+
+@bp.route('/nft/image/<int:path_id>', methods=['GET'])
+def get_nft_image_route(path_id):
+    path_res = supabase_service.get_path_by_id(path_id)
+    if not path_res or not path_res.data:
+        return "Path not found", 404
+
+    svg_data = ai_service.generate_nft_svg(path_res.data['title'])
+    return Response(svg_data, mimetype='image/svg+xml')
+
+--- src\backend\app\routes\path_routes.py ---
+
+import json
+import hashlib
+import uuid
+import threading
+from flask import Blueprint, request, jsonify
+from app import logger
+from app.services import ai_service, supabase_service, blockchain_service
+from app.config import config
+
+bp = Blueprint('path_routes', __name__, url_prefix='/paths')
+
+# A simple in-memory dictionary to store task progress.
+# In a real production app, you might use Redis or a database table for this.
+PROGRESS_LOGS = {}
+
+
+def update_progress(task_id, status, data=None):
+    """Updates the progress log for a given task."""
+    if task_id not in PROGRESS_LOGS:
+        PROGRESS_LOGS[task_id] = []
+
+    log_entry = {"status": status}
+    if data:
+        log_entry["data"] = data
+
+    PROGRESS_LOGS[task_id].append(log_entry)
+    logger.info(f"TASK [{task_id}]: {status}")
+
+
+def generation_worker(task_id, topic, creator_wallet):
+    """The actual long-running task that generates the path."""
+    try:
+        update_progress(task_id, "Step 1: Generating curriculum...")
+        curriculum_titles = ai_service.generate_curriculum(topic)
+        total_levels = len(curriculum_titles)
+        update_progress(task_id, f"Curriculum generated with {total_levels} levels.")
+
+        update_progress(task_id, "Step 2: Saving path metadata to Supabase...")
+        path_res = supabase_service.create_learning_path(
+            topic, f"A user-generated learning path about {topic}.",
+            creator_wallet, total_levels,
+            ai_service.get_embedding(topic) if config.SIMILARITY_THRESHOLD > 0 else None
+        )
+        new_path_id = path_res.data[0]['id']
+
+        update_progress(task_id, f"Step 3: Generating and saving content for {total_levels} levels...")
+        all_content_for_hash = []
+        for i, level_title in enumerate(curriculum_titles):
+            level_number = i + 1
+            update_progress(task_id, f"  - Generating content for level {level_number}: '{level_title}'...")
+            level_res = supabase_service.create_level(new_path_id, level_number, level_title)
+            new_level_id = level_res.data[0]['id']
+
+            interleaved_items = ai_service.generate_interleaved_level_content(topic, level_title)
+            all_content_for_hash.append({"level": level_title, "items": interleaved_items})
+
+            items_to_insert = [
+                {"level_id": new_level_id, "item_index": j, "item_type": item['type'], "content": item['content']} for
+                j, item in enumerate(interleaved_items)]
+            supabase_service.create_content_items(items_to_insert)
+            update_progress(task_id, f"  - Saved {len(items_to_insert)} content items for level {level_number}.")
+
+        if config.FEATURE_FLAG_ENABLE_BLOCKCHAIN_REGISTRATION:
+            update_progress(task_id, "Step 4: Registering content hash on the blockchain...")
+            full_content_string = json.dumps(all_content_for_hash, sort_keys=True)
+            content_hash = "0x" + hashlib.sha256(full_content_string.encode()).hexdigest()
+            receipt = blockchain_service.register_path_on_chain(new_path_id, content_hash, task_id, update_progress)
+            supabase_service.update_path_hash(new_path_id, content_hash)
+            update_progress(task_id, f"Path {new_path_id} registered on-chain.",
+                            {'txHash': receipt.transactionHash.hex()})
+
+        update_progress(task_id, "SUCCESS: Path generation complete!", {"path_id": new_path_id})
+
+    except Exception as e:
+        logger.error(f"TASK [{task_id}] FAILED: {e}", exc_info=True)
+        update_progress(task_id, f"ERROR: Path generation failed: {e}")
+
+
+@bp.route('/generate', methods=['POST'])
+def generate_new_path_route():
+    req_data = request.get_json()
+    topic = req_data.get('topic')
+    creator_wallet = req_data.get('creator_wallet')
+
+    task_id = str(uuid.uuid4())
+    PROGRESS_LOGS[task_id] = []
+
+    thread = threading.Thread(target=generation_worker, args=(task_id, topic, creator_wallet))
+    thread.start()
+
+    return jsonify({"message": "Path generation started.", "task_id": task_id}), 202
+
+
+@bp.route('/generate/status/<task_id>', methods=['GET'])
+def get_generation_status(task_id):
+    progress = PROGRESS_LOGS.get(task_id)
+    if progress is None:
+        return jsonify({"error": "Task not found."}), 404
+
+    return jsonify({"progress": progress})
+
+
+@bp.route('', methods=['GET'])
+def get_all_paths_route():
+    logger.info("ROUTE: /paths GET")
+    try:
+        paths = supabase_service.get_all_paths()
+        return jsonify(paths.data)
+    except Exception as e:
+        logger.error(f"ROUTE: /paths GET failed: {e}", exc_info=True)
+        return jsonify({"error": "Failed to fetch paths."}), 500
+
+
+@bp.route('/<int:path_id>/levels/<int:level_num>', methods=['GET'])
+def get_level_content_route(path_id, level_num):
+    logger.info(f"ROUTE: /paths/.../levels GET for path {path_id}, level {level_num}")
+    try:
+        level = supabase_service.get_level(path_id, level_num)
+        if not level.data:
+            return jsonify({"error": "Level not found"}), 404
+
+        items = supabase_service.get_content_items_for_level(level.data['id'])
+        return jsonify({"level_title": level.data['level_title'], "items": items.data})
+    except Exception as e:
+        logger.error(f"ROUTE: /paths/.../levels GET failed: {e}", exc_info=True)
+        return jsonify({"error": "Failed to fetch level content."}), 500
+
+--- src\backend\app\routes\progress_routes.py ---
+
+from flask import Blueprint, request, jsonify
+from app import logger
+from app.services import supabase_service
+
+bp = Blueprint('progress_routes', __name__)
+
+
+@bp.route('/progress/start', methods=['POST'])
+def start_or_get_progress_route():
+    try:
+        data = request.get_json()
+        user_wallet = data.get('user_wallet')
+        path_id = data.get('path_id')
+        logger.info(f"ROUTE: /progress/start for user {user_wallet} on path {path_id}.")
+        if not user_wallet or not path_id:
+            return jsonify({"error": "user_wallet and path_id are required"}), 400
+
+        user_res = supabase_service.get_user_by_wallet(user_wallet)
+        if not user_res or not user_res.data:
+            return jsonify({"error": "User not found. Please create the user first."}), 404
+        user_id = user_res.data['id']
+
+        progress_res = supabase_service.get_progress(user_id, path_id)
+        if progress_res and progress_res.data:
+            return jsonify(progress_res.data)
+
+        new_progress_res = supabase_service.create_progress(user_id, path_id)
+        return jsonify(new_progress_res.data), 201
+    except Exception as e:
+        logger.error(f"ROUTE: /progress/start failed: {e}", exc_info=True)
+        return jsonify({"error": "An internal server error occurred while starting progress."}), 500
+
+
+@bp.route('/progress/update', methods=['POST'])
+def update_progress_route():
+    data = request.get_json()
+    progress_id = data.get('progress_id')
+    content_item_id = data.get('content_item_id')
+    user_answer_index = data.get('user_answer_index')
+
+    try:
+        quiz_item = supabase_service.get_quiz_item(content_item_id)
+        correct_answer_index = quiz_item.data['content']['correctAnswerIndex']
+        is_correct = int(user_answer_index) == int(correct_answer_index)
+
+        supabase_service.log_quiz_attempt(progress_id, content_item_id, user_answer_index, is_correct)
+        supabase_service.update_user_progress_item(progress_id, quiz_item.data['item_index'])
+
+        return jsonify({"message": "Progress updated", "is_correct": is_correct})
+    except Exception as e:
+        logger.error(f"ROUTE: /progress/update failed: {e}", exc_info=True)
+        return jsonify({"error": "Failed to update progress."}), 500
+
+
+@bp.route('/scores/<wallet_address>', methods=['GET'])
+def get_user_scores_route(wallet_address):
+    try:
+        user_res = supabase_service.get_user_by_wallet(wallet_address)
+        if not user_res or not user_res.data:
+            return jsonify({"error": "User not found"}), 404
+
+        scores = supabase_service.get_user_scores(user_res.data['id'])
+        return jsonify(scores)
+    except Exception as e:
+        logger.error(f"ROUTE: /scores failed: {e}", exc_info=True)
+        return jsonify({"error": "Failed to fetch scores."}), 500
+
+--- src\backend\app\routes\user_routes.py ---
+
+from flask import Blueprint, request, jsonify
+from app import logger
+from app.services import supabase_service
+
+bp = Blueprint('user_routes', __name__, url_prefix='/users')
+
+
+@bp.route('', methods=['POST'])
+def create_user_route():
+    data = request.get_json()
+    wallet_address = data.get('wallet_address')
+    logger.info(f"ROUTE: /users POST for wallet: {wallet_address}")
+    if not wallet_address:
+        return jsonify({"error": "wallet_address is required"}), 400
+
+    try:
+        user_res = supabase_service.upsert_user(wallet_address, data.get('name'), data.get('country'))
+        logger.info(f"ROUTE: User data upserted for wallet: {wallet_address}")
+        return jsonify(user_res.data[0]), 201
+    except Exception as e:
+        logger.error(f"ROUTE: /users POST failed: {e}", exc_info=True)
+        return jsonify({"error": "Failed to create or update user."}), 500
+
+
+@bp.route('/<wallet_address>', methods=['GET'])
+def get_user_route(wallet_address):
+    logger.info(f"ROUTE: /users GET for wallet: {wallet_address}")
+    try:
+        user_res = supabase_service.get_user_by_wallet(wallet_address)
+        if not user_res or not user_res.data:
+            return jsonify({"error": "User not found"}), 404
+        return jsonify(user_res.data)
+    except Exception as e:
+        logger.error(f"ROUTE: /users GET failed: {e}", exc_info=True)
+        return jsonify({"error": "Failed to retrieve user."}), 500
+
+--- src\backend\app\routes\websocket_routes.py ---
+
+from flask import request
+from app import logger
+
+def register_events(socketio):
+    @socketio.on('connect', namespace='/pathProgress')
+    def handle_connect():
+        logger.info(f"SOCKET.IO: Client connected with sid: {request.sid}")
+
+    @socketio.on('disconnect', namespace='/pathProgress')
+    def handle_disconnect():
+        logger.info(f"SOCKET.IO: Client disconnected with sid: {request.sid}")
+
+--- src\backend\app\routes\__init__.py ---
+
+
+
+--- src\backend\app\services\ai_service.py ---
+
+import json
+import base64
+from io import BytesIO
+from PIL import Image, ImageDraw, ImageFont
+from app import text_model, logger
+import google.generativeai as genai
+
+def get_embedding(text):
+    """Generates a vector embedding for a given text."""
+    logger.info(f"AI: Generating embedding for text: '{text[:30]}...'")
+    result = genai.embed_content(model="models/embedding-001", content=text)
+    return result['embedding']
+
+def generate_curriculum(topic):
+    """Asks AI to generate a dynamic curriculum (list of level titles)."""
+    logger.info(f"AI: Generating curriculum for topic: '{topic}'")
+    prompt = f"""You are an expert curriculum designer for a learning app. For the topic "{topic}", create a syllabus. The output MUST be a single, valid JSON object with one key: "levels". "levels" should be an array of strings, where each string is a concise title for a learning level. The number of levels should be appropriate for the topic's complexity (3-10 levels). Do not include any text outside of the JSON object."""
+    response = text_model.generate_content(prompt)
+    cleaned_response = response.text.strip().replace("```json", "").replace("```", "")
+    return json.loads(cleaned_response)['levels']
+
+def generate_interleaved_level_content(topic, level_title):
+    """Generates slides and quiz for a single level."""
+    logger.info(f"AI: Generating interleaved content for level: '{level_title}'")
+    prompt = f"""
+    You are an expert educator creating a lesson for a learning app. The main topic is "{topic}", and this specific lesson is titled "{level_title}".
+    Your task is to create an interleaved learning experience with slides and quizzes.
+    The output MUST be a single, valid JSON object with one key: "items".
+    "items" must be an array of objects. Each object must have a "type" ('slide' or 'quiz') and a "content" field.
+
+    1.  For a 'slide' item:
+        - The "content" field should be a string containing rich markdown.
+        - Use markdown for formatting: `### Subheadings`, `**bold**`, `* item 1`, `* item 2`.
+        - The content should be detailed and informative, providing real value. A slide can be multiple paragraphs long.
+        - Structure the lesson logically: start with an introduction, explain concepts with a few slides, then add a quiz to check understanding. Repeat this pattern 2-3 times, ending with a final quiz. A typical level should have 5-8 items in total.
+
+    2.  For a 'quiz' item:
+        - The "content" field should be a JSON object with four keys: "question" (string), "options" (array of 4 strings), "correctAnswerIndex" (integer 0-3), and "explanation" (string).
+        - The "explanation" should be a "Do you know? 🤓" fun fact or a clear explanation of why the correct answer is right. It should also be formatted with markdown.
+
+    Generate the complete, interleaved lesson for "{level_title}". Do not include any text outside of the main JSON object.
+    """
+    response = text_model.generate_content(prompt)
+    cleaned_response = response.text.strip().replace("```json", "").replace("```", "")
+    return json.loads(cleaned_response)['items']
+
+def generate_nft_svg(title):
+    """Generates a unique SVG image as a string using Gemini."""
+    logger.info(f"AI: Generating SVG image for title: '{title}'")
+    prompt = f"""Create a simple, abstract, and colorful SVG image representing learning about "{title}". The SVG must be 512x512 pixels. Use a dark background like #1a1a1a. Generate 3-5 random, colorful, overlapping geometric shapes (circles, rectangles). Use vibrant colors like #FF6B6B, #4ECDC4, #45B7D1. Add the text "Noodl Certificate" and "{title}" on separate lines with a light color like #FFFFFF. The output must be ONLY the SVG code, starting with <svg> and ending with </svg>. Do not add any other text or markdown."""
+    try:
+        response = text_model.generate_content(prompt)
+        svg_code = response.text.strip().replace("```svg", "").replace("```", "")
+        if not svg_code.startswith('<svg'):
+            raise ValueError("AI did not return valid SVG")
+        logger.info("AI: Successfully generated SVG.")
+        return svg_code
+    except Exception as e:
+        logger.error(f"AI: Failed to generate NFT SVG, creating fallback image: {e}")
+        img = Image.new('RGB', (512, 512), color = '#1a1a1a')
+        d = ImageDraw.Draw(img)
+        try:
+            title_font = ImageFont.truetype("DejaVuSans.ttf", 32)
+            subtitle_font = ImageFont.truetype("DejaVuSans.ttf", 24)
+        except IOError:
+            title_font = ImageFont.load_default()
+            subtitle_font = ImageFont.load_default()
+        d.text((256, 220), "Noodl Certificate", font=title_font, fill="#FFFFFF", anchor="ms")
+        d.text((256, 260), title, font=subtitle_font, fill="#DDDDDD", anchor="ms")
+        d.rectangle([(20,20), (512-20,512-20)], outline="#4ECDC4", width=5)
+        buffer = BytesIO()
+        img.save(buffer, format="PNG")
+        png_b64 = base64.b64encode(buffer.getvalue()).decode('utf-8')
+        return f'<svg width="512" height="512" xmlns="http://www.w3.org/2000/svg"><image href="data:image/png;base64,{png_b64}" height="512" width="512"/></svg>'
+
+--- src\backend\app\services\blockchain_service.py ---
+
+import json
+from web3 import Web3
+from app import w3, account, logger
+from app.config import config
+
+# Load ABIs from JSON files
+with open('contracts/NoodlCertificate.json', 'r') as f:
+    NFT_ABI = json.load(f)
+
+with open('contracts/LearningPathRegistry.json', 'r') as f:
+    PATH_REGISTRY_ABI = json.load(f)
+
+# Initialize Contracts
+path_registry_contract = w3.eth.contract(address=Web3.to_checksum_address(config.PATH_REGISTRY_CONTRACT_ADDRESS),
+                                         abi=PATH_REGISTRY_ABI)
+nft_contract = w3.eth.contract(address=Web3.to_checksum_address(config.NFT_CONTRACT_ADDRESS), abi=NFT_ABI)
+logger.info("Blockchain service and contracts initialized.")
+
+
+def send_tx_and_get_receipt(contract_function, task_id=None, progress_callback=None):
+    """Sends a transaction and uses a callback for progress updates."""
+
+    def update_status(status, data=None):
+        if task_id and progress_callback:
+            progress_callback(task_id, status, data)
+
+    try:
+        update_status(f"TX PREP: Building transaction for function: {contract_function.fn_name}")
+        tx_params = {
+            'from': account.address,
+            'nonce': w3.eth.get_transaction_count(account.address),
+            'maxFeePerGas': w3.to_wei('20', 'gwei'),
+            'maxPriorityFeePerGas': w3.to_wei('1.5', 'gwei'),
+        }
+        gas_estimate = contract_function.estimate_gas({'from': account.address})
+        tx_params['gas'] = int(gas_estimate * 1.2)
+        update_status(f"TX PREP: Gas estimated at {gas_estimate}. Using {tx_params['gas']} with buffer.")
+
+        transaction = contract_function.build_transaction(tx_params)
+        update_status("TX PREP: Signing transaction...")
+        signed_tx = w3.eth.account.sign_transaction(transaction, private_key=account.key)
+
+        update_status("TX SEND: Sending raw transaction...")
+        tx_hash = w3.eth.send_raw_transaction(signed_tx.raw_transaction)
+        update_status(f"TX SEND: Transaction sent. Hash: {tx_hash.hex()}", {'txHash': tx_hash.hex()})
+
+        update_status("TX WAIT: Waiting for transaction receipt...")
+        tx_receipt = w3.eth.wait_for_transaction_receipt(tx_hash, timeout=180)
+        status_msg = 'Success' if tx_receipt.status == 1 else 'Failed'
+        update_status(f"TX WAIT: Transaction receipt received. Status: {status_msg}")
+        return tx_receipt
+    except Exception as e:
+        logger.error(f"TX FAILED: {e}")
+        update_status(f"TX FAILED: {str(e)}")
+        raise e
+
+
+def register_path_on_chain(path_id, content_hash, task_id=None, progress_callback=None):
+    return send_tx_and_get_receipt(
+        path_registry_contract.functions.registerPath(path_id, content_hash), task_id, progress_callback
+    )
+
+
+def mint_nft_on_chain(user_wallet, path_id, metadata_url):
+    receipt = send_tx_and_get_receipt(
+        nft_contract.functions.safeMint(Web3.to_checksum_address(user_wallet), path_id, metadata_url)
+    )
+    transfer_event = nft_contract.events.Transfer().process_receipt(receipt)
+    if transfer_event:
+        return transfer_event[0]['args']['tokenId']
+
+    logger.warning("Could not find Transfer event in transaction logs.")
+    return None
+
+--- src\backend\app\services\supabase_service.py ---
+
+from app import supabase_client, logger
+from datetime import datetime, timezone
+
+
+# --- User Functions ---
+def get_user_by_wallet(wallet_address):
+    return supabase_client.table('users').select('id').eq('wallet_address', wallet_address).maybe_single().execute()
+
+
+def upsert_user(wallet_address, name, country):
+    return supabase_client.table('users').upsert({
+        'wallet_address': wallet_address, 'name': name, 'country': country
+    }, on_conflict='wallet_address').execute()
+
+
+# --- Path & Content Functions ---
+def get_all_paths():
+    return supabase_client.table('learning_paths').select("id, title, description, total_levels").execute()
+
+
+def get_path_by_id(path_id):
+    return supabase_client.table('learning_paths').select("title, description").eq('id',
+                                                                                   path_id).maybe_single().execute()
+
+
+def create_learning_path(title, description, creator_wallet, total_levels, embedding):
+    return supabase_client.table('learning_paths').insert({
+        "title": title, "description": description, "creator_wallet": creator_wallet,
+        "total_levels": total_levels, "title_embedding": embedding
+    }).execute()
+
+
+def update_path_hash(path_id, content_hash):
+    return supabase_client.table('learning_paths').update({'content_hash': content_hash}).eq('id', path_id).execute()
+
+
+def create_level(path_id, level_number, level_title):
+    return supabase_client.table('levels').insert({
+        "path_id": path_id, "level_number": level_number, "level_title": level_title
+    }).execute()
+
+
+def get_level(path_id, level_num):
+    return supabase_client.table('levels').select('id, level_title').eq('path_id', path_id).eq('level_number',
+                                                                                               level_num).single().execute()
+
+
+def create_content_items(items_to_insert):
+    return supabase_client.table('content_items').insert(items_to_insert).execute()
+
+
+def get_content_items_for_level(level_id):
+    return supabase_client.table('content_items').select('id, item_index, item_type, content').eq('level_id',
+                                                                                                  level_id).order(
+        'item_index').execute()
+
+
+# --- Progress & Scoring Functions ---
+def get_progress(user_id, path_id):
+    return supabase_client.table('user_progress').select('*, levels(level_number)').eq('user_id', user_id).eq('path_id',
+                                                                                                              path_id).maybe_single().execute()
+
+
+def create_progress(user_id, path_id):
+    first_level_res = supabase_client.table('levels').select('id').eq('path_id', path_id).eq('level_number',
+                                                                                             1).single().execute()
+    if not first_level_res.data:
+        raise ValueError(f"Path ID {path_id} has no level 1.")
+
+    insert_res = supabase_client.table('user_progress').insert({
+        'user_id': user_id, 'path_id': path_id, 'current_level_id': first_level_res.data['id'],
+        'current_item_index': -1, 'status': 'in_progress', 'started_at': datetime.now(timezone.utc).isoformat()
+    }).execute()
+
+    new_progress_id = insert_res.data[0]['id']
+    return supabase_client.table('user_progress').select('*, levels(level_number)').eq('id',
+                                                                                       new_progress_id).single().execute()
+
+
+def get_quiz_item(item_id):
+    return supabase_client.table('content_items').select('content, item_index').eq('id', item_id).single().execute()
+
+
+def log_quiz_attempt(progress_id, item_id, answer_index, is_correct):
+    return supabase_client.table('quiz_attempts').insert({
+        'progress_id': progress_id, 'content_item_id': item_id,
+        'user_answer_index': answer_index, 'is_correct': is_correct
+    }).execute()
+
+
+def update_user_progress_item(progress_id, item_index):
+    return supabase_client.table('user_progress').update({'current_item_index': item_index}).eq('id',
+                                                                                                progress_id).execute()
+
+
+def get_user_scores(user_id):
+    progress_records = supabase_client.table('user_progress').select('id, path_id, status, learning_paths(title)').eq(
+        'user_id', user_id).execute()
+    scores = []
+    for record in progress_records.data:
+        attempts = supabase_client.table('quiz_attempts').select('is_correct', count='exact').eq('progress_id',
+                                                                                                 record['id']).execute()
+        total_attempts = attempts.count
+        correct_attempts = supabase_client.table('quiz_attempts').select('is_correct', count='exact').eq('progress_id',
+                                                                                                         record[
+                                                                                                             'id']).eq(
+            'is_correct', True).execute().count
+        score = (correct_attempts / total_attempts * 100) if total_attempts > 0 else 0
+        scores.append({
+            "path_id": record['path_id'], "path_title": record['learning_paths']['title'],
+            "status": record['status'], "score_percent": round(score, 2),
+            "correct_answers": correct_attempts, "total_questions_answered": total_attempts
+        })
+    return scores
+
+--- src\backend\app\services\__init__.py ---
+
+
+
+--- src\backend\app\__init__.py ---
+
+import logging
+from flask import Flask
+from supabase import create_client, Client
+from web3 import Web3
+from web3.middleware import ExtraDataToPOAMiddleware
+import google.generativeai as genai
+from app.config import config
+
+# --- Initialize Logging ---
+logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(module)s - %(message)s')
+logger = logging.getLogger(__name__)
+
+# --- Initialize App ---
+app = Flask(__name__)
+app.config.from_object(config)
+
+# --- Initialize Service Clients (Singleton Pattern) ---
+supabase_client: Client = create_client(config.SUPABASE_URL, config.SUPABASE_SERVICE_KEY)
+logger.info("Supabase client initialized.")
+
+genai.configure(api_key=config.GEMINI_API_KEY)
+text_model = genai.GenerativeModel(config.GEMINI_MODEL_TEXT)
+logger.info("Gemini AI model initialized.")
+
+w3 = Web3(Web3.HTTPProvider(config.ETHEREUM_NODE_URL))
+w3.middleware_onion.inject(ExtraDataToPOAMiddleware, layer=0)
+if w3.is_connected():
+    logger.info(f"Web3 client connected to chain ID: {w3.eth.chain_id}")
+    account = w3.eth.account.from_key(config.BACKEND_WALLET_PRIVATE_KEY)
+    w3.eth.default_account = account.address
+    logger.info(f"Web3 default account set to: {account.address}")
+else:
+    logger.error("CRITICAL: Failed to connect to Ethereum node.")
+    account = None
+
+# --- Import and Register Blueprints ---
+# This must be done after app is created to avoid circular imports
+from app.routes import user_routes, path_routes, progress_routes, nft_routes
+
+app.register_blueprint(user_routes.bp)
+app.register_blueprint(path_routes.bp)
+app.register_blueprint(progress_routes.bp)
+app.register_blueprint(nft_routes.bp)
+
+--- src\backend\contracts\LearningPathRegistry.json ---
+
+[
+	{
+		"inputs": [],
+		"stateMutability": "nonpayable",
+		"type": "constructor"
+	},
+	{
+		"anonymous": false,
+		"inputs": [
+			{
+				"indexed": true,
+				"internalType": "uint256",
+				"name": "pathId",
+				"type": "uint256"
+			},
+			{
+				"indexed": false,
+				"internalType": "bytes32",
+				"name": "contentHash",
+				"type": "bytes32"
+			}
+		],
+		"name": "PathRegistered",
+		"type": "event"
+	},
+	{
+		"inputs": [
+			{
+				"internalType": "uint256",
+				"name": "_pathId",
+				"type": "uint256"
+			},
+			{
+				"internalType": "bytes32",
+				"name": "_contentHash",
+				"type": "bytes32"
+			}
+		],
+		"name": "registerPath",
+		"outputs": [],
+		"stateMutability": "nonpayable",
+		"type": "function"
+	},
+	{
+		"inputs": [],
+		"name": "owner",
+		"outputs": [
+			{
+				"internalType": "address",
+				"name": "",
+				"type": "address"
+			}
+		],
+		"stateMutability": "view",
+		"type": "function"
+	},
+	{
+		"inputs": [
+			{
+				"internalType": "uint256",
+				"name": "",
+				"type": "uint256"
+			}
+		],
+		"name": "pathContentHashes",
+		"outputs": [
+			{
+				"internalType": "bytes32",
+				"name": "",
+				"type": "bytes32"
+			}
+		],
+		"stateMutability": "view",
+		"type": "function"
+	}
+]
+
+--- src\backend\contracts\LearningPathRegistry.sol ---
+
+// SPDX-License-Identifier: MIT
+pragma solidity ^0.8.18;
+
+contract LearningPathRegistry {
+    address public owner;
+    mapping(uint256 => bytes32) public pathContentHashes;
+
+    event PathRegistered(uint256 indexed pathId, bytes32 contentHash);
+
+    constructor() {
+        owner = msg.sender;
+    }
+
+    modifier onlyOwner() {
+        require(msg.sender == owner, "Not the owner");
+        _;
+    }
+
+    function registerPath(uint256 _pathId, bytes32 _contentHash) public onlyOwner {
+        require(pathContentHashes[_pathId] == 0, "Path already registered");
+        pathContentHashes[_pathId] = _contentHash;
+        emit PathRegistered(_pathId, _contentHash);
+    }
+}
+
+--- src\backend\contracts\NoodlCertificate.json ---
+
+[
+	{
+		"inputs": [
+			{
+				"internalType": "address",
+				"name": "to",
+				"type": "address"
+			},
+			{
+				"internalType": "uint256",
+				"name": "tokenId",
+				"type": "uint256"
+			}
+		],
+		"name": "approve",
+		"outputs": [],
+		"stateMutability": "nonpayable",
+		"type": "function"
+	},
+	{
+		"inputs": [
+			{
+				"internalType": "uint256",
+				"name": "tokenId",
+				"type": "uint256"
+			}
+		],
+		"name": "burn",
+		"outputs": [],
+		"stateMutability": "nonpayable",
+		"type": "function"
+	},
+	{
+		"inputs": [
+			{
+				"internalType": "address",
+				"name": "initialOwner",
+				"type": "address"
+			}
+		],
+		"stateMutability": "nonpayable",
+		"type": "constructor"
+	},
+	{
+		"inputs": [
+			{
+				"internalType": "address",
+				"name": "sender",
+				"type": "address"
+			},
+			{
+				"internalType": "uint256",
+				"name": "tokenId",
+				"type": "uint256"
+			},
+			{
+				"internalType": "address",
+				"name": "owner",
+				"type": "address"
+			}
+		],
+		"name": "ERC721IncorrectOwner",
+		"type": "error"
+	},
+	{
+		"inputs": [
+			{
+				"internalType": "address",
+				"name": "operator",
+				"type": "address"
+			},
+			{
+				"internalType": "uint256",
+				"name": "tokenId",
+				"type": "uint256"
+			}
+		],
+		"name": "ERC721InsufficientApproval",
+		"type": "error"
+	},
+	{
+		"inputs": [
+			{
+				"internalType": "address",
+				"name": "approver",
+				"type": "address"
+			}
+		],
+		"name": "ERC721InvalidApprover",
+		"type": "error"
+	},
+	{
+		"inputs": [
+			{
+				"internalType": "address",
+				"name": "operator",
+				"type": "address"
+			}
+		],
+		"name": "ERC721InvalidOperator",
+		"type": "error"
+	},
+	{
+		"inputs": [
+			{
+				"internalType": "address",
+				"name": "owner",
+				"type": "address"
+			}
+		],
+		"name": "ERC721InvalidOwner",
+		"type": "error"
+	},
+	{
+		"inputs": [
+			{
+				"internalType": "address",
+				"name": "receiver",
+				"type": "address"
+			}
+		],
+		"name": "ERC721InvalidReceiver",
+		"type": "error"
+	},
+	{
+		"inputs": [
+			{
+				"internalType": "address",
+				"name": "sender",
+				"type": "address"
+			}
+		],
+		"name": "ERC721InvalidSender",
+		"type": "error"
+	},
+	{
+		"inputs": [
+			{
+				"internalType": "uint256",
+				"name": "tokenId",
+				"type": "uint256"
+			}
+		],
+		"name": "ERC721NonexistentToken",
+		"type": "error"
+	},
+	{
+		"inputs": [
+			{
+				"internalType": "address",
+				"name": "owner",
+				"type": "address"
+			}
+		],
+		"name": "OwnableInvalidOwner",
+		"type": "error"
+	},
+	{
+		"inputs": [
+			{
+				"internalType": "address",
+				"name": "account",
+				"type": "address"
+			}
+		],
+		"name": "OwnableUnauthorizedAccount",
+		"type": "error"
+	},
+	{
+		"anonymous": false,
+		"inputs": [
+			{
+				"indexed": true,
+				"internalType": "address",
+				"name": "owner",
+				"type": "address"
+			},
+			{
+				"indexed": true,
+				"internalType": "address",
+				"name": "approved",
+				"type": "address"
+			},
+			{
+				"indexed": true,
+				"internalType": "uint256",
+				"name": "tokenId",
+				"type": "uint256"
+			}
+		],
+		"name": "Approval",
+		"type": "event"
+	},
+	{
+		"anonymous": false,
+		"inputs": [
+			{
+				"indexed": true,
+				"internalType": "address",
+				"name": "owner",
+				"type": "address"
+			},
+			{
+				"indexed": true,
+				"internalType": "address",
+				"name": "operator",
+				"type": "address"
+			},
+			{
+				"indexed": false,
+				"internalType": "bool",
+				"name": "approved",
+				"type": "bool"
+			}
+		],
+		"name": "ApprovalForAll",
+		"type": "event"
+	},
+	{
+		"anonymous": false,
+		"inputs": [
+			{
+				"indexed": false,
+				"internalType": "uint256",
+				"name": "_fromTokenId",
+				"type": "uint256"
+			},
+			{
+				"indexed": false,
+				"internalType": "uint256",
+				"name": "_toTokenId",
+				"type": "uint256"
+			}
+		],
+		"name": "BatchMetadataUpdate",
+		"type": "event"
+	},
+	{
+		"anonymous": false,
+		"inputs": [
+			{
+				"indexed": false,
+				"internalType": "uint256",
+				"name": "_tokenId",
+				"type": "uint256"
+			}
+		],
+		"name": "MetadataUpdate",
+		"type": "event"
+	},
+	{
+		"anonymous": false,
+		"inputs": [
+			{
+				"indexed": true,
+				"internalType": "address",
+				"name": "previousOwner",
+				"type": "address"
+			},
+			{
+				"indexed": true,
+				"internalType": "address",
+				"name": "newOwner",
+				"type": "address"
+			}
+		],
+		"name": "OwnershipTransferred",
+		"type": "event"
+	},
+	{
+		"inputs": [],
+		"name": "renounceOwnership",
+		"outputs": [],
+		"stateMutability": "nonpayable",
+		"type": "function"
+	},
+	{
+		"inputs": [
+			{
+				"internalType": "address",
+				"name": "to",
+				"type": "address"
+			},
+			{
+				"internalType": "uint256",
+				"name": "pathId",
+				"type": "uint256"
+			},
+			{
+				"internalType": "string",
+				"name": "uri",
+				"type": "string"
+			}
+		],
+		"name": "safeMint",
+		"outputs": [],
+		"stateMutability": "nonpayable",
+		"type": "function"
+	},
+	{
+		"inputs": [
+			{
+				"internalType": "address",
+				"name": "from",
+				"type": "address"
+			},
+			{
+				"internalType": "address",
+				"name": "to",
+				"type": "address"
+			},
+			{
+				"internalType": "uint256",
+				"name": "tokenId",
+				"type": "uint256"
+			}
+		],
+		"name": "safeTransferFrom",
+		"outputs": [],
+		"stateMutability": "nonpayable",
+		"type": "function"
+	},
+	{
+		"inputs": [
+			{
+				"internalType": "address",
+				"name": "from",
+				"type": "address"
+			},
+			{
+				"internalType": "address",
+				"name": "to",
+				"type": "address"
+			},
+			{
+				"internalType": "uint256",
+				"name": "tokenId",
+				"type": "uint256"
+			},
+			{
+				"internalType": "bytes",
+				"name": "data",
+				"type": "bytes"
+			}
+		],
+		"name": "safeTransferFrom",
+		"outputs": [],
+		"stateMutability": "nonpayable",
+		"type": "function"
+	},
+	{
+		"inputs": [
+			{
+				"internalType": "address",
+				"name": "operator",
+				"type": "address"
+			},
+			{
+				"internalType": "bool",
+				"name": "approved",
+				"type": "bool"
+			}
+		],
+		"name": "setApprovalForAll",
+		"outputs": [],
+		"stateMutability": "nonpayable",
+		"type": "function"
+	},
+	{
+		"anonymous": false,
+		"inputs": [
+			{
+				"indexed": true,
+				"internalType": "address",
+				"name": "from",
+				"type": "address"
+			},
+			{
+				"indexed": true,
+				"internalType": "address",
+				"name": "to",
+				"type": "address"
+			},
+			{
+				"indexed": true,
+				"internalType": "uint256",
+				"name": "tokenId",
+				"type": "uint256"
+			}
+		],
+		"name": "Transfer",
+		"type": "event"
+	},
+	{
+		"inputs": [
+			{
+				"internalType": "address",
+				"name": "from",
+				"type": "address"
+			},
+			{
+				"internalType": "address",
+				"name": "to",
+				"type": "address"
+			},
+			{
+				"internalType": "uint256",
+				"name": "tokenId",
+				"type": "uint256"
+			}
+		],
+		"name": "transferFrom",
+		"outputs": [],
+		"stateMutability": "nonpayable",
+		"type": "function"
+	},
+	{
+		"inputs": [
+			{
+				"internalType": "address",
+				"name": "newOwner",
+				"type": "address"
+			}
+		],
+		"name": "transferOwnership",
+		"outputs": [],
+		"stateMutability": "nonpayable",
+		"type": "function"
+	},
+	{
+		"inputs": [
+			{
+				"internalType": "address",
+				"name": "owner",
+				"type": "address"
+			}
+		],
+		"name": "balanceOf",
+		"outputs": [
+			{
+				"internalType": "uint256",
+				"name": "",
+				"type": "uint256"
+			}
+		],
+		"stateMutability": "view",
+		"type": "function"
+	},
+	{
+		"inputs": [
+			{
+				"internalType": "uint256",
+				"name": "tokenId",
+				"type": "uint256"
+			}
+		],
+		"name": "getApproved",
+		"outputs": [
+			{
+				"internalType": "address",
+				"name": "",
+				"type": "address"
+			}
+		],
+		"stateMutability": "view",
+		"type": "function"
+	},
+	{
+		"inputs": [],
+		"name": "getCurrentTokenId",
+		"outputs": [
+			{
+				"internalType": "uint256",
+				"name": "",
+				"type": "uint256"
+			}
+		],
+		"stateMutability": "view",
+		"type": "function"
+	},
+	{
+		"inputs": [],
+		"name": "getTotalSupply",
+		"outputs": [
+			{
+				"internalType": "uint256",
+				"name": "",
+				"type": "uint256"
+			}
+		],
+		"stateMutability": "view",
+		"type": "function"
+	},
+	{
+		"inputs": [
+			{
+				"internalType": "address",
+				"name": "",
+				"type": "address"
+			},
+			{
+				"internalType": "uint256",
+				"name": "",
+				"type": "uint256"
+			}
+		],
+		"name": "hasMinted",
+		"outputs": [
+			{
+				"internalType": "bool",
+				"name": "",
+				"type": "bool"
+			}
+		],
+		"stateMutability": "view",
+		"type": "function"
+	},
+	{
+		"inputs": [
+			{
+				"internalType": "address",
+				"name": "user",
+				"type": "address"
+			},
+			{
+				"internalType": "uint256",
+				"name": "pathId",
+				"type": "uint256"
+			}
+		],
+		"name": "hasUserMinted",
+		"outputs": [
+			{
+				"internalType": "bool",
+				"name": "",
+				"type": "bool"
+			}
+		],
+		"stateMutability": "view",
+		"type": "function"
+	},
+	{
+		"inputs": [
+			{
+				"internalType": "address",
+				"name": "owner",
+				"type": "address"
+			},
+			{
+				"internalType": "address",
+				"name": "operator",
+				"type": "address"
+			}
+		],
+		"name": "isApprovedForAll",
+		"outputs": [
+			{
+				"internalType": "bool",
+				"name": "",
+				"type": "bool"
+			}
+		],
+		"stateMutability": "view",
+		"type": "function"
+	},
+	{
+		"inputs": [],
+		"name": "name",
+		"outputs": [
+			{
+				"internalType": "string",
+				"name": "",
+				"type": "string"
+			}
+		],
+		"stateMutability": "view",
+		"type": "function"
+	},
+	{
+		"inputs": [],
+		"name": "owner",
+		"outputs": [
+			{
+				"internalType": "address",
+				"name": "",
+				"type": "address"
+			}
+		],
+		"stateMutability": "view",
+		"type": "function"
+	},
+	{
+		"inputs": [
+			{
+				"internalType": "uint256",
+				"name": "tokenId",
+				"type": "uint256"
+			}
+		],
+		"name": "ownerOf",
+		"outputs": [
+			{
+				"internalType": "address",
+				"name": "",
+				"type": "address"
+			}
+		],
+		"stateMutability": "view",
+		"type": "function"
+	},
+	{
+		"inputs": [
+			{
+				"internalType": "bytes4",
+				"name": "interfaceId",
+				"type": "bytes4"
+			}
+		],
+		"name": "supportsInterface",
+		"outputs": [
+			{
+				"internalType": "bool",
+				"name": "",
+				"type": "bool"
+			}
+		],
+		"stateMutability": "view",
+		"type": "function"
+	},
+	{
+		"inputs": [],
+		"name": "symbol",
+		"outputs": [
+			{
+				"internalType": "string",
+				"name": "",
+				"type": "string"
+			}
+		],
+		"stateMutability": "view",
+		"type": "function"
+	},
+	{
+		"inputs": [
+			{
+				"internalType": "uint256",
+				"name": "tokenId",
+				"type": "uint256"
+			}
+		],
+		"name": "tokenURI",
+		"outputs": [
+			{
+				"internalType": "string",
+				"name": "",
+				"type": "string"
+			}
+		],
+		"stateMutability": "view",
+		"type": "function"
+	}
+]
+
+--- src\backend\contracts\NoodlCertificate.sol ---
+
+// SPDX-License-Identifier: MIT
+pragma solidity ^0.8.20;
+
+import "@openzeppelin/contracts/token/ERC721/ERC721.sol";
+import "@openzeppelin/contracts/token/ERC721/extensions/ERC721URIStorage.sol";
+import "@openzeppelin/contracts/access/Ownable.sol";
+import "@openzeppelin/contracts/utils/Counters.sol";
+import "hardhat/console.sol";
+
+contract NoodlCertificate is ERC721, ERC721URIStorage, Ownable {
+    using Counters for Counters.Counter;
+    Counters.Counter private _tokenIdCounter;
+
+    mapping(address => mapping(uint256 => bool)) public hasMinted;
+
+    constructor(address initialOwner)
+        ERC721("Noodl Certificate", "NOODL")
+        Ownable(initialOwner)
+    {
+        console.log("NoodlCertificate deployed! Owner:", initialOwner);
+        console.log("Contract address:", address(this));
+    }
+
+    function safeMint(address to, uint256 pathId, string memory uri) public onlyOwner {
+        console.log("=== MINT START ===");
+        console.log("Recipient:", to);
+        console.log("Path ID:", pathId);
+        console.log("URI:", uri);
+
+        require(!hasMinted[to][pathId], "Certificate already minted for this user/path");
+        console.log("Duplicate check: PASSED");
+
+        uint256 tokenId = _tokenIdCounter.current();
+        console.log("Token ID to mint:", tokenId);
+
+        _tokenIdCounter.increment();
+        console.log("Counter after increment:", _tokenIdCounter.current());
+
+        _safeMint(to, tokenId);
+        console.log("Token minted: SUCCESS");
+
+        _setTokenURI(tokenId, uri);
+        console.log("URI set: SUCCESS");
+
+        hasMinted[to][pathId] = true;
+        console.log("Tracking updated: SUCCESS");
+        console.log("=== MINT COMPLETE ===");
+    }
+
+    function burn(uint256 tokenId) public {
+        console.log("=== BURN START ===");
+        console.log("Token ID:", tokenId);
+        console.log("Caller:", msg.sender);
+
+        address tokenOwner = ownerOf(tokenId);
+        console.log("Token owner:", tokenOwner);
+
+        bool isOwner = msg.sender == tokenOwner;
+        bool isApproved = getApproved(tokenId) == msg.sender;
+        bool isApprovedForAll = isApprovedForAll(tokenOwner, msg.sender);
+
+        console.log("Is owner:", isOwner);
+        console.log("Is approved:", isApproved);
+        console.log("Is approved for all:", isApprovedForAll);
+
+        require(isOwner || isApproved || isApprovedForAll, "Not authorized to burn");
+        console.log("Authorization: PASSED");
+
+        _burn(tokenId);
+        console.log("=== BURN COMPLETE ===");
+    }
+
+    function tokenURI(uint256 tokenId)
+        public
+        view
+        override(ERC721, ERC721URIStorage)
+        returns (string memory)
+    {
+        console.log("Getting URI for token:", tokenId);
+        return super.tokenURI(tokenId);
+    }
+
+    function supportsInterface(bytes4 interfaceId)
+        public
+        view
+        override(ERC721, ERC721URIStorage)
+        returns (bool)
+    {
+        return super.supportsInterface(interfaceId);
+    }
+
+    function getCurrentTokenId() public view returns (uint256) {
+        uint256 current = _tokenIdCounter.current();
+        console.log("Current token counter:", current);
+        return current;
+    }
+
+    function hasUserMinted(address user, uint256 pathId) public view returns (bool) {
+        bool minted = hasMinted[user][pathId];
+        console.log("Mint check - User:", user);
+        console.log("Path:", pathId);
+        console.log("Has minted:", minted);
+        return minted;
+    }
+
+    function getTotalSupply() public view returns (uint256) {
+        uint256 supply = _tokenIdCounter.current();
+        console.log("Total supply:", supply);
+        return supply;
+    }
+}
+
+--- src\backend\database\schema.sql ---
+
+-- 1. USERS TABLE
+CREATE TABLE users (
+    id BIGINT PRIMARY KEY GENERATED ALWAYS AS IDENTITY,
+    wallet_address TEXT NOT NULL UNIQUE,
+    name TEXT,
+    country TEXT,
+    created_at TIMESTAMPTZ DEFAULT now()
+);
+
+-- 2. LEARNING PATHS TABLE
+CREATE TABLE learning_paths (
+    id BIGINT PRIMARY KEY GENERATED ALWAYS AS IDENTITY,
+    title TEXT NOT NULL,
+    description TEXT,
+    creator_wallet TEXT,
+    content_hash TEXT,
+    total_levels INT,
+    title_embedding vector(768),
+    created_at TIMESTAMPTZ DEFAULT now()
+);
+
+-- 3. LEVELS TABLE
+CREATE TABLE levels (
+    id BIGINT PRIMARY KEY GENERATED ALWAYS AS IDENTITY,
+    path_id BIGINT REFERENCES learning_paths(id) ON DELETE CASCADE,
+    level_number INT NOT NULL,
+    level_title TEXT,
+    created_at TIMESTAMPTZ DEFAULT now(),
+    UNIQUE(path_id, level_number)
+);
+
+-- 4. CONTENT ITEMS TABLE
+CREATE TABLE content_items (
+    id BIGINT PRIMARY KEY GENERATED ALWAYS AS IDENTITY,
+    level_id BIGINT REFERENCES levels(id) ON DELETE CASCADE,
+    item_index INT NOT NULL,
+    item_type TEXT NOT NULL,
+    content JSONB,
+    created_at TIMESTAMPTZ DEFAULT now(),
+    UNIQUE(level_id, item_index)
+);
+
+-- 5. USER PROGRESS TRACKER
+CREATE TABLE user_progress (
+    id BIGINT PRIMARY KEY GENERATED ALWAYS AS IDENTITY,
+    user_id BIGINT REFERENCES users(id) ON DELETE CASCADE,
+    path_id BIGINT REFERENCES learning_paths(id) ON DELETE CASCADE,
+    current_level_id BIGINT REFERENCES levels(id),
+    current_item_index INT,
+    status TEXT DEFAULT 'not_started',
+    started_at TIMESTAMPTZ,
+    completed_at TIMESTAMPTZ,
+    UNIQUE(user_id, path_id)
+);
+
+-- 6. QUIZ ATTEMPT HISTORY & SCORES
+CREATE TABLE quiz_attempts (
+    id BIGINT PRIMARY KEY GENERATED ALWAYS AS IDENTITY,
+    progress_id BIGINT REFERENCES user_progress(id) ON DELETE CASCADE,
+    content_item_id BIGINT REFERENCES content_items(id) ON DELETE CASCADE,
+    user_answer_index INT,
+    is_correct BOOLEAN,
+    attempted_at TIMESTAMPTZ DEFAULT now()
+);
+
+-- 7. FUNCTION FOR SIMILARITY SEARCH
+CREATE OR REPLACE FUNCTION match_similar_paths(
+  query_embedding vector(768),
+  match_threshold float,
+  match_count int
+)
+RETURNS TABLE (id bigint, title text, description text, similarity float)
+LANGUAGE plpgsql
+AS $$
+BEGIN
+  RETURN QUERY
+  SELECT lp.id, lp.title, lp.description, 1 - (lp.title_embedding <=> query_embedding) AS similarity
+  FROM learning_paths lp
+  WHERE 1 - (lp.title_embedding <=> query_embedding) > match_threshold
+  ORDER BY similarity DESC
+  LIMIT match_count;
+END;
+$$;
+
+--- src\backend\main.py ---
+
+from app import app
+from app.config import config
+from ui.testing_ui import create_and_launch_ui
+import threading
+
+if __name__ == '__main__':
+    if config.RUN_API_SERVER:
+        # Run Flask in a separate thread if UI is also running
+        if config.RUN_TESTING_UI:
+            api_thread = threading.Thread(target=lambda: app.run(host='0.0.0.0', port=5000, debug=True, use_reloader=False))
+            api_thread.daemon = True
+            api_thread.start()
+            print("--- Flask API Server started in background thread ---")
+        else:
+            print("--- Starting Flask API Server on http://localhost:5000 ---")
+            app.run(host='0.0.0.0', port=5000, debug=True)
+
+    if config.RUN_TESTING_UI:
+        print("--- Starting Gradio UI on http://localhost:7000 ---")
+        create_and_launch_ui()
+
+--- src\backend\requirements.txt ---
+
+Flask
+python-dotenv
+web3
+google-generativeai
+supabase
+requests
+Pillow
+gradio
+
+--- src\backend\ui\testing_ui.py ---
+
+import gradio as gr
+import requests
+import json
+import time
+
+# --- Configuration ---
+BACKEND_URL = "http://localhost:5000"
+
+
+# --- API Client Functions ---
+def make_api_request(method, endpoint, payload=None, timeout=60):
+    try:
+        if method.upper() == 'GET':
+            response = requests.get(endpoint, timeout=timeout)
+        elif method.upper() == 'POST':
+            response = requests.post(endpoint, json=payload, timeout=timeout)
+        response.raise_for_status()
+        return response.json()
+    except requests.exceptions.HTTPError as e:
+        try:
+            return e.response.json()
+        except json.JSONDecodeError:
+            return {"error": "Backend returned a non-JSON error.", "status_code": e.response.status_code,
+                    "details": e.response.text[:500]}
+    except requests.exceptions.RequestException as e:
+        return {"error": "Connection to backend failed.", "details": str(e)}
+
+
+def create_user(wallet, name, country):
+    return make_api_request("POST", f"{BACKEND_URL}/users",
+                            {"wallet_address": wallet, "name": name, "country": country})
+
+
+def get_user(wallet):
+    return make_api_request("GET", f"{BACKEND_URL}/users/{wallet}")
+
+
+def get_all_paths():
+    return make_api_request("GET", f"{BACKEND_URL}/paths")
+
+
+def get_level_content(path_id, level_num):
+    if not path_id or level_num is None: return {"error": "Path ID and Level Number are required."}
+    return make_api_request("GET", f"{BACKEND_URL}/paths/{path_id}/levels/{level_num}")
+
+
+def start_progress(wallet, path_id):
+    if not wallet or not path_id: return {"error": "Wallet and Path ID are required."}
+    return make_api_request("POST", f"{BACKEND_URL}/progress/start", {"user_wallet": wallet, "path_id": path_id})
+
+
+def update_progress(progress_id, item_id, answer_idx):
+    return make_api_request("POST", f"{BACKEND_URL}/progress/update",
+                            {"progress_id": progress_id, "content_item_id": item_id, "user_answer_index": answer_idx})
+
+
+def get_scores(wallet):
+    return make_api_request("GET", f"{BACKEND_URL}/scores/{wallet}")
+
+
+def mint_nft(path_id, wallet):
+    return make_api_request("POST", f"{BACKEND_URL}/paths/{path_id}/complete", {"user_wallet": wallet}, timeout=180)
+
+
+def generate_path_with_progress(topic, wallet):
+    start_res = make_api_request("POST", f"{BACKEND_URL}/paths/generate", {"topic": topic, "creator_wallet": wallet})
+    if "error" in start_res:
+        yield f"Error starting task: {json.dumps(start_res, indent=2)}"
+        return
+
+    task_id = start_res['task_id']
+    log = [f"Task started with ID: {task_id}"]
+    yield "\n".join(log)
+
+    last_log_count = 0
+    while True:
+        time.sleep(2)
+        status_res = make_api_request("GET", f"{BACKEND_URL}/paths/generate/status/{task_id}")
+        if "error" in status_res:
+            log.append(f"Error fetching status: {json.dumps(status_res, indent=2)}")
+            yield "\n".join(log)
+            break
+
+        progress_data = status_res.get('progress', [])
+        if len(progress_data) > last_log_count:
+            new_messages = [item['status'] for item in progress_data[last_log_count:]]
+            log.extend(new_messages)
+            last_log_count = len(progress_data)
+            yield "\n".join(log)
+
+        if any("SUCCESS" in item['status'] or "ERROR" in item['status'] for item in progress_data):
+            break
+
+
+# --- Interactive Learner Logic ---
+# ... (This logic is identical to the final version in the previous response) ...
+def start_interactive_session(wallet, path_id):
+    progress_data = start_progress(wallet, path_id)
+    if "error" in progress_data:
+        return progress_data, None, f"## Error Starting Session\n\nDetails:\n\n```json\n{json.dumps(progress_data, indent=2)}\n```", gr.update(
+            visible=False), gr.update(visible=False)
+
+    level_content_response = get_level_content(path_id, 1)
+    if "error" in level_content_response:
+        return progress_data, None, f"## Error Fetching Content\n\nDetails:\n\n```json\n{json.dumps(level_content_response, indent=2)}\n```", gr.update(
+            visible=False), gr.update(visible=False)
+
+    items = level_content_response.get('items')
+    if not items or not isinstance(items, list) or len(items) == 0:
+        return progress_data, None, "## Data Error\n\n'items' array is missing or empty.", gr.update(
+            visible=False), gr.update(visible=False)
+
+    first_item = items[0]
+    if 'item_type' not in first_item or 'content' not in first_item:
+        return progress_data, None, f"## Data Error\n\nMalformed item:\n```json\n{json.dumps(first_item, indent=2)}\n```", gr.update(
+            visible=False), gr.update(visible=False)
+
+    session_state = {"progress_data": progress_data, "level_content": items, "current_item_index": 0}
+
+    if first_item['item_type'] == 'slide':
+        return progress_data, session_state, first_item['content'], gr.update(visible=True), gr.update(visible=False)
+    else:
+        quiz_content = first_item['content']
+        return progress_data, session_state, f"### {quiz_content['question']}", gr.update(visible=False), gr.update(
+            visible=True, choices=quiz_content['options'], value=None)
+
+
+def process_next_step(session_state, selected_answer=None):
+    if not session_state:
+        return session_state, "Start a session first.", gr.update(visible=False), gr.update(visible=False), ""
+
+    if session_state['current_item_index'] >= len(session_state['level_content']):
+        return session_state, "🎉 Level Complete! 🎉", gr.update(visible=False), gr.update(visible=False), ""
+
+    current_item_index = session_state['current_item_index']
+    current_item = session_state['level_content'][current_item_index]
+
+    if current_item['item_type'] == 'quiz' and selected_answer is not None:
+        quiz_options = current_item['content']['options']
+        answer_index = quiz_options.index(selected_answer)
+        update_progress(session_state['progress_data']['id'], current_item['id'], answer_index)
+        explanation = current_item['content']['explanation']
+        session_state['current_item_index'] += 1
+        return session_state, explanation, gr.update(visible=True), gr.update(visible=False), ""
+
+    if current_item['item_type'] == 'slide':
+        session_state['current_item_index'] += 1
+
+    if session_state['current_item_index'] >= len(session_state['level_content']):
+        return session_state, "🎉 Level Complete! 🎉", gr.update(visible=False), gr.update(visible=False), ""
+
+    next_item = session_state['level_content'][session_state['current_item_index']]
+    if next_item['item_type'] == 'slide':
+        return session_state, next_item['content'], gr.update(visible=True), gr.update(visible=False), ""
+    else:
+        quiz_content = next_item['content']
+        return session_state, f"### {quiz_content['question']}", gr.update(visible=False), gr.update(visible=True,
+                                                                                                     choices=
+                                                                                                     quiz_content[
+                                                                                                         'options'],
+                                                                                                     value=None), ""
+
+
+# --- Gradio UI Definition ---
+def create_and_launch_ui():
+    with gr.Blocks(theme=gr.themes.Soft(), title="Noodl Backend Tester") as demo:
+        # ... (The entire gr.Blocks definition is the same as the previous response)
+        gr.Markdown("# 🍜 Noodl Backend Tester (Full Suite)")
+        with gr.Tabs():
+            with gr.TabItem("🎓 Interactive Learner"):
+                session_state = gr.State(None)
+                with gr.Row():
+                    learner_wallet_input = gr.Textbox(label="Learner's Wallet Address", placeholder="0x...")
+                    learner_path_id_input = gr.Number(label="Path ID to Learn", precision=0)
+                start_session_btn = gr.Button("🚀 Start Learning Session", variant="primary")
+                gr.Markdown("---")
+                content_display = gr.Markdown(label="Lesson Content")
+                with gr.Row():
+                    next_slide_btn = gr.Button("➡️ Next", visible=True)
+                    quiz_choices = gr.Radio(label="Quiz Answer", visible=False)
+                session_progress_output = gr.JSON(label="Session Progress Record")
+                start_session_btn.click(fn=start_interactive_session,
+                                        inputs=[learner_wallet_input, learner_path_id_input],
+                                        outputs=[session_progress_output, session_state, content_display,
+                                                 next_slide_btn, quiz_choices])
+                next_slide_btn.click(fn=process_next_step, inputs=[session_state],
+                                     outputs=[session_state, content_display, next_slide_btn, quiz_choices,
+                                              gr.Textbox(value="", visible=False)])
+                quiz_choices.change(fn=process_next_step, inputs=[session_state, quiz_choices],
+                                    outputs=[session_state, content_display, next_slide_btn, quiz_choices,
+                                             gr.Textbox(value="", visible=False)])
+
+            with gr.TabItem("📚 Paths & Content"):
+                with gr.Accordion("Generate New Path (with Live Progress)", open=True):
+                    gr.Markdown("Watch the generation progress by polling the status endpoint.")
+                    with gr.Row():
+                        gen_topic_input = gr.Textbox(label="Learning Topic", scale=2)
+                        gen_wallet_input = gr.Textbox(label="Creator's Wallet Address", scale=2)
+                    generate_ws_btn = gr.Button("✨ Generate Path & Watch Progress", variant="primary")
+                    progress_log = gr.Textbox(label="Live Generation Log", lines=15, interactive=False)
+                    generate_ws_btn.click(generate_path_with_progress, [gen_topic_input, gen_wallet_input],
+                                          progress_log)
+
+                with gr.Accordion("View Existing Content", open=False):
+                    refresh_paths_btn = gr.Button("🔄 Refresh Path List")
+                    path_list_output = gr.JSON(label="Available Paths")
+                    refresh_paths_btn.click(get_all_paths, [], path_list_output)
+                    with gr.Row():
+                        view_path_id_input = gr.Number(label="Path ID", precision=0)
+                        view_level_num_input = gr.Number(label="Level Number", precision=0)
+                    get_content_btn = gr.Button("📚 Get Level Content")
+                    level_content_output = gr.JSON(label="Level Content (Interleaved)")
+                    get_content_btn.click(get_level_content, [view_path_id_input, view_level_num_input],
+                                          level_content_output)
+
+            with gr.TabItem("👤 Users"):
+                gr.Markdown("Create and manage users.")
+                with gr.Row():
+                    user_wallet_input = gr.Textbox(label="User Wallet Address")
+                    user_name_input = gr.Textbox(label="Name")
+                    user_country_input = gr.Textbox(label="Country")
+                create_user_btn = gr.Button("Create/Update User")
+                get_user_btn = gr.Button("Get User by Wallet")
+                user_output = gr.JSON()
+                create_user_btn.click(create_user, [user_wallet_input, user_name_input, user_country_input],
+                                      user_output)
+                get_user_btn.click(get_user, [user_wallet_input], user_output)
+
+            with gr.TabItem("🏃‍♂️ Progress & Scoring"):
+                gr.Markdown("Track user progress and view scores.")
+                with gr.Row():
+                    prog_wallet_input = gr.Textbox(label="User Wallet")
+                    prog_path_id_input = gr.Number(label="Path ID", precision=0)
+                start_prog_btn = gr.Button("Start/Get Progress")
+                progress_output = gr.JSON(label="Progress Record")
+                start_prog_btn.click(start_progress, [prog_wallet_input, prog_path_id_input], progress_output)
+                with gr.Accordion("Log a Quiz Attempt", open=False):
+                    log_prog_id_input = gr.Number(label="Progress ID (from above)", precision=0)
+                    log_item_id_input = gr.Number(label="Content Item ID (of the quiz)", precision=0)
+                    log_answer_idx_input = gr.Number(label="User's Answer Index (0-3)", precision=0)
+                    log_attempt_btn = gr.Button("Log Attempt")
+                    log_output = gr.JSON()
+                    log_attempt_btn.click(update_progress, [log_prog_id_input, log_item_id_input, log_answer_idx_input],
+                                          log_output)
+                with gr.Accordion("Fetch User Scores", open=False):
+                    score_wallet_input = gr.Textbox(label="User Wallet to Fetch Scores For")
+                    get_scores_btn = gr.Button("Get Scores")
+                    scores_output = gr.JSON()
+                    get_scores_btn.click(get_scores, [score_wallet_input], scores_output)
+
+            with gr.TabItem("🏆 Mint NFT"):
+                gr.Markdown("Mint an NFT certificate for completing a path.")
+                with gr.Row():
+                    mint_path_id_input = gr.Number(label="Completed Path ID", precision=0)
+                    mint_wallet_input = gr.Textbox(label="User's Wallet to Receive NFT")
+                mint_btn = gr.Button("🏆 Mint NFT")
+                mint_output = gr.JSON(label="Minting Result")
+                mint_btn.click(mint_nft, [mint_path_id_input, mint_wallet_input], mint_output)
+
+    demo.launch(server_name="0.0.0.0", server_port=7000)

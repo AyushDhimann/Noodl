@@ -11,7 +11,7 @@ class Config:
     """
     # Feature Flags
     RUN_API_SERVER = os.getenv("RUN_API_SERVER", "true").lower() == "true"
-    RUN_TESTING_UI = os.getenv("RUN_TESTING_UI", "false").lower() == "true"
+    RUN_TESTING_UI = os.getenv("RUN_TESTING_UI", "true").lower() == "true"
     FEATURE_FLAG_ENABLE_BLOCKCHAIN_REGISTRATION = os.getenv("FEATURE_FLAG_ENABLE_BLOCKCHAIN_REGISTRATION",
                                                             "true").lower() == "true"
     FEATURE_FLAG_ENABLE_NFT_MINTING = os.getenv("FEATURE_FLAG_ENABLE_NFT_MINTING", "true").lower() == "true"
