@@ -75,7 +75,7 @@ class GenerateNoodlPage extends StatelessWidget {
                                 builder: (context, snapshot) {
                                   provider.logsDisplayScrollToBottom();
                                   if (snapshot.connectionState == ConnectionState.waiting && !snapshot.hasData) {
-                                    return const CupertinoActivityIndicator();
+                                    return  LoadingStartingGenerationWidget();
                                   } else if (snapshot.hasError) {
                                     return Text('Error: ${snapshot.error}');
                                   } else if (snapshot.hasData) {
@@ -88,7 +88,8 @@ class GenerateNoodlPage extends StatelessWidget {
                               )
                             : const SizedBox.shrink(),
                             // StartingGenerationWidget() 
-                      // LogsDisplay(items: testData.logdisplaytestdata)
+                      // LogsDisplay(items: testData.logdisplaytestdata),
+                      // SizedBox(height: 12,),
                       Align(
                         alignment: Alignment.centerLeft,
                         child: Text(
