@@ -81,3 +81,26 @@ BEGIN
   LIMIT match_count;
 END;
 $$;
+
+-- 8. TASK PROGRESS LOGS TABLE (NEW)
+CREATE TABLE task_progress_logs (
+    task_id UUID PRIMARY KEY,
+    logs JSONB,
+    created_at TIMESTAMPTZ DEFAULT now(),
+    updated_at TIMESTAMPTZ DEFAULT now()
+);
+
+-- Function to update the updated_at timestamp automatically
+CREATE OR REPLACE FUNCTION trigger_set_timestamp()
+RETURNS TRIGGER AS $$
+BEGIN
+  NEW.updated_at = NOW();
+  RETURN NEW;
+END;
+$$ LANGUAGE plpgsql;
+
+-- Trigger to update the timestamp on row update
+CREATE TRIGGER set_timestamp
+BEFORE UPDATE ON task_progress_logs
+FOR EACH ROW
+EXECUTE PROCEDURE trigger_set_timestamp();

@@ -9,16 +9,22 @@ The complete backend for **Noodl**, a next-generation, AI-powered educational pl
 
 ## ✨ Features
 
-- **Dynamic AI Curriculum:** Automatically generates a full, multi-level curriculum for any given topic using Google Gemini.
-- **Interleaved Learning:** Creates a rich learning experience with a mix of detailed markdown-based slides and interactive quizzes.
-- **Duplicate Path Detection:** Uses vector embeddings to check for and prevent the creation of learning paths with highly similar topics.
+- **AI-Powered Content Generation:**
+    - **Title Enhancement:** Automatically rephrases user topics into engaging, course-like titles and prepends a relevant emoji.
+    - **Dynamic Curriculum:** Generates a full, multi-level curriculum for any given topic using Google Gemini.
+    - **Interleaved Learning:** Creates a rich learning experience with a mix of detailed markdown-based slides and interactive quizzes.
+- **Robust & Reliable Generation:**
+    - **Persistent Asynchronous Progress:** Uses a database-backed queue, so the status of long-running generation tasks can be checked even after a server restart.
+    - **API Retry Mechanism:** Automatically retries failed AI API calls to handle transient network issues.
+    - **Atomic Operations:** Ensures that if path generation fails midway, any incomplete data is automatically cleaned up from the database.
+- **Duplicate Path Detection:** Uses vector embeddings on the AI-enhanced title to check for and prevent the creation of highly similar learning paths *before* generation begins.
 - **Web3 Integration:**
     - **Immutable Proof:** Registers a hash of each learning path's content on the Ethereum blockchain for tamper-proof verification.
     - **NFT Certificates:** Mints unique, on-chain SVG-based NFT certificates to users upon path completion.
-- **User-Friendly Asynchronous Progress:** Uses a background thread and a polling endpoint to provide clear, user-friendly status updates for long-running content generation tasks, including a direct link to the blockchain transaction.
-- **Live Progress Tracking:** Logs a user's real-time location within a learning path as they navigate through content.
-- **Scalable Architecture:** Built with a modular, service-oriented structure for easy maintenance and expansion.
-- **Comprehensive Testing UI:** Includes a standalone Gradio interface for testing all API endpoints and simulating the user learning experience.
+- **Path & Progress Management:**
+    - **Live Progress Tracking:** Logs a user's real-time location within a learning path as they navigate through content.
+    - **Secure Deletion:** Provides an endpoint for a path's original creator to delete their content.
+- **Comprehensive Testing UI:** Includes a standalone Gradio interface with a modern aesthetic for testing all API endpoints and simulating the user learning experience.
 
 ---
 
@@ -137,7 +143,7 @@ FEATURE_FLAG_ENABLE_DUPLICATE_CHECK="true"
 
 1.  In your Supabase project dashboard, navigate to **Database** > **Extensions**.
 2.  Search for `vector` and enable it.
-3.  Go to the **SQL Editor**, paste the entire content of `database/schema.sql`, and run the query.
+3.  Go to the **SQL Editor**, paste the entire content of `database/schema.sql`, and run the query. This script now includes the `task_progress_logs` table and a trigger function to enable persistent status tracking.
 
 ---
 
@@ -158,11 +164,10 @@ This will:
 
 ### Using the Testing UI
 
-Navigate to `http://localhost:7000` in your browser. The UI is organized into tabs that allow you to test every feature of the backend:
-- **Interactive Learner:** Simulate a user's journey through a lesson, with live progress tracking.
-- **Paths & Content:** Generate new learning paths with real-time, user-friendly progress updates.
-- **Users:** Create, manage, and view user profiles and their created paths.
-- **Progress & Scoring:** Track user progress and fetch scores.
+Navigate to `http://localhost:7000` in your browser. The redesigned UI is organized into tabs that allow you to test every feature of the backend:
+- **Generate:** Create new learning paths with real-time, persistent progress updates.
+- **Learn:** Simulate a user's journey through a lesson, with live progress tracking.
+- **Data & Users:** Create, manage, and view user profiles and their created paths. Includes a "Danger Zone" for deleting paths.
 - **Mint NFT:** Award a certificate of completion.
 
 ---
@@ -180,10 +185,12 @@ The backend exposes the following RESTful API endpoints:
 
 #### Path Routes (`/paths`)
 - `GET /paths`: Get a list of all available learning paths.
-- `POST /paths/generate`: **(Async)** Starts a background task to generate a new path and returns a `task_id`. Returns `409 Conflict` if a similar path exists.
+- `POST /paths/generate`: **(Async)** Starts a background task to generate a new path. Returns a `task_id`.
   - **Body Example**: `{"topic": "Quantum Computing", "creator_wallet": "0x..."}`
-- `GET /paths/generate/status/<task_id>`: Poll this endpoint to get progress updates for a generation task.
+- `GET /paths/generate/status/<task_id>`: **(Persistent)** Poll this endpoint to get progress updates for a generation task. Status survives server restarts.
 - `GET /paths/<id>/levels/<num>`: Get the interleaved content for a specific level.
+- `DELETE /paths/<path_id>`: Deletes a learning path. The request must be made by the original creator.
+  - **Body Example**: `{"user_wallet": "0x..."}`
 
 #### Progress Routes
 - `POST /progress/start`: Start a learning path for a user or get existing progress.

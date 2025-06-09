@@ -20,10 +20,7 @@ def get_paths_by_creator(wallet_address):
 
 def get_path_count_by_creator(wallet_address):
     """Efficiently gets the count of paths created by a user."""
-    # Using count='exact' is more efficient than fetching all rows.
-    # We select a minimal column ('id') just to perform the count query.
     response = supabase_client.table('learning_paths').select('id', count='exact').eq('creator_wallet', wallet_address).execute()
-    # The count is an attribute on the response object
     return response.count
 
 
@@ -33,7 +30,7 @@ def get_all_paths():
 
 
 def get_path_by_id(path_id):
-    return supabase_client.table('learning_paths').select("title, description").eq('id',
+    return supabase_client.table('learning_paths').select("title, description, creator_wallet").eq('id',
                                                                                    path_id).maybe_single().execute()
 
 
@@ -42,6 +39,12 @@ def create_learning_path(title, description, creator_wallet, total_levels, embed
         "title": title, "description": description, "creator_wallet": creator_wallet,
         "total_levels": total_levels, "title_embedding": embedding
     }).execute()
+
+
+def delete_path_by_id(path_id):
+    """Deletes a path and its cascaded content. Use with care."""
+    logger.warning(f"DB: Deleting path with ID: {path_id} and all its content.")
+    return supabase_client.table('learning_paths').delete().eq('id', path_id).execute()
 
 
 def update_path_hash(path_id, content_hash):
@@ -77,6 +80,30 @@ def find_similar_paths(embedding, threshold, count):
         'match_threshold': threshold,
         'match_count': count
     }).execute()
+
+
+# --- Task Progress Log Functions (NEW) ---
+def create_task_log(task_id):
+    """Creates a new entry for a task in the logs table."""
+    return supabase_client.table('task_progress_logs').insert({
+        'task_id': task_id,
+        'logs': []
+    }).execute()
+
+
+def update_task_log(task_id, new_log_entry):
+    """Appends a new log entry to a task's log array in the database."""
+    # This uses the 'rpc' method to call a custom PostgreSQL function
+    # that appends to the JSONB array. This is more robust than fetching and updating.
+    return supabase_client.rpc('append_to_log', {
+        'task_uuid': task_id,
+        'new_log': new_log_entry
+    }).execute()
+
+
+def get_task_log(task_id):
+    """Retrieves the logs for a specific task."""
+    return supabase_client.table('task_progress_logs').select('logs').eq('task_id', task_id).single().execute()
 
 
 # --- Progress & Scoring Functions ---
