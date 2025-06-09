@@ -7,16 +7,14 @@ from app import text_model, logger
 import google.generativeai as genai
 
 
-def _call_gemini_with_retry(prompt, retries=3, delay=2):
+def _call_gemini_with_retry(prompt, retries=3, delay=5):
     """A wrapper to call the Gemini API with retry logic."""
     for attempt in range(retries):
         try:
             response = text_model.generate_content(prompt)
-            # The response might be empty or malformed, so we check it
             if response.text:
                 cleaned_response = response.text.strip().replace("```json", "").replace("```", "")
-                # Attempt to parse to ensure it's valid JSON before returning
-                json.loads(cleaned_response)
+                json.loads(cleaned_response)  # Validate JSON before returning
                 return cleaned_response
             else:
                 raise ValueError("AI returned an empty response.")
@@ -24,9 +22,8 @@ def _call_gemini_with_retry(prompt, retries=3, delay=2):
             logger.warning(f"AI: API call attempt {attempt + 1}/{retries} failed: {e}")
             if attempt + 1 == retries:
                 logger.error("AI: All retry attempts failed.")
-                raise  # Re-raise the last exception
+                raise
             time.sleep(delay)
-    # This part should not be reachable if retries > 0
     raise Exception("AI: Generation failed after all retries.")
 
 
@@ -44,25 +41,36 @@ def rephrase_topic_with_emoji(topic):
     You are a creative curriculum designer. A user has provided the topic "{topic}".
     Your task is to rephrase this topic into a more engaging and professional course title.
     Then, you MUST prepend a single, relevant emoji to the beginning of the new title.
-
     The output MUST be a single, valid JSON object with one key: "new_title".
     Do not include any text outside of the JSON object.
-
-    Example:
-    User topic: "history of rome"
-    Your output: {{"new_title": "🏛️ The Rise and Fall of the Roman Empire"}}
-
-    User topic: "quantum physics"
-    Your output: {{"new_title": "⚛️ Unlocking the Secrets of Quantum Physics"}}
     """
     cleaned_response = _call_gemini_with_retry(prompt)
     return json.loads(cleaned_response)['new_title']
 
 
+def generate_path_description(topic_title):
+    """Generates an engaging, frontend-ready description for the learning path."""
+    logger.info(f"AI: Generating description for topic: '{topic_title}'")
+    prompt = f"""
+    You are a curriculum writer for a learning app. For the course titled "{topic_title}", write a concise and engaging one-paragraph description.
+    This description will be shown to users in a course catalog. It should be exciting and clearly state what the user will learn.
+    The output MUST be a single, valid JSON object with one key: "description".
+    Do not include any text outside of the JSON object.
+    """
+    cleaned_response = _call_gemini_with_retry(prompt)
+    return json.loads(cleaned_response)['description']
+
+
 def generate_curriculum(topic):
     """Asks AI to generate a dynamic curriculum (list of level titles)."""
     logger.info(f"AI: Generating curriculum for topic: '{topic}'")
-    prompt = f"""You are an expert curriculum designer for a learning app. For the course titled "{topic}", create a detailed syllabus. The output MUST be a single, valid JSON object with one key: "levels". "levels" should be an array of strings, where each string is a concise title for a learning level. The number of levels should be appropriate for the topic's complexity (decent number of levels and depth to give maximum information along with fast and easy learning). Do not include any text outside of the JSON object. Also make sure the title of each level starts with a single, appropriate emoji."""
+    prompt = f"""You are an expert curriculum designer for a learning app. For the course titled "{topic}", create a detailed syllabus. The output MUST be a single, valid JSON object with one key: "levels". "levels" should be an array of strings, where each string is a concise title for a learning level.
+
+    IMPORTANT: The number of levels should be appropriate for the topic's complexity.
+    - For simple, everyday topics (e.g., 'how to brush your teeth'), use 3-4 levels.
+    - For complex, academic, or broad topics (e.g., 'The History of the Renaissance'), use 7-10 levels.
+
+    Do not include any text outside of the JSON object. Also make sure the title of each level starts with a single, appropriate emoji."""
     cleaned_response = _call_gemini_with_retry(prompt)
     return json.loads(cleaned_response)['levels']
 
@@ -77,7 +85,7 @@ def generate_interleaved_level_content(topic, level_title):
     "items" must be an array of objects. Each object must have a "type" ('slide' or 'quiz') and a "content" field.
 
     1.  For a 'slide' item:
-        - The "content" field should be a string containing rich markdown.
+        - The "content" field should be a string with detailed, informative markdown.
         - Use markdown for formatting: `### Subheadings`, `**bold**`, `* item 1`, `* item 2`.
         - The content should be detailed and informative, providing real value. A slide can be multiple paragraphs long.
         - Structure the lesson logically: start with an introduction, explain concepts with a few slides, then add a quiz to check understanding. Repeat this pattern 2-3 times, ending with a final quiz. A typical level should have 5-8 items in total.

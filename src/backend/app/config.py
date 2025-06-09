@@ -37,6 +37,7 @@ class Config:
 
     # App Logic
     SIMILARITY_THRESHOLD = float(os.getenv("SIMILARITY_THRESHOLD", 0.85))
+    MAX_CONCURRENT_LEVEL_GENERATORS = int(os.getenv("MAX_CONCURRENT_LEVEL_GENERATORS", 3))
 
     # Flask
     SECRET_KEY = os.getenv("FLASK_SECRET_KEY", "a_very_secret_noodl_key_for_dev")

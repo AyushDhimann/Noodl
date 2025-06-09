@@ -15,29 +15,34 @@ def update_progress(task_id, status, data=None):
     log_entry = {"status": status}
     if data:
         log_entry["data"] = data
-
-    # Use the robust Supabase service to append the log
     supabase_service.update_task_log(task_id, log_entry)
     logger.info(f"TASK [{task_id}]: {status}")
 
 
 def generation_worker(task_id, new_title, creator_wallet):
-    """The actual long-running task that generates the path."""
+    """The actual long-running task that generates the path sequentially."""
     new_path_id = None
     try:
+        # Step 1: Generate the curriculum (list of lesson titles)
         update_progress(task_id, "✅ Designing your curriculum...")
         curriculum_titles = ai_service.generate_curriculum(new_title)
         total_levels = len(curriculum_titles)
         update_progress(task_id, f"Curriculum designed with {total_levels} lessons.")
 
+        # Step 2: Generate an engaging description
+        update_progress(task_id, "✍️ Writing a course description...")
+        description = ai_service.generate_path_description(new_title)
+        update_progress(task_id, "Description generated.")
+
+        # Step 3: Save the initial path to get an ID
         update_progress(task_id, "📝 Saving path outline...")
         path_res = supabase_service.create_learning_path(
-            new_title, f"A user-generated learning path about {new_title}.",
-            creator_wallet, total_levels,
+            new_title, description, creator_wallet, total_levels,
             ai_service.get_embedding(new_title) if config.FEATURE_FLAG_ENABLE_DUPLICATE_CHECK else None
         )
         new_path_id = path_res.data[0]['id']
 
+        # Step 4: Generate and save content for each level sequentially
         update_progress(task_id, f"🧠 Generating content for {total_levels} lessons...")
         all_content_for_hash = []
         for i, level_title in enumerate(curriculum_titles):
@@ -54,6 +59,9 @@ def generation_worker(task_id, new_title, creator_wallet):
                 j, item in enumerate(interleaved_items)]
             supabase_service.create_content_items(items_to_insert)
 
+        update_progress(task_id, "✅ All lesson content has been generated and saved.")
+
+        # Step 5: Register on the blockchain
         if config.FEATURE_FLAG_ENABLE_BLOCKCHAIN_REGISTRATION:
             update_progress(task_id, "🔗 Registering path on the blockchain...")
             full_content_string = json.dumps(all_content_for_hash, sort_keys=True)
@@ -76,8 +84,7 @@ def generation_worker(task_id, new_title, creator_wallet):
         logger.error(f"TASK [{task_id}] FAILED: {e}", exc_info=True)
         update_progress(task_id, f"❌ ERROR: Path generation failed. Please check server logs for details.")
         if new_path_id:
-            logger.warning(
-                f"TASK [{task_id}]: An error occurred. Cleaning up partially generated path ID: {new_path_id}")
+            logger.warning(f"TASK [{task_id}]: An error occurred. Cleaning up partially generated path ID: {new_path_id}")
             update_progress(task_id, f"🧹 An error occurred. Cleaning up incomplete path...")
             try:
                 supabase_service.delete_path_by_id(new_path_id)
@@ -136,7 +143,6 @@ def get_generation_status(task_id):
         log_res = supabase_service.get_task_log(task_id)
         if not log_res.data:
             return jsonify({"error": "Task not found."}), 404
-        # The logs are stored in a 'logs' JSONB field
         return jsonify({"progress": log_res.data.get('logs', [])})
     except Exception as e:
         logger.error(f"STATUS ROUTE: Failed for task {task_id}: {e}", exc_info=True)
@@ -152,6 +158,19 @@ def get_all_paths_route():
     except Exception as e:
         logger.error(f"ROUTE: /paths GET failed: {e}", exc_info=True)
         return jsonify({"error": "Failed to fetch paths."}), 500
+
+
+@bp.route('/<int:path_id>', methods=['GET'])
+def get_path_details_route(path_id):
+    logger.info(f"ROUTE: /paths/<id> GET for path {path_id}")
+    try:
+        path_details = supabase_service.get_full_path_details(path_id)
+        if not path_details.data:
+            return jsonify({"error": "Path not found"}), 404
+        return jsonify(path_details.data)
+    except Exception as e:
+        logger.error(f"ROUTE: /paths/<id> GET failed: {e}", exc_info=True)
+        return jsonify({"error": "Failed to fetch path details."}), 500
 
 
 @bp.route('/<int:path_id>', methods=['DELETE'])

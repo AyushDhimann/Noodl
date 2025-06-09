@@ -82,7 +82,7 @@ BEGIN
 END;
 $$;
 
--- 8. TASK PROGRESS LOGS TABLE (NEW)
+-- 8. TASK PROGRESS LOGS TABLE
 CREATE TABLE task_progress_logs (
     task_id UUID PRIMARY KEY,
     logs JSONB,
@@ -104,3 +104,15 @@ CREATE TRIGGER set_timestamp
 BEFORE UPDATE ON task_progress_logs
 FOR EACH ROW
 EXECUTE PROCEDURE trigger_set_timestamp();
+
+-- 9. FUNCTION TO APPEND LOGS (THIS WAS MISSING)
+CREATE OR REPLACE FUNCTION append_to_log(task_uuid UUID, new_log JSONB)
+RETURNS VOID
+LANGUAGE plpgsql
+AS $$
+BEGIN
+  UPDATE task_progress_logs
+  SET logs = logs || new_log
+  WHERE task_id = task_uuid;
+END;
+$$;

@@ -34,6 +34,19 @@ def get_path_by_id(path_id):
                                                                                    path_id).maybe_single().execute()
 
 
+def get_full_path_details(path_id):
+    """
+    Fetches a single path and all its related levels and content items in one query.
+    """
+    return supabase_client.table('learning_paths').select(
+        '*, levels(*, content_items(*))'
+    ).eq('id', path_id).order(
+        'level_number', foreign_table='levels'
+    ).order(
+        'item_index', foreign_table='levels.content_items'
+    ).maybe_single().execute()
+
+
 def create_learning_path(title, description, creator_wallet, total_levels, embedding):
     return supabase_client.table('learning_paths').insert({
         "title": title, "description": description, "creator_wallet": creator_wallet,
@@ -82,7 +95,7 @@ def find_similar_paths(embedding, threshold, count):
     }).execute()
 
 
-# --- Task Progress Log Functions (NEW) ---
+# --- Task Progress Log Functions ---
 def create_task_log(task_id):
     """Creates a new entry for a task in the logs table."""
     return supabase_client.table('task_progress_logs').insert({
@@ -93,8 +106,6 @@ def create_task_log(task_id):
 
 def update_task_log(task_id, new_log_entry):
     """Appends a new log entry to a task's log array in the database."""
-    # This uses the 'rpc' method to call a custom PostgreSQL function
-    # that appends to the JSONB array. This is more robust than fetching and updating.
     return supabase_client.rpc('append_to_log', {
         'task_uuid': task_id,
         'new_log': new_log_entry

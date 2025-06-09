@@ -47,6 +47,7 @@ body {
 }
 """
 
+
 # --- API Client Functions ---
 def make_api_request(method, endpoint, payload=None, timeout=60):
     try:
@@ -86,14 +87,14 @@ def get_all_paths():
     return make_api_request("GET", f"{BACKEND_URL}/paths")
 
 
+def get_full_path(path_id):
+    if not path_id: return {"error": "Path ID is required."}
+    return make_api_request("GET", f"{BACKEND_URL}/paths/{path_id}")
+
+
 def delete_path(path_id, wallet):
     if not path_id or not wallet: return {"error": "Path ID and Wallet are required."}
     return make_api_request("DELETE", f"{BACKEND_URL}/paths/{path_id}", payload={"user_wallet": wallet})
-
-
-def get_level_content(path_id, level_num):
-    if not path_id or level_num is None: return {"error": "Path ID and Level Number are required."}
-    return make_api_request("GET", f"{BACKEND_URL}/paths/{path_id}/levels/{level_num}")
 
 
 def start_progress(wallet, path_id):
@@ -151,7 +152,7 @@ def generate_path_with_progress(topic, wallet):
                 if 'data' in item and item.get('data') and 'explorer_url' in item.get('data', {}):
                     url = item['data']['explorer_url']
                     if url:
-                        log.append(f"\n\n[🔗 View Transaction on Block Explorer](0x{url})")
+                        log.append(f"\n\n[🔗 View Transaction on Block Explorer]({url})")
 
             last_log_count = len(progress_data)
             yield "\n".join(log)
@@ -169,12 +170,12 @@ def start_interactive_session(wallet, path_id):
 
     update_location(progress_data['id'], 0)
 
-    level_content_response = get_level_content(path_id, 1)
+    level_content_response = get_full_path(path_id)
     if "error" in level_content_response:
         return progress_data, None, f"## Error Fetching Content\n\nDetails:\n\n```json\n{json.dumps(level_content_response, indent=2)}\n```", gr.update(
             visible=False), gr.update(visible=False)
 
-    items = level_content_response.get('items')
+    items = level_content_response.get('levels', [])[0].get('content_items', [])
     if not items or not isinstance(items, list) or len(items) == 0:
         return progress_data, None, "## Data Error\n\n'items' array is missing or empty.", gr.update(
             visible=False), gr.update(visible=False)
@@ -229,8 +230,8 @@ def process_next_step(session_state, selected_answer=None):
         if explanation_text:
             display_content = f"{explanation_text}\n\n---\n\n{display_content}"
         return session_state, display_content, gr.update(visible=False), gr.update(visible=True,
-                                                                                    choices=quiz_content['options'],
-                                                                                    value=None), ""
+                                                                                   choices=quiz_content['options'],
+                                                                                   value=None), ""
 
 
 # --- Gradio UI Definition ---
@@ -289,7 +290,8 @@ def create_and_launch_ui():
                             create_user_btn = gr.Button("👤 Create / Update")
                             get_user_btn = gr.Button("🔍 Get User")
                         user_output = gr.JSON(label="User Info / Path Count")
-                        create_user_btn.click(create_user, [user_wallet_input, user_name_input, user_country_input], user_output)
+                        create_user_btn.click(create_user, [user_wallet_input, user_name_input, user_country_input],
+                                              user_output)
                         get_user_btn.click(get_user, [user_wallet_input], user_output)
 
                     with gr.Column():
@@ -300,7 +302,15 @@ def create_and_launch_ui():
                             get_created_paths_count_btn = gr.Button("🔢 Get Path Count")
                         created_paths_output = gr.JSON(label="User-Created Paths")
                         get_created_paths_btn.click(get_user_created_paths, [path_wallet_input], created_paths_output)
-                        get_created_paths_count_btn.click(get_user_created_paths_count, [path_wallet_input], user_output)
+                        get_created_paths_count_btn.click(get_user_created_paths_count, [path_wallet_input],
+                                                          user_output)
+
+                with gr.Accordion("View Full Path Details", open=False):
+                    gr.Markdown("### 📖 Get a path and all its content")
+                    full_path_id_input = gr.Number(label="Path ID", precision=0)
+                    get_full_path_btn = gr.Button("🔍 Fetch Full Path")
+                    full_path_output = gr.JSON(label="Full Path Details")
+                    get_full_path_btn.click(get_full_path, [full_path_id_input], full_path_output)
 
                 with gr.Accordion("Path Deletion (Danger Zone)", open=False):
                     gr.Markdown("### 🗑️ Delete a Learning Path")
