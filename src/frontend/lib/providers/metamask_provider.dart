@@ -113,7 +113,8 @@ class MetaMaskProvider extends ChangeNotifier {
         headers: {'Content-Type': 'application/json'},
         body: json.encode({
           'wallet_address': _account,
-          'chain_id': _session!.namespaces['eip155']!.chains?.first,
+          // 'chain_id': _session!.namespaces['eip155']!.chains?.first,
+          'chain_id': _session!.namespaces['eip155']!.accounts.first.split(':')[1],
           'name': name,
           'country': country,
         }),
