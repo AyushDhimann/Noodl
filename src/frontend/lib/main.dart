@@ -1,10 +1,17 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:frontend/pages/home.dart';
+import 'package:frontend/pages/home.dart';
 import 'package:frontend/pages/login.dart';
 import 'package:frontend/pages/onboarding_page.dart';
+import 'package:frontend/providers/generate_page_provider.dart';
 import 'package:frontend/providers/metamask_provider.dart';
+import 'package:frontend/test/metamasktest.dart';
+import 'package:frontend/test/metamasktest.dart';
+import 'package:frontend/pages/quiz.dart';
 import 'package:frontend/providers/quiz_page_provider.dart';
+import 'package:frontend/test/metamask_service.dart';
+import 'package:frontend/test/metamask_service.dart';
 import 'package:provider/provider.dart';
 
 void main() {
@@ -20,12 +27,18 @@ class MyApp extends StatelessWidget {
     SystemChrome.setSystemUIOverlayStyle(SystemUiOverlayStyle.light);
     return MultiProvider(
       providers: [
-        ChangeNotifierProvider(create: (context) => QuizPageProvider()),
-        ChangeNotifierProvider(create: (context) => MetaMaskProvider()),
+        ChangeNotifierProvider(create: (context) => QuizPageProvider(),),
+        ChangeNotifierProvider(create: (context) => GeneratePageProvider(),),
+        ChangeNotifierProvider(create: (context) => MetaMaskProvider(),)
       ],
       child: MaterialApp(
         debugShowCheckedModeBanner: false,
-        theme: ThemeData.dark(useMaterial3: true),
+        theme: ThemeData.dark(
+          useMaterial3: true
+        ),
+        // ignore: prefer_const_constructors
+        // home: QuizPage(),
+        // home: LoginPage(),
         home: Consumer<MetaMaskProvider>(
           builder: (context, provider, child) {
             if (provider.isConnected && provider.isOnboardingComplete) {
@@ -37,6 +50,29 @@ class MyApp extends StatelessWidget {
             }
           },
         ),
+        // ignore: prefer_const_constructors
+      //   home: StreamBuilder(
+      //   stream: FirebaseAuth.instance.authStateChanges(),
+      //   builder: (context, snapshot) {
+      //     if(snapshot.hasData){
+      //       return const QuizPage();
+      //     } else {
+      //       return const LoginPage();
+      //     }
+      //   },
+      // ),
+        // home: HomePage(),
+      //   home: StreamBuilder(
+      //   stream: FirebaseAuth.instance.authStateChanges(),
+      //   builder: (context, snapshot) {
+      //     if(snapshot.hasData){
+      //       return const QuizPage();
+      //     } else {
+      //       return const LoginPage();
+      //     }
+      //   },
+      // ),
+        // home: HomePage(),
       ),
     );
   }
