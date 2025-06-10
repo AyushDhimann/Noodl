@@ -6,6 +6,10 @@ from datetime import datetime, timezone
 def get_user_by_wallet(wallet_address):
     return supabase_client.table('users').select('id').eq('wallet_address', wallet_address).maybe_single().execute()
 
+def get_user_by_wallet_full(wallet_address):
+    """Fetches the full user object, not just the ID."""
+    return supabase_client.table('users').select('*').eq('wallet_address', wallet_address).maybe_single().execute()
+
 
 def upsert_user(wallet_address, name, country):
     return supabase_client.table('users').upsert({

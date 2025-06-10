@@ -54,17 +54,22 @@ def generate_path_description(topic_title):
     prompt = f"""
     You are a curriculum writer for a learning app. For the course titled "{topic_title}", write a concise and engaging one-paragraph description.
     This description will be shown to users in a course catalog. It should be exciting and clearly state what the user will learn.
-    The output MUST be a single, valid JSON object with one key, please keep it a single sentence, doesn't have to be detailed, just an overview of what is what please: "description".
+    The output MUST be a single, valid JSON object with one key: "description".
     Do not include any text outside of the JSON object.
     """
     cleaned_response = _call_gemini_with_retry(prompt)
     return json.loads(cleaned_response)['description']
 
 
-def generate_curriculum(topic):
+def generate_curriculum(topic, country=None):
     """Asks AI to generate a dynamic curriculum (list of level titles)."""
-    logger.info(f"AI: Generating curriculum for topic: '{topic}'")
-    prompt = f"""You are an expert curriculum designer for a learning app. For the course titled "{topic}", create a detailed syllabus. The output MUST be a single, valid JSON object with one key: "levels". "levels" should be an array of strings, where each string is a concise title for a learning level.
+    logger.info(f"AI: Generating curriculum for topic: '{topic}' with country context: {country}")
+
+    country_context = f"The user is from {country}, so you can use local examples or spellings if relevant, but it's not a requirement." if country else ""
+
+    prompt = f"""You are an expert curriculum designer for a learning app. For the course titled "{topic}", create a detailed syllabus. {country_context}
+
+    The output MUST be a single, valid JSON object with one key: "levels". "levels" should be an array of strings, where each string is a concise title for a learning level.
 
     IMPORTANT: The number of levels should be appropriate for the topic's complexity.
     - For simple, everyday topics (e.g., 'how to brush your teeth'), use 3-4 levels.
@@ -113,7 +118,7 @@ def generate_nft_svg(title):
         return svg_code
     except Exception as e:
         logger.error(f"AI: Failed to generate NFT SVG, creating fallback image: {e}")
-        img = Image.new('RGB', (512, 512), color = '#1a1a1a')
+        img = Image.new('RGB', (512, 512), color='#1a1a1a')
         d = ImageDraw.Draw(img)
         try:
             title_font = ImageFont.truetype("DejaVuSans.ttf", 32)
@@ -123,7 +128,7 @@ def generate_nft_svg(title):
             subtitle_font = ImageFont.load_default()
         d.text((256, 220), "Noodl Certificate", font=title_font, fill="#FFFFFF", anchor="ms")
         d.text((256, 260), title, font=subtitle_font, fill="#DDDDDD", anchor="ms")
-        d.rectangle([(20,20), (512-20,512-20)], outline="#4ECDC4", width=5)
+        d.rectangle([(20, 20), (512 - 20, 512 - 20)], outline="#4ECDC4", width=5)
         buffer = BytesIO()
         img.save(buffer, format="PNG")
         png_b64 = base64.b64encode(buffer.getvalue()).decode('utf-8')

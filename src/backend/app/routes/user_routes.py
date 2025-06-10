@@ -1,6 +1,6 @@
 from flask import Blueprint, request, jsonify
 from app import logger
-from app.services import supabase_service
+from app.services import user_service # Import the new service
 
 bp = Blueprint('user_routes', __name__, url_prefix='/users')
 
@@ -14,9 +14,14 @@ def create_user_route():
         return jsonify({"error": "wallet_address is required"}), 400
 
     try:
-        user_res = supabase_service.upsert_user(wallet_address, data.get('name'), data.get('country'))
+        # Use the new service function with the checkpoint logic
+        user_res = user_service.upsert_user_with_checkpoint(
+            wallet_address,
+            data.get('name'),
+            data.get('country')
+        )
         logger.info(f"ROUTE: User data upserted for wallet: {wallet_address}")
-        return jsonify(user_res.data[0]), 201
+        return jsonify(user_res.data), 201
     except Exception as e:
         logger.error(f"ROUTE: /users POST failed: {e}", exc_info=True)
         return jsonify({"error": "Failed to create or update user."}), 500
@@ -26,7 +31,8 @@ def create_user_route():
 def get_user_route(wallet_address):
     logger.info(f"ROUTE: /users GET for wallet: {wallet_address}")
     try:
-        user_res = supabase_service.get_user_by_wallet(wallet_address)
+        # Use the full user data fetch for consistency
+        user_res = user_service.supabase_service.get_user_by_wallet_full(wallet_address)
         if not user_res or not user_res.data:
             return jsonify({"error": "User not found"}), 404
         return jsonify(user_res.data)
@@ -39,7 +45,7 @@ def get_user_route(wallet_address):
 def get_user_created_paths_route(wallet_address):
     logger.info(f"ROUTE: /users/<wallet>/paths GET for wallet: {wallet_address}")
     try:
-        paths_res = supabase_service.get_paths_by_creator(wallet_address)
+        paths_res = user_service.supabase_service.get_paths_by_creator(wallet_address)
         return jsonify(paths_res.data)
     except Exception as e:
         logger.error(f"ROUTE: /users/<wallet>/paths GET failed: {e}", exc_info=True)
@@ -50,7 +56,7 @@ def get_user_created_paths_route(wallet_address):
 def get_user_created_paths_count_route(wallet_address):
     logger.info(f"ROUTE: /users/<wallet>/paths/count GET for wallet: {wallet_address}")
     try:
-        count = supabase_service.get_path_count_by_creator(wallet_address)
+        count = user_service.supabase_service.get_path_count_by_creator(wallet_address)
         return jsonify({
             "creator_wallet": wallet_address,
             "path_count": count

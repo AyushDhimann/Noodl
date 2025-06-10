@@ -19,22 +19,19 @@ def update_progress(task_id, status, data=None):
     logger.info(f"TASK [{task_id}]: {status}")
 
 
-def generation_worker(task_id, new_title, creator_wallet):
+def generation_worker(task_id, new_title, creator_wallet, country=None):
     """The actual long-running task that generates the path sequentially."""
     new_path_id = None
     try:
-        # Step 1: Generate the curriculum (list of lesson titles)
         update_progress(task_id, "✅ Designing your curriculum...")
-        curriculum_titles = ai_service.generate_curriculum(new_title)
+        curriculum_titles = ai_service.generate_curriculum(new_title, country)
         total_levels = len(curriculum_titles)
         update_progress(task_id, f"Curriculum designed with {total_levels} lessons.")
 
-        # Step 2: Generate an engaging description
         update_progress(task_id, "✍️ Writing a course description...")
         description = ai_service.generate_path_description(new_title)
         update_progress(task_id, "Description generated.")
 
-        # Step 3: Save the initial path to get an ID
         update_progress(task_id, "📝 Saving path outline...")
         path_res = supabase_service.create_learning_path(
             new_title, description, creator_wallet, total_levels,
@@ -42,7 +39,6 @@ def generation_worker(task_id, new_title, creator_wallet):
         )
         new_path_id = path_res.data[0]['id']
 
-        # Step 4: Generate and save content for each level sequentially
         update_progress(task_id, f"🧠 Generating content for {total_levels} lessons...")
         all_content_for_hash = []
         for i, level_title in enumerate(curriculum_titles):
@@ -61,7 +57,6 @@ def generation_worker(task_id, new_title, creator_wallet):
 
         update_progress(task_id, "✅ All lesson content has been generated and saved.")
 
-        # Step 5: Register on the blockchain
         if config.FEATURE_FLAG_ENABLE_BLOCKCHAIN_REGISTRATION:
             update_progress(task_id, "🔗 Registering path on the blockchain...")
             full_content_string = json.dumps(all_content_for_hash, sort_keys=True)
@@ -84,7 +79,8 @@ def generation_worker(task_id, new_title, creator_wallet):
         logger.error(f"TASK [{task_id}] FAILED: {e}", exc_info=True)
         update_progress(task_id, f"❌ ERROR: Path generation failed. Please check server logs for details.")
         if new_path_id:
-            logger.warning(f"TASK [{task_id}]: An error occurred. Cleaning up partially generated path ID: {new_path_id}")
+            logger.warning(
+                f"TASK [{task_id}]: An error occurred. Cleaning up partially generated path ID: {new_path_id}")
             update_progress(task_id, f"🧹 An error occurred. Cleaning up incomplete path...")
             try:
                 supabase_service.delete_path_by_id(new_path_id)
@@ -105,6 +101,10 @@ def generate_new_path_route():
         return jsonify({"error": "topic and creator_wallet are required"}), 400
 
     try:
+        # Get user's country for context
+        user_res = supabase_service.get_user_by_wallet_full(creator_wallet)
+        country = user_res.data.get('country') if user_res.data else None
+
         logger.info(f"AI REPHRASE: Improving topic '{topic}'")
         new_title = ai_service.rephrase_topic_with_emoji(topic)
         logger.info(f"AI REPHRASE: New title is '{new_title}'")
@@ -127,7 +127,7 @@ def generate_new_path_route():
         task_id = str(uuid.uuid4())
         supabase_service.create_task_log(task_id)
 
-        thread = threading.Thread(target=generation_worker, args=(task_id, new_title, creator_wallet))
+        thread = threading.Thread(target=generation_worker, args=(task_id, new_title, creator_wallet, country))
         thread.start()
 
         return jsonify({"message": "Path generation started.", "task_id": task_id}), 202
@@ -164,10 +164,29 @@ def get_all_paths_route():
 def get_path_details_route(path_id):
     logger.info(f"ROUTE: /paths/<id> GET for path {path_id}")
     try:
-        path_details = supabase_service.get_full_path_details(path_id)
-        if not path_details.data:
+        path_details_res = supabase_service.get_full_path_details(path_id)
+        if not path_details_res.data:
             return jsonify({"error": "Path not found"}), 404
-        return jsonify(path_details.data)
+
+        path_data = path_details_res.data
+
+        # Calculate total slides and questions
+        total_slides = 0
+        total_questions = 0
+        if 'levels' in path_data and path_data['levels']:
+            for level in path_data['levels']:
+                if 'content_items' in level and level['content_items']:
+                    for item in level['content_items']:
+                        if item['item_type'] == 'slide':
+                            total_slides += 1
+                        elif item['item_type'] == 'quiz':
+                            total_questions += 1
+
+        # Add counts to the response
+        path_data['total_slides'] = total_slides
+        path_data['total_questions'] = total_questions
+
+        return jsonify(path_data)
     except Exception as e:
         logger.error(f"ROUTE: /paths/<id> GET failed: {e}", exc_info=True)
         return jsonify({"error": "Failed to fetch path details."}), 500

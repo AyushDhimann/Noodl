@@ -309,7 +309,7 @@ def create_and_launch_ui():
                     gr.Markdown("### 📖 Get a path and all its content")
                     full_path_id_input = gr.Number(label="Path ID", precision=0)
                     get_full_path_btn = gr.Button("🔍 Fetch Full Path")
-                    full_path_output = gr.JSON(label="Full Path Details")
+                    full_path_output = gr.JSON(label="Full Path Details (includes total slide/question counts)")
                     get_full_path_btn.click(get_full_path, [full_path_id_input], full_path_output)
 
                 with gr.Accordion("Path Deletion (Danger Zone)", open=False):
