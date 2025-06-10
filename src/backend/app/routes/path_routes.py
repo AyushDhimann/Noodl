@@ -23,15 +23,18 @@ def generation_worker(task_id, new_title, creator_wallet, country=None):
     """The actual long-running task that generates the path sequentially."""
     new_path_id = None
     try:
+        # Step 1: Generate the curriculum (list of lesson titles)
         update_progress(task_id, "✅ Designing your curriculum...")
         curriculum_titles = ai_service.generate_curriculum(new_title, country)
         total_levels = len(curriculum_titles)
         update_progress(task_id, f"Curriculum designed with {total_levels} lessons.")
 
+        # Step 2: Generate an engaging description
         update_progress(task_id, "✍️ Writing a course description...")
         description = ai_service.generate_path_description(new_title)
         update_progress(task_id, "Description generated.")
 
+        # Step 3: Save the initial path to get an ID
         update_progress(task_id, "📝 Saving path outline...")
         path_res = supabase_service.create_learning_path(
             new_title, description, creator_wallet, total_levels,
@@ -39,6 +42,7 @@ def generation_worker(task_id, new_title, creator_wallet, country=None):
         )
         new_path_id = path_res.data[0]['id']
 
+        # Step 4: Generate and save content for each level sequentially
         update_progress(task_id, f"🧠 Generating content for {total_levels} lessons...")
         all_content_for_hash = []
         for i, level_title in enumerate(curriculum_titles):
@@ -57,6 +61,7 @@ def generation_worker(task_id, new_title, creator_wallet, country=None):
 
         update_progress(task_id, "✅ All lesson content has been generated and saved.")
 
+        # Step 5: Register on the blockchain
         if config.FEATURE_FLAG_ENABLE_BLOCKCHAIN_REGISTRATION:
             update_progress(task_id, "🔗 Registering path on the blockchain...")
             full_content_string = json.dumps(all_content_for_hash, sort_keys=True)
@@ -170,7 +175,7 @@ def get_path_details_route(path_id):
 
         path_data = path_details_res.data
 
-        # Calculate total slides and questions
+        # Calculate total slides and questions for the entire path
         total_slides = 0
         total_questions = 0
         if 'levels' in path_data and path_data['levels']:
@@ -182,7 +187,6 @@ def get_path_details_route(path_id):
                         elif item['item_type'] == 'quiz':
                             total_questions += 1
 
-        # Add counts to the response
         path_data['total_slides'] = total_slides
         path_data['total_questions'] = total_questions
 
@@ -218,12 +222,28 @@ def delete_path_route(path_id):
 def get_level_content_route(path_id, level_num):
     logger.info(f"ROUTE: /paths/.../levels GET for path {path_id}, level {level_num}")
     try:
-        level = supabase_service.get_level(path_id, level_num)
-        if not level.data:
+        level_res = supabase_service.get_level(path_id, level_num)
+        if not level_res.data:
             return jsonify({"error": "Level not found"}), 404
 
-        items = supabase_service.get_content_items_for_level(level.data['id'])
-        return jsonify({"level_title": level.data['level_title'], "items": items.data})
+        items_res = supabase_service.get_content_items_for_level(level_res.data['id'])
+        items = items_res.data
+
+        # Calculate counts for this specific level
+        level_slides = 0
+        level_questions = 0
+        for item in items:
+            if item.get('item_type') == 'slide':
+                level_slides += 1
+            elif item.get('item_type') == 'quiz':
+                level_questions += 1
+
+        return jsonify({
+            "level_title": level_res.data['level_title'],
+            "total_slides_in_level": level_slides,
+            "total_questions_in_level": level_questions,
+            "items": items
+        })
     except Exception as e:
         logger.error(f"ROUTE: /paths/.../levels GET failed: {e}", exc_info=True)
         return jsonify({"error": "Failed to fetch level content."}), 500

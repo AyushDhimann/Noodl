@@ -92,6 +92,11 @@ def get_full_path(path_id):
     return make_api_request("GET", f"{BACKEND_URL}/paths/{path_id}")
 
 
+def get_level_content(path_id, level_num):
+    if not path_id or level_num is None: return {"error": "Path ID and Level Number are required."}
+    return make_api_request("GET", f"{BACKEND_URL}/paths/{path_id}/levels/{level_num}")
+
+
 def delete_path(path_id, wallet):
     if not path_id or not wallet: return {"error": "Path ID and Wallet are required."}
     return make_api_request("DELETE", f"{BACKEND_URL}/paths/{path_id}", payload={"user_wallet": wallet})
@@ -305,12 +310,22 @@ def create_and_launch_ui():
                         get_created_paths_count_btn.click(get_user_created_paths_count, [path_wallet_input],
                                                           user_output)
 
-                with gr.Accordion("View Full Path Details", open=False):
+                with gr.Accordion("View Path & Level Details", open=False):
                     gr.Markdown("### 📖 Get a path and all its content")
-                    full_path_id_input = gr.Number(label="Path ID", precision=0)
-                    get_full_path_btn = gr.Button("🔍 Fetch Full Path")
+                    with gr.Row():
+                        full_path_id_input = gr.Number(label="Path ID", precision=0)
+                        get_full_path_btn = gr.Button("🔍 Fetch Full Path")
                     full_path_output = gr.JSON(label="Full Path Details (includes total slide/question counts)")
                     get_full_path_btn.click(get_full_path, [full_path_id_input], full_path_output)
+
+                    gr.Markdown("### 📚 Get a specific level's content")
+                    with gr.Row():
+                        view_path_id_input = gr.Number(label="Path ID", precision=0)
+                        view_level_num_input = gr.Number(label="Level Number", precision=0)
+                    get_content_btn = gr.Button("🔍 Get Level Content")
+                    level_content_output = gr.JSON(label="Level Content (with slide/question counts)")
+                    get_content_btn.click(get_level_content, [view_path_id_input, view_level_num_input],
+                                          level_content_output)
 
                 with gr.Accordion("Path Deletion (Danger Zone)", open=False):
                     gr.Markdown("### 🗑️ Delete a Learning Path")
