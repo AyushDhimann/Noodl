@@ -165,188 +165,181 @@ python main.py
 ## 🔌 API Endpoint Documentation
 
 ### User Routes
-Base URL: `/users`
+- **Create or Update a User**  
+  **Endpoint**: `POST /users`  
+  **Description**: Creates a new user record or updates an existing one based on the provided wallet address. This is an "upsert" operation.
+  - **Request Body**:
+    ```json
+    {
+      "wallet_address": "0xAb5801a7D398351b8bE11C439e05C5B3259aeC9B",
+      "name": "Alice",
+      "country": "USA"
+    }
+    ```
+  - **Success Response (201)**: Returns the created or updated user object.
+  - **Error Response (400)**: If `wallet_address` is missing.
 
-#### Create or Update a User
-- **Endpoint**: `POST /`
-- **Description**: Creates a new user record or updates an existing one based on the provided wallet address. This is an "upsert" operation.
-- **Request Body**:
-  ```json
-  {
-    "wallet_address": "0xAb5801a7D398351b8bE11C439e05C5B3259aeC9B",
-    "name": "Alice",
-    "country": "USA"
-  }
-  ```
-- **Success Response (201)**: Returns the created or updated user object.
-- **Error Response (400)**: If `wallet_address` is missing.
+- **Get User Profile**  
+  **Endpoint**: `GET /users/<wallet_address>`  
+  **Description**: Retrieves the profile information for a single user.
+  - **URL Parameters**:
+    - `wallet_address` (string): The user's public wallet address.
+  - **Success Response (200)**: Returns the user object.
+  - **Error Response (404)**: If no user is found with the given address.
 
-#### Get User Profile
-- **Endpoint**: `GET /<wallet_address>`
-- **Description**: Retrieves the profile information for a single user.
-- **URL Parameters**:
-  - `wallet_address` (string): The user's public wallet address.
-- **Success Response (200)**: Returns the user object.
-- **Error Response (404)**: If no user is found with the given address.
+- **Get User-Created Paths**  
+  **Endpoint**: `GET /users/<wallet_address>/paths`  
+  **Description**: Retrieves a list of all learning paths created by a specific user.
+  - **URL Parameters**:
+    - `wallet_address` (string): The creator's public wallet address.
+  - **Success Response (200)**: Returns an array of learning path objects.
 
-#### Get User-Created Paths
-- **Endpoint**: `GET /<wallet_address>/paths`
-- **Description**: Retrieves a list of all learning paths created by a specific user.
-- **URL Parameters**:
-  - `wallet_address` (string): The creator's public wallet address.
-- **Success Response (200)**: Returns an array of learning path objects.
-
-#### Get User-Created Path Count
-- **Endpoint**: `GET /<wallet_address>/paths/count`
-- **Description**: Retrieves the total number of learning paths created by a specific user.
-- **URL Parameters**:
-  - `wallet_address` (string): The creator's public wallet address.
-- **Success Response (200)**:
-  ```json
-  {
-    "creator_wallet": "0xAb5801a7D398351b8bE11C439e05C5B3259aeC9B",
-    "path_count": 5
-  }
-  ```
+- **Get User-Created Path Count**  
+  **Endpoint**: `GET /users/<wallet_address>/paths/count`  
+  **Description**: Retrieves the total number of learning paths created by a specific user.
+  - **URL Parameters**:
+    - `wallet_address` (string): The creator's public wallet address.
+  - **Success Response (200)**:
+    ```json
+    {
+      "creator_wallet": "0xAb5801a7D398351b8bE11C439e05C5B3259aeC9B",
+      "path_count": 5
+    }
+    ```
 
 ### Path Routes
-Base URL: `/paths`
+- **Generate a New Learning Path**  
+  **Endpoint**: `POST /paths/generate`  
+  **Description**: **(Asynchronous)** Kicks off a background task to generate a complete learning path. It performs several steps: rephrases the topic, generates a description, checks for duplicates, generates a curriculum, and then generates content for each lesson.
+  - **Request Body**:
+    ```json
+    {
+      "topic": "The history of the internet",
+      "creator_wallet": "0xAb5801a7D398351b8bE11C439e05C5B3259aeC9B"
+    }
+    ```
+  - **Success Response (202)**: Indicates the task has been accepted for processing.
+    ```json
+    {
+      "message": "Path generation started.",
+      "task_id": "a1b2c3d4-e5f6-7890-1234-567890abcdef"
+    }
+    ```
+  - **Error Response (400)**: If `topic` or `creator_wallet` are missing.
+  - **Error Response (409)**: If a path with a highly similar title already exists (and the feature flag is enabled).
 
-#### Generate a New Learning Path
-- **Endpoint**: `POST /generate`
-- **Description**: **(Asynchronous)** Kicks off a background task to generate a complete learning path. It performs several steps: rephrases the topic, generates a description, checks for duplicates, generates a curriculum, and then generates content for each lesson.
-- **Request Body**:
-  ```json
-  {
-    "topic": "The history of the internet",
-    "creator_wallet": "0xAb5801a7D398351b8bE11C439e05C5B3259aeC9B"
-  }
-  ```
-- **Success Response (202)**: Indicates the task has been accepted for processing.
-  ```json
-  {
-    "message": "Path generation started.",
-    "task_id": "a1b2c3d4-e5f6-7890-1234-567890abcdef"
-  }
-  ```
-- **Error Response (400)**: If `topic` or `creator_wallet` are missing.
-- **Error Response (409)**: If a path with a highly similar title already exists (and the feature flag is enabled).
+- **Get Generation Status**  
+  **Endpoint**: `GET /paths/generate/status/<task_id>`  
+  **Description**: **(Persistent)** Poll this endpoint to get real-time progress updates for a generation task. The logs are stored in the database and survive server restarts.
+  - **URL Parameters**:
+    - `task_id` (string): The UUID returned from the `/generate` endpoint.
+  - **Success Response (200)**:
+    ```json
+    {
+      "progress": [
+        { "status": "✅ Designing your curriculum..." },
+        { "status": "Curriculum designed with 8 lessons." },
+        { "status": "🎉 SUCCESS: Path generation complete!", "data": { "path_id": 12 } }
+      ]
+    }
+    ```
+  - **Error Response (404)**: If the `task_id` is not found.
 
-#### Get Generation Status
-- **Endpoint**: `GET /generate/status/<task_id>`
-- **Description**: **(Persistent)** Poll this endpoint to get real-time progress updates for a generation task. The logs are stored in the database and survive server restarts.
-- **URL Parameters**:
-  - `task_id` (string): The UUID returned from the `/generate` endpoint.
-- **Success Response (200)**:
-  ```json
-  {
-    "progress": [
-      { "status": "✅ Designing your curriculum..." },
-      { "status": "Curriculum designed with 8 lessons." },
-      { "status": "🎉 SUCCESS: Path generation complete!", "data": { "path_id": 12 } }
-    ]
-  }
-  ```
-- **Error Response (404)**: If the `task_id` is not found.
+- **Get All Public Paths**  
+  **Endpoint**: `GET /paths`  
+  **Description**: Retrieves a list of all created learning paths.
+  - **Success Response (200)**: Returns an array of learning path objects.
 
-#### Get All Public Paths
-- **Endpoint**: `GET /`
-- **Description**: Retrieves a list of all created learning paths.
-- **Success Response (200)**: Returns an array of learning path objects.
+- **Get Full Path Details**  
+  **Endpoint**: `GET /paths/<path_id>`  
+  **Description**: Retrieves a complete, nested JSON object for a single learning path, including its title, description, and all of its levels with their associated content items.
+  - **URL Parameters**:
+    - `path_id` (integer): The unique ID of the learning path.
+  - **Success Response (200)**: Returns the full path object.
+  - **Error Response (404)**: If the path is not found.
 
-#### Get Full Path Details
-- **Endpoint**: `GET /<path_id>`
-- **Description**: Retrieves a complete, nested JSON object for a single learning path, including its title, description, and all of its levels with their associated content items.
-- **URL Parameters**:
-  - `path_id` (integer): The unique ID of the learning path.
-- **Success Response (200)**: Returns the full path object.
-- **Error Response (404)**: If the path is not found.
-
-#### Delete a Learning Path
-- **Endpoint**: `DELETE /<path_id>`
-- **Description**: Deletes a learning path and all of its associated levels and content. This action is protected; only the original creator of the path can delete it.
-- **URL Parameters**:
-  - `path_id` (integer): The ID of the path to delete.
-- **Request Body**:
-  ```json
-  {
-    "user_wallet": "0xAb5801a7D398351b8bE11C439e05C5B3259aeC9B"
-  }
-  ```
-- **Success Response (200)**: Confirms successful deletion.
-- **Error Response (403)**: If the `user_wallet` does not match the path's creator.
-- **Error Response (404)**: If the path is not found.
+- **Delete a Learning Path**  
+  **Endpoint**: `DELETE /paths/<path_id>`  
+  **Description**: Deletes a learning path and all of its associated levels and content. This action is protected; only the original creator of the path can delete it.
+  - **URL Parameters**:
+    - `path_id` (integer): The ID of the path to delete.
+  - **Request Body**:
+    ```json
+    {
+      "user_wallet": "0xAb5801a7D398351b8bE11C439e05C5B3259aeC9B"
+    }
+    ```
+  - **Success Response (200)**: Confirms successful deletion.
+  - **Error Response (403)**: If the `user_wallet` does not match the path's creator.
+  - **Error Response (404)**: If the path is not found.
 
 ### Progress & Scoring Routes
-Base URL: `/`
+- **Start or Get Progress on a Path**  
+  **Endpoint**: `POST /progress/start`  
+  **Description**: Initiates a learning session for a user on a specific path. If progress already exists, it returns the existing record; otherwise, it creates a new one.
+  - **Request Body**:
+    ```json
+    {
+      "user_wallet": "0x...",
+      "path_id": 1
+    }
+    ```
+  - **Success Response (200 or 201)**: Returns the user progress object.
 
-#### Start or Get Progress on a Path
-- **Endpoint**: `POST /progress/start`
-- **Description**: Initiates a learning session for a user on a specific path. If progress already exists, it returns the existing record; otherwise, it creates a new one.
-- **Request Body**:
-  ```json
-  {
-    "user_wallet": "0x...",
-    "path_id": 1
-  }
-  ```
-- **Success Response (200 or 201)**: Returns the user progress object.
+- **Update User's Current Location**  
+  **Endpoint**: `POST /progress/location`  
+  **Description**: A "fire-and-forget" endpoint to log the user's current position (e.g., which slide they are viewing) in a lesson.
+  - **Request Body**:
+    ```json
+    {
+      "progress_id": 1,
+      "item_index": 3
+    }
+    ```
+  - **Success Response (200)**: Confirms the location was updated.
 
-#### Update User's Current Location
-- **Endpoint**: `POST /progress/location`
-- **Description**: A "fire-and-forget" endpoint to log the user's current position (e.g., which slide they are viewing) in a lesson.
-- **Request Body**:
-  ```json
-  {
-    "progress_id": 1,
-    "item_index": 3
-  }
-  ```
-- **Success Response (200)**: Confirms the location was updated.
+- **Log a Quiz Attempt**  
+  **Endpoint**: `POST /progress/update`  
+  **Description**: Logs a user's answer to a quiz question and updates their progress.
+  - **Request Body**:
+    ```json
+    {
+      "progress_id": 1,
+      "content_item_id": 45,
+      "user_answer_index": 2
+    }
+    ```
+  - **Success Response (200)**: Returns whether the answer was correct.
 
-#### Log a Quiz Attempt
-- **Endpoint**: `POST /progress/update`
-- **Description**: Logs a user's answer to a quiz question and updates their progress.
-- **Request Body**:
-  ```json
-  {
-    "progress_id": 1,
-    "content_item_id": 45,
-    "user_answer_index": 2
-  }
-  ```
-- **Success Response (200)**: Returns whether the answer was correct.
-
-#### Get User Scores
-- **Endpoint**: `GET /scores/<wallet_address>`
-- **Description**: Retrieves a summary of scores for a user across all paths they have attempted.
-- **URL Parameters**:
-  - `wallet_address` (string): The user's public wallet address.
-- **Success Response (200)**: Returns an array of score summary objects.
+- **Get User Scores**  
+  **Endpoint**: `GET /scores/<wallet_address>`  
+  **Description**: Retrieves a summary of scores for a user across all paths they have attempted.
+  - **URL Parameters**:
+    - `wallet_address` (string): The user's public wallet address.
+  - **Success Response (200)**: Returns an array of score summary objects.
 
 ### NFT Routes
+- **Complete a Path & Mint NFT**  
+  **Endpoint**: `POST /paths/<path_id>/complete`  
+  **Description**: Initiates the minting of an NFT certificate for a user who has completed a path.
+  - **URL Parameters**:
+    - `path_id` (integer): The ID of the completed path.
+  - **Request Body**:
+    ```json
+    {
+      "user_wallet": "0x..."
+    }
+    ```
+  - **Success Response (200)**: Returns the transaction details and token ID.
 
-#### Complete a Path & Mint NFT
-- **Endpoint**: `POST /paths/<path_id>/complete`
-- **Description**: Initiates the minting of an NFT certificate for a user who has completed a path.
-- **URL Parameters**:
-  - `path_id` (integer): The ID of the completed path.
-- **Request Body**:
-  ```json
-  {
-    "user_wallet": "0x..."
-  }
-  ```
-- **Success Response (200)**: Returns the transaction details and token ID.
+- **Get NFT Metadata**  
+  **Endpoint**: `GET /nft/metadata/<path_id>`  
+  **Description**: Returns the ERC721 standard JSON metadata for a specific NFT, which points to the image and describes its attributes.
+  - **URL Parameters**:
+    - `path_id` (integer): The ID of the path corresponding to the NFT.
 
-#### Get NFT Metadata
-- **Endpoint**: `GET /nft/metadata/<path_id>`
-- **Description**: Returns the ERC721 standard JSON metadata for a specific NFT, which points to the image and describes its attributes.
-- **URL Parameters**:
-  - `path_id` (integer): The ID of the path corresponding to the NFT.
-
-#### Get NFT Image
-- **Endpoint**: `GET /nft/image/<path_id>`
-- **Description**: Returns the AI-generated SVG image for the NFT.
-- **URL Parameters**:
-  - `path_id` (integer): The ID of the path corresponding to the NFT.
+- **Get NFT Image**  
+  **Endpoint**: `GET /nft/image/<path_id>`  
+  **Description**: Returns the AI-generated SVG image for the NFT.
+  - **URL Parameters**:
+    - `path_id` (integer): The ID of the path corresponding to the NFT.

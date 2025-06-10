@@ -54,7 +54,7 @@ def generate_path_description(topic_title):
     prompt = f"""
     You are a curriculum writer for a learning app. For the course titled "{topic_title}", write a concise and engaging one-paragraph description.
     This description will be shown to users in a course catalog. It should be exciting and clearly state what the user will learn.
-    The output MUST be a single, valid JSON object with one key: "description".
+    The output MUST be a single, valid JSON object with one key, please keep it a single sentence, doesn't have to be detailed, just an overview of what is what please: "description".
     Do not include any text outside of the JSON object.
     """
     cleaned_response = _call_gemini_with_retry(prompt)
