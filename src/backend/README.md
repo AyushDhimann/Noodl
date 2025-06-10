@@ -47,26 +47,20 @@ The application is designed with a clean separation of concerns, ensuring scalab
 | (e.g., Gradio)   |      |  (main.py, app)  |      |       API        |
 +------------------+      +-------+----------+      +------------------+
                                   |
-                  +---------------+---------------+
-                  |                               |
-        +---------v---------+           +---------v---------+
-        |  Routes (API)     |           |  Services Layer   |
-        | (user, path, etc.)|           | (Business Logic)  |
-        +---------+---------+           +---------+---------+
-                  |                               |
-                  |         +---------------------+
-                  |         |
-        +---------v---------v-+
-        |   Database (Supabase) |
-        | - Users, Paths, Logs  |
-        | - Vector Similarity   |
-        +-----------------------+
-
-        +-----------------------+
-        | Blockchain (Ethereum) |
-        | - Smart Contracts     |
-        | - Path Registry, NFTs |
-        +-----------------------+
+                  +---------------+---------------------+
+                  |                                     |
+        +---------v---------+                 +---------v---------+
+        |  Routes (API)     |                 |  Services Layer   |
+        | (user, path, etc.)|                 | (Business Logic)  |
+        +---------+---------+                 +----+----------+---+
+                  |                              |              |
+                  |         +--------------------+              |
+                  |         |                                   |
+        +---------v---------v-+                     +-----------v-----------+
+        |   Database (Supabase) |                     | Blockchain (Ethereum) |
+        | - Users, Paths, Logs  |                     | - Smart Contracts     |
+        | - Vector Similarity   |                     | - Path Registry, NFTs |
+        +-----------------------+                     +-----------------------+
 ```
 
 ---
@@ -155,19 +149,19 @@ FEATURE_FLAG_ENABLE_DUPLICATE_CHECK="true"
 The application can be run with a single command, which starts both the API server and the testing UI.
 
 ```bash
-python main.py
-```
+python main.py```
 - The Flask API server will be available at `http://localhost:5000`.
 - The Gradio Testing UI will be available at `http://localhost:7000`.
-
+```
 ---
 
 ## 🔌 API Endpoint Documentation
 
-### User Routes
+### User Endpoints
+
 - **Create or Update a User**  
   **Endpoint**: `POST /users`  
-  **Description**: Creates a new user record or updates an existing one based on the provided wallet address. This is an "upsert" operation.
+  **Description**: Creates a new user record or updates an existing one. This endpoint uses checkpoint logic: it will only fill in `name` or `country` if they are currently empty, preventing accidental overwrites of existing user data.
   - **Request Body**:
     ```json
     {
@@ -176,12 +170,12 @@ python main.py
       "country": "USA"
     }
     ```
-  - **Success Response (201)**: Returns the created or updated user object.
-  - **Error Response (400)**: If `wallet_address` is missing.
+  - **Success Response (201)**: Returns the full user object after the operation.
+  - **Error Response (400)**: If `wallet_address` is missing from the body.
 
 - **Get User Profile**  
   **Endpoint**: `GET /users/<wallet_address>`  
-  **Description**: Retrieves the profile information for a single user.
+  **Description**: Retrieves the complete profile information for a single user.
   - **URL Parameters**:
     - `wallet_address` (string): The user's public wallet address.
   - **Success Response (200)**: Returns the user object.
@@ -189,14 +183,14 @@ python main.py
 
 - **Get User-Created Paths**  
   **Endpoint**: `GET /users/<wallet_address>/paths`  
-  **Description**: Retrieves a list of all learning paths created by a specific user.
+  **Description**: Retrieves a list of all learning paths created by a specific user, ordered by most recent first.
   - **URL Parameters**:
     - `wallet_address` (string): The creator's public wallet address.
   - **Success Response (200)**: Returns an array of learning path objects.
 
 - **Get User-Created Path Count**  
   **Endpoint**: `GET /users/<wallet_address>/paths/count`  
-  **Description**: Retrieves the total number of learning paths created by a specific user.
+  **Description**: Retrieves just the total number of learning paths created by a specific user.
   - **URL Parameters**:
     - `wallet_address` (string): The creator's public wallet address.
   - **Success Response (200)**:
@@ -207,10 +201,11 @@ python main.py
     }
     ```
 
-### Path Routes
+### Path & Content Endpoints
+
 - **Generate a New Learning Path**  
   **Endpoint**: `POST /paths/generate`  
-  **Description**: **(Asynchronous)** Kicks off a background task to generate a complete learning path. It performs several steps: rephrases the topic, generates a description, checks for duplicates, generates a curriculum, and then generates content for each lesson.
+  **Description**: **(Asynchronous)** Kicks off a background task to generate a complete learning path. This is the main entry point for content creation.
   - **Request Body**:
     ```json
     {
@@ -225,42 +220,39 @@ python main.py
       "task_id": "a1b2c3d4-e5f6-7890-1234-567890abcdef"
     }
     ```
-  - **Error Response (400)**: If `topic` or `creator_wallet` are missing.
-  - **Error Response (409)**: If a path with a highly similar title already exists (and the feature flag is enabled).
+  - **Error Response (409)**: If a path with a highly similar title already exists.
 
 - **Get Generation Status**  
   **Endpoint**: `GET /paths/generate/status/<task_id>`  
-  **Description**: **(Persistent)** Poll this endpoint to get real-time progress updates for a generation task. The logs are stored in the database and survive server restarts.
+  **Description**: **(Persistent)** Poll this endpoint to get progress updates for a generation task. Status survives server restarts.
   - **URL Parameters**:
     - `task_id` (string): The UUID returned from the `/generate` endpoint.
-  - **Success Response (200)**:
-    ```json
-    {
-      "progress": [
-        { "status": "✅ Designing your curriculum..." },
-        { "status": "Curriculum designed with 8 lessons." },
-        { "status": "🎉 SUCCESS: Path generation complete!", "data": { "path_id": 12 } }
-      ]
-    }
-    ```
-  - **Error Response (404)**: If the `task_id` is not found.
+  - **Success Response (200)**: Returns an array of log objects for the task.
 
 - **Get All Public Paths**  
   **Endpoint**: `GET /paths`  
-  **Description**: Retrieves a list of all created learning paths.
+  **Description**: Retrieves a list of all created learning paths, suitable for a public catalog.
   - **Success Response (200)**: Returns an array of learning path objects.
 
 - **Get Full Path Details**  
   **Endpoint**: `GET /paths/<path_id>`  
-  **Description**: Retrieves a complete, nested JSON object for a single learning path, including its title, description, and all of its levels with their associated content items.
+  **Description**: Retrieves a complete, nested JSON object for a single learning path, including its title, description, all levels, and all content items. It also includes calculated counts of total slides and questions for the entire path.
   - **URL Parameters**:
     - `path_id` (integer): The unique ID of the learning path.
-  - **Success Response (200)**: Returns the full path object.
+  - **Success Response (200)**: Returns the full, nested path object with metadata.
   - **Error Response (404)**: If the path is not found.
+
+- **Get Specific Level Content**  
+  **Endpoint**: `GET /paths/<path_id>/levels/<level_num>`  
+  **Description**: Retrieves the content for a single level within a path, including a list of its items and counts of slides and questions for that specific level.
+  - **URL Parameters**:
+    - `path_id` (integer): The ID of the learning path.
+    - `level_num` (integer): The number of the level to retrieve.
+  - **Success Response (200)**: Returns the level object with its content items and metadata.
 
 - **Delete a Learning Path**  
   **Endpoint**: `DELETE /paths/<path_id>`  
-  **Description**: Deletes a learning path and all of its associated levels and content. This action is protected; only the original creator of the path can delete it.
+  **Description**: Deletes a learning path and all of its associated content. This action is protected and can only be performed by the original creator.
   - **URL Parameters**:
     - `path_id` (integer): The ID of the path to delete.
   - **Request Body**:
@@ -271,12 +263,12 @@ python main.py
     ```
   - **Success Response (200)**: Confirms successful deletion.
   - **Error Response (403)**: If the `user_wallet` does not match the path's creator.
-  - **Error Response (404)**: If the path is not found.
 
-### Progress & Scoring Routes
+### Progress & Scoring Endpoints
+
 - **Start or Get Progress on a Path**  
   **Endpoint**: `POST /progress/start`  
-  **Description**: Initiates a learning session for a user on a specific path. If progress already exists, it returns the existing record; otherwise, it creates a new one.
+  **Description**: Initiates or retrieves a learning session for a user on a path.
   - **Request Body**:
     ```json
     {
@@ -288,7 +280,7 @@ python main.py
 
 - **Update User's Current Location**  
   **Endpoint**: `POST /progress/location`  
-  **Description**: A "fire-and-forget" endpoint to log the user's current position (e.g., which slide they are viewing) in a lesson.
+  **Description**: A "fire-and-forget" endpoint to log the user's current position (item index) in a lesson.
   - **Request Body**:
     ```json
     {
@@ -300,7 +292,7 @@ python main.py
 
 - **Log a Quiz Attempt**  
   **Endpoint**: `POST /progress/update`  
-  **Description**: Logs a user's answer to a quiz question and updates their progress.
+  **Description**: Logs a user's answer to a quiz question.
   - **Request Body**:
     ```json
     {
@@ -318,10 +310,11 @@ python main.py
     - `wallet_address` (string): The user's public wallet address.
   - **Success Response (200)**: Returns an array of score summary objects.
 
-### NFT Routes
+### NFT Endpoints
+
 - **Complete a Path & Mint NFT**  
   **Endpoint**: `POST /paths/<path_id>/complete`  
-  **Description**: Initiates the minting of an NFT certificate for a user who has completed a path.
+  **Description**: Initiates the minting of an NFT certificate for a user.
   - **URL Parameters**:
     - `path_id` (integer): The ID of the completed path.
   - **Request Body**:
@@ -334,7 +327,7 @@ python main.py
 
 - **Get NFT Metadata**  
   **Endpoint**: `GET /nft/metadata/<path_id>`  
-  **Description**: Returns the ERC721 standard JSON metadata for a specific NFT, which points to the image and describes its attributes.
+  **Description**: Returns the ERC721 standard JSON metadata for an NFT.
   - **URL Parameters**:
     - `path_id` (integer): The ID of the path corresponding to the NFT.
 
@@ -343,3 +336,25 @@ python main.py
   **Description**: Returns the AI-generated SVG image for the NFT.
   - **URL Parameters**:
     - `path_id` (integer): The ID of the path corresponding to the NFT.
+
+---
+
+## Complete Endpoint List
+
+`POST /users`  
+`GET /users/<wallet_address>`  
+`GET /users/<wallet_address>/paths`  
+`GET /users/<wallet_address>/paths/count`  
+`POST /paths/generate`  
+`GET /paths/generate/status/<task_id>`  
+`GET /paths`  
+`GET /paths/<path_id>`  
+`DELETE /paths/<path_id>`  
+`GET /paths/<path_id>/levels/<level_num>`  
+`POST /progress/start`  
+`POST /progress/location`  
+`POST /progress/update`  
+`GET /scores/<wallet_address>`  
+`POST /paths/<path_id>/complete`  
+`GET /nft/metadata/<path_id>`  
+`GET /nft/image/<path_id>`
