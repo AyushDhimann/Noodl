@@ -16,7 +16,7 @@ CREATE TABLE learning_paths (
     creator_wallet TEXT,
     content_hash TEXT,
     total_levels INT,
-    intent_type TEXT, -- ADDED: To store 'learn' or 'help'
+    intent_type TEXT, -- To store 'learn' or 'help'
     title_embedding vector(768),
     created_at TIMESTAMPTZ DEFAULT now()
 );
@@ -65,7 +65,7 @@ CREATE TABLE quiz_attempts (
     attempted_at TIMESTAMPTZ DEFAULT now()
 );
 
--- 7. FUNCTION FOR SIMILARITY SEARCH
+-- 7. FUNCTION FOR SIMILARITY SEARCH (for duplicate check)
 CREATE OR REPLACE FUNCTION match_similar_paths(
   query_embedding vector(768),
   match_threshold float,
@@ -107,7 +107,7 @@ BEFORE UPDATE ON task_progress_logs
 FOR EACH ROW
 EXECUTE PROCEDURE trigger_set_timestamp();
 
--- 9. FUNCTION TO APPEND LOGS (THIS WAS MISSING)
+-- 9. FUNCTION TO APPEND LOGS
 CREATE OR REPLACE FUNCTION append_to_log(task_uuid UUID, new_log JSONB)
 RETURNS VOID
 LANGUAGE plpgsql
@@ -118,3 +118,70 @@ BEGIN
   WHERE task_id = task_uuid;
 END;
 $$;
+
+-- 10. FUNCTION FOR SEMANTIC SEARCH (UPDATED)
+CREATE OR REPLACE FUNCTION search_paths_semantic(
+  match_count int,
+  match_threshold float,
+  query_embedding vector(768)
+)
+RETURNS TABLE (id bigint, title text, similarity float)
+LANGUAGE plpgsql
+AS $$
+BEGIN
+  RETURN QUERY
+  SELECT
+    lp.id,
+    lp.title,
+    1 - (lp.title_embedding <=> query_embedding) AS similarity
+  FROM learning_paths lp
+  WHERE 1 - (lp.title_embedding <=> query_embedding) > match_threshold
+  ORDER BY lp.title_embedding <=> query_embedding
+  LIMIT match_count;
+END;
+$$;
+
+-- 11. FUNCTION FOR KEYWORD SEARCH (NEW)
+CREATE OR REPLACE FUNCTION search_paths_keyword(
+  search_term text,
+  match_count int
+)
+RETURNS TABLE (id bigint, title text, result_in text)
+LANGUAGE plpgsql
+AS $$
+BEGIN
+  RETURN QUERY
+  SELECT
+    lp.id,
+    lp.title,
+    CASE
+        WHEN lp.title ILIKE search_term THEN 'title'
+        WHEN lp.short_description ILIKE search_term THEN 'short_description'
+        WHEN lp.long_description ILIKE search_term THEN 'long_description'
+        ELSE 'unknown'
+    END AS result_in
+  FROM learning_paths lp
+  WHERE
+    lp.title ILIKE search_term OR
+    lp.short_description ILIKE search_term OR
+    lp.long_description ILIKE search_term
+  LIMIT match_count;
+END;
+$$;
+
+
+-- 12. PERFORMANCE INDEXES (IMPORTANT!)
+-- Run these commands once in your Supabase SQL Editor to enable fast search.
+
+-- Enable the pg_trgm extension for fast text search
+CREATE EXTENSION IF NOT EXISTS pg_trgm;
+
+-- Create indexes for fast case-insensitive text search on relevant columns
+CREATE INDEX IF NOT EXISTS trgm_idx_paths_title ON learning_paths USING gin (title gin_trgm_ops);
+CREATE INDEX IF NOT EXISTS trgm_idx_paths_short_desc ON learning_paths USING gin (short_description gin_trgm_ops);
+CREATE INDEX IF NOT EXISTS trgm_idx_paths_long_desc ON learning_paths USING gin (long_description gin_trgm_ops);
+
+-- Ensure you have a vector index for fast semantic search.
+-- This is an example using IVFFlat, which is good for performance/accuracy balance.
+-- You can adjust `lists` based on the number of rows you expect.
+-- CREATE INDEX ON learning_paths USING ivfflat (title_embedding vector_cosine_ops) WITH (lists = 100);

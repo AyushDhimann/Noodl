@@ -35,9 +35,10 @@ else:
 
 # --- Import and Register Blueprints ---
 # This must be done after app is created to avoid circular imports
-from app.routes import user_routes, path_routes, progress_routes, nft_routes
+from app.routes import user_routes, path_routes, progress_routes, nft_routes, search_routes
 
 app.register_blueprint(user_routes.bp)
 app.register_blueprint(path_routes.bp)
 app.register_blueprint(progress_routes.bp)
 app.register_blueprint(nft_routes.bp)
+app.register_blueprint(search_routes.bp)

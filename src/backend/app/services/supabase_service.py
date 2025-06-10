@@ -1,5 +1,6 @@
 from app import supabase_client, logger
 from datetime import datetime, timezone
+from . import ai_service
 
 
 # --- User Functions ---
@@ -98,6 +99,71 @@ def find_similar_paths(embedding, threshold, count):
         'match_threshold': threshold,
         'match_count': count
     }).execute()
+
+
+def hybrid_search_paths(query_text):
+    """
+    Performs a hybrid search using both semantic vector search and keyword text search.
+    """
+    logger.info(f"DB: Hybrid search for query: '{query_text}'")
+
+    # 1. Semantic Search (Vector Search)
+    query_embedding = ai_service.get_embedding(query_text)
+    semantic_res = supabase_client.rpc('search_paths_semantic', {
+        'query_embedding': query_embedding,
+        'match_threshold': 0.6,
+        'match_count': 10
+    }).execute()
+
+    # 2. Keyword Search (Full-Text Search via RPC)
+    search_term = f"%{query_text}%"
+    keyword_res = supabase_client.rpc('search_paths_keyword', {
+        'search_term': search_term,
+        'match_count': 10
+    }).execute()
+
+    # 3. Format and Interleave Results
+    semantic_results = []
+    if semantic_res.data:
+        for item in semantic_res.data:
+            semantic_results.append({
+                "id": item['id'],
+                "match_type": "semantic",
+                "result_in": "title",
+                "similarity": round(item['similarity'], 4),
+                "title": item['title']
+            })
+
+    keyword_results = []
+    if keyword_res.data:
+        for item in keyword_res.data:
+            keyword_results.append({
+                "id": item['id'],
+                "match_type": "keyword",
+                "result_in": item['result_in'],
+                "similarity": None,
+                "title": item['title']
+            })
+
+    # Interleave results: Keyword, Semantic, Keyword, Semantic...
+    final_results = []
+    seen_ids = set()
+    len_k = len(keyword_results)
+    len_s = len(semantic_results)
+    max_len = max(len_k, len_s)
+
+    for i in range(max_len):
+        # Add keyword result if available and not seen
+        if i < len_k and keyword_results[i]['id'] not in seen_ids:
+            final_results.append(keyword_results[i])
+            seen_ids.add(keyword_results[i]['id'])
+
+        # Add semantic result if available and not seen
+        if i < len_s and semantic_results[i]['id'] not in seen_ids:
+            final_results.append(semantic_results[i])
+            seen_ids.add(semantic_results[i]['id'])
+
+    return final_results
 
 
 # --- Task Progress Log Functions ---

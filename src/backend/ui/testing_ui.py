@@ -47,9 +47,9 @@ body {
 
 
 # --- API Client Functions ---
-def make_api_request(method, endpoint, payload=None, timeout=60):
+def make_api_request(method, endpoint, params=None, payload=None, timeout=60):
     try:
-        response = requests.request(method, endpoint, json=payload, timeout=timeout)
+        response = requests.request(method, endpoint, params=params, json=payload, timeout=timeout)
         response.raise_for_status()
         if response.status_code == 204:
             return {"status": "success", "message": "Request successful with no content."}
@@ -67,7 +67,7 @@ def make_api_request(method, endpoint, payload=None, timeout=60):
 # --- Specific Client Functions for UI ---
 def create_user(wallet, name, country):
     return make_api_request("POST", f"{BACKEND_URL}/users",
-                            {"wallet_address": wallet, "name": name, "country": country})
+                            payload={"wallet_address": wallet, "name": name, "country": country})
 
 
 def get_user(wallet):
@@ -83,7 +83,7 @@ def get_user_created_paths_count(wallet):
 
 
 def generate_path_with_progress(topic, wallet):
-    start_res = make_api_request("POST", f"{BACKEND_URL}/paths/generate", {"topic": topic, "creator_wallet": wallet})
+    start_res = make_api_request("POST", f"{BACKEND_URL}/paths/generate", payload={"topic": topic, "creator_wallet": wallet})
     if "error" in start_res:
         error_msg = f"### ❌ Error Starting Task\n\n**Reason:** {start_res['error']}"
         if 'similar_path' in start_res:
@@ -142,17 +142,17 @@ def get_level_content(path_id, level_num):
 
 
 def start_progress(wallet, path_id):
-    return make_api_request("POST", f"{BACKEND_URL}/progress/start", {"user_wallet": wallet, "path_id": path_id})
+    return make_api_request("POST", f"{BACKEND_URL}/progress/start", payload={"user_wallet": wallet, "path_id": path_id})
 
 
 def update_location(progress_id, item_index):
     return make_api_request("POST", f"{BACKEND_URL}/progress/location",
-                            {"progress_id": progress_id, "item_index": item_index})
+                            payload={"progress_id": progress_id, "item_index": item_index})
 
 
 def update_progress(progress_id, item_id, answer_idx):
     return make_api_request("POST", f"{BACKEND_URL}/progress/update",
-                            {"progress_id": progress_id, "content_item_id": item_id, "user_answer_index": answer_idx})
+                            payload={"progress_id": progress_id, "content_item_id": item_id, "user_answer_index": answer_idx})
 
 
 def get_scores(wallet):
@@ -160,7 +160,7 @@ def get_scores(wallet):
 
 
 def mint_nft(path_id, wallet):
-    return make_api_request("POST", f"{BACKEND_URL}/paths/{path_id}/complete", {"user_wallet": wallet}, timeout=180)
+    return make_api_request("POST", f"{BACKEND_URL}/paths/{path_id}/complete", payload={"user_wallet": wallet}, timeout=180)
 
 
 def get_nft_metadata(path_id):
@@ -171,6 +171,10 @@ def get_nft_image_html(path_id):
     if not path_id:
         return "Please provide a Path ID."
     return f'<img src="{BACKEND_URL}/nft/image/{path_id}" alt="NFT Image for Path {path_id}" style="width: 300px; height: 300px; border-radius: 10px;"/>'
+
+
+def search_paths(query):
+    return make_api_request("GET", f"{BACKEND_URL}/search", params={"q": query})
 
 
 # --- Gradio UI Definition ---
@@ -198,6 +202,8 @@ def create_and_launch_ui():
                 content_item_id_input = gr.Number(label="Content Item ID", precision=0)
                 answer_index_input = gr.Number(label="Answer Index (0-3)", precision=0)
                 item_index_input = gr.Number(label="Item Index (for location)", precision=0)
+            with gr.Row():
+                search_query_input = gr.Textbox(label="Search Query", placeholder="Enter 2+ characters to search...")
 
         # Outputs (defined before they are used in click events)
         with gr.Group():
@@ -209,7 +215,11 @@ def create_and_launch_ui():
         # --- Define the layout and connect events ---
         with gr.Group():
             gr.Markdown("### 🧪 Endpoint Testers")
-            with gr.Accordion("👤 User Endpoints", open=True):
+            with gr.Accordion("🔍 Search Endpoint", open=True):
+                with gr.Row():
+                    gr.Button("GET /search").click(search_paths, [search_query_input], api_output)
+
+            with gr.Accordion("👤 User Endpoints", open=False):
                 with gr.Row():
                     gr.Button("POST /users").click(create_user, [wallet_input, name_input, country_input], api_output)
                     gr.Button("GET /users/<wallet>").click(get_user, [wallet_input], api_output)
@@ -217,7 +227,7 @@ def create_and_launch_ui():
                     gr.Button("GET /users/<wallet>/paths/count").click(get_user_created_paths_count, [wallet_input],
                                                                        api_output)
 
-            with gr.Accordion("🛠️ Path Generation Endpoints", open=True):
+            with gr.Accordion("🛠️ Path Generation Endpoints", open=False):
                 with gr.Row():
                     gr.Button("POST /paths/generate", variant="primary").click(generate_path_with_progress,
                                                                                [topic_input, wallet_input],
