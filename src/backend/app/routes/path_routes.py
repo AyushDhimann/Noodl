@@ -19,30 +19,43 @@ def update_progress(task_id, status, data=None):
     logger.info(f"TASK [{task_id}]: {status}")
 
 
-def generation_worker(task_id, new_title, creator_wallet, country=None):
+def generation_worker(task_id, original_topic, new_title, creator_wallet, country=None):
     """The actual long-running task that generates the path sequentially."""
     new_path_id = None
     try:
-        # Step 1: Generate the curriculum (list of lesson titles)
+        # Step 1: Classify the user's intent
+        update_progress(task_id, "🤔 Analyzing your request...")
+        intent = ai_service.classify_topic_intent(original_topic)
+        update_progress(task_id, f"Request analyzed. Intent: **{intent.upper()}**")
+
+        # Step 2: Generate curriculum based on intent
         update_progress(task_id, "✅ Designing your curriculum...")
-        curriculum_titles = ai_service.generate_curriculum(new_title, country)
+        if intent == 'learn':
+            curriculum_titles = ai_service.generate_learn_curriculum(new_title, country)
+        else:  # intent == 'help'
+            curriculum_titles = ai_service.generate_help_curriculum(new_title)
         total_levels = len(curriculum_titles)
         update_progress(task_id, f"Curriculum designed with {total_levels} lessons.")
 
-        # Step 2: Generate an engaging description
+        # Step 3: Generate an engaging description
         update_progress(task_id, "✍️ Writing a course description...")
-        description = ai_service.generate_path_description(new_title)
+        description_data = ai_service.generate_path_description(new_title)
         update_progress(task_id, "Description generated.")
 
-        # Step 3: Save the initial path to get an ID
+        # Step 4: Save the initial path to get an ID
         update_progress(task_id, "📝 Saving path outline...")
         path_res = supabase_service.create_learning_path(
-            new_title, description, creator_wallet, total_levels,
-            ai_service.get_embedding(new_title) if config.FEATURE_FLAG_ENABLE_DUPLICATE_CHECK else None
+            title=new_title,
+            short_description=description_data.get('short_description'),
+            long_description=description_data.get('long_description'),
+            creator_wallet=creator_wallet,
+            total_levels=total_levels,
+            intent_type=intent,
+            embedding=ai_service.get_embedding(new_title) if config.FEATURE_FLAG_ENABLE_DUPLICATE_CHECK else None
         )
         new_path_id = path_res.data[0]['id']
 
-        # Step 4: Generate and save content for each level sequentially
+        # Step 5: Generate and save content for each level based on intent
         update_progress(task_id, f"🧠 Generating content for {total_levels} lessons...")
         all_content_for_hash = []
         for i, level_title in enumerate(curriculum_titles):
@@ -51,7 +64,11 @@ def generation_worker(task_id, new_title, creator_wallet, country=None):
             level_res = supabase_service.create_level(new_path_id, level_number, level_title)
             new_level_id = level_res.data[0]['id']
 
-            interleaved_items = ai_service.generate_interleaved_level_content(new_title, level_title)
+            if intent == 'learn':
+                interleaved_items = ai_service.generate_learn_level_content(new_title, level_title)
+            else:  # intent == 'help'
+                interleaved_items = ai_service.generate_help_level_content(new_title, level_title)
+
             all_content_for_hash.append({"level": level_title, "items": interleaved_items})
 
             items_to_insert = [
@@ -61,7 +78,7 @@ def generation_worker(task_id, new_title, creator_wallet, country=None):
 
         update_progress(task_id, "✅ All lesson content has been generated and saved.")
 
-        # Step 5: Register on the blockchain
+        # Step 6: Register on the blockchain
         if config.FEATURE_FLAG_ENABLE_BLOCKCHAIN_REGISTRATION:
             update_progress(task_id, "🔗 Registering path on the blockchain...")
             full_content_string = json.dumps(all_content_for_hash, sort_keys=True)
@@ -132,7 +149,8 @@ def generate_new_path_route():
         task_id = str(uuid.uuid4())
         supabase_service.create_task_log(task_id)
 
-        thread = threading.Thread(target=generation_worker, args=(task_id, new_title, creator_wallet, country))
+        # Pass original topic to worker for classification
+        thread = threading.Thread(target=generation_worker, args=(task_id, topic, new_title, creator_wallet, country))
         thread.start()
 
         return jsonify({"message": "Path generation started.", "task_id": task_id}), 202

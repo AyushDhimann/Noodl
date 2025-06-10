@@ -11,10 +11,12 @@ CREATE TABLE users (
 CREATE TABLE learning_paths (
     id BIGINT PRIMARY KEY GENERATED ALWAYS AS IDENTITY,
     title TEXT NOT NULL,
-    description TEXT,
+    short_description TEXT,
+    long_description TEXT,
     creator_wallet TEXT,
     content_hash TEXT,
     total_levels INT,
+    intent_type TEXT, -- ADDED: To store 'learn' or 'help'
     title_embedding vector(768),
     created_at TIMESTAMPTZ DEFAULT now()
 );
@@ -69,12 +71,12 @@ CREATE OR REPLACE FUNCTION match_similar_paths(
   match_threshold float,
   match_count int
 )
-RETURNS TABLE (id bigint, title text, description text, similarity float)
+RETURNS TABLE (id bigint, title text, short_description text, similarity float)
 LANGUAGE plpgsql
 AS $$
 BEGIN
   RETURN QUERY
-  SELECT lp.id, lp.title, lp.description, 1 - (lp.title_embedding <=> query_embedding) AS similarity
+  SELECT lp.id, lp.title, lp.short_description, 1 - (lp.title_embedding <=> query_embedding) AS similarity
   FROM learning_paths lp
   WHERE 1 - (lp.title_embedding <=> query_embedding) > match_threshold
   ORDER BY similarity DESC

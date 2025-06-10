@@ -27,6 +27,27 @@ def _call_gemini_with_retry(prompt, retries=3, delay=5):
     raise Exception("AI: Generation failed after all retries.")
 
 
+def classify_topic_intent(topic):
+    """Classifies the user's topic as either 'learn' or 'help'."""
+    logger.info(f"AI: Classifying intent for topic: '{topic}'")
+    prompt = f"""
+    You are an intelligent assistant that categorizes user requests into one of two types: 'learn' or 'help'.
+    Your analysis must be accurate to ensure the user gets the right kind of content.
+
+    - 'learn': Choose this if the user wants to acquire a broad skill or comprehensive knowledge on a subject. These are typically complex topics that require a structured course.
+      Examples: "History of Japan", "How to code a websocket in Python", "Learn to play the guitar", "Introduction to Quantum Mechanics".
+
+    - 'help': Choose this if the user has a specific, practical, real-world problem and needs a direct, step-by-step solution or a 'how-to' guide. These are often immediate needs.
+      Examples: "How do I put the zip back in the zipper of my bag?", "My phone won't turn on", "How to fix a leaky faucet", "How to tie a tie".
+
+    Analyze the following topic: "{topic}"
+
+    The output MUST be a single, valid JSON object with one key: "intent". The value must be either "learn" or "help".
+    """
+    cleaned_response = _call_gemini_with_retry(prompt)
+    return json.loads(cleaned_response)['intent']
+
+
 def get_embedding(text):
     """Generates a vector embedding for a given text."""
     logger.info(f"AI: Generating embedding for text: '{text[:30]}...'")
@@ -39,7 +60,7 @@ def rephrase_topic_with_emoji(topic):
     logger.info(f"AI: Rephrasing topic: '{topic}'")
     prompt = f"""
     You are a creative curriculum designer. A user has provided the topic "{topic}".
-    Your task is to rephrase this topic into a more engaging and professional course title.
+    Your task is to rephrase this topic into a more engaging and professional course title using simple English.
     Then, you MUST prepend a single, relevant emoji to the beginning of the new title.
     The output MUST be a single, valid JSON object with one key: "new_title".
     Do not include any text outside of the JSON object.
@@ -52,24 +73,27 @@ def generate_path_description(topic_title):
     """Generates an engaging, frontend-ready description for the learning path."""
     logger.info(f"AI: Generating description for topic: '{topic_title}'")
     prompt = f"""
-    You are a curriculum writer for a learning app. For the course titled "{topic_title}", write a concise and engaging one-paragraph description.
-    This description will be shown to users in a course catalog. It should be exciting and clearly state what the user will learn.
-    The output MUST be a single, valid JSON object with one key: "description".
+    You are a curriculum writer for a learning app. Your goal is to write descriptions for a course titled "{topic_title}".
+    You must use simple English, suitable for a global audience.
+
+    Your task is to generate two distinct descriptions:
+    1. A "short_description": A very brief, one-sentence summary. It must be a maximum of 20 words.
+    2. A "long_description": A more detailed paragraph. It should give an overview of what the user will learn across the different levels of the course. It must be a maximum of 80 words.
+
+    The output MUST be a single, valid JSON object with two keys: "short_description" and "long_description".
     Do not include any text outside of the JSON object.
     """
     cleaned_response = _call_gemini_with_retry(prompt)
-    return json.loads(cleaned_response)['description']
+    return json.loads(cleaned_response)
 
 
-def generate_curriculum(topic, country=None):
-    """Asks AI to generate a dynamic curriculum (list of level titles)."""
-    logger.info(f"AI: Generating curriculum for topic: '{topic}' with country context: {country}")
-
+def generate_learn_curriculum(topic, country=None):
+    """Asks AI to generate a dynamic curriculum for a 'learn' intent."""
+    logger.info(f"AI: Generating 'learn' curriculum for topic: '{topic}' with country context: {country}")
     country_context = f"The user is from {country}, so you can use local examples or spellings if relevant, but it's not a requirement." if country else ""
+    prompt = f"""You are an expert curriculum designer for a learning app. For the course titled "{topic}", create a detailed syllabus using simple English. The goal is to take a user from beginner to competent. {country_context}
 
-    prompt = f"""You are an expert curriculum designer for a learning app. For the course titled "{topic}", create a detailed syllabus. {country_context}
-
-    The output MUST be a single, valid JSON object with one key: "levels". "levels" should be an array of strings, where each string is a concise title for a learning level.
+    The output MUST be a single, valid JSON object with one key: "levels". "levels" should be an array of strings, where each string is a concise title for a learning level. The titles should represent a logical progression.
 
     IMPORTANT: The number of levels should be appropriate for the topic's complexity.
     - For simple, everyday topics (e.g., 'how to brush your teeth'), use 3-4 levels.
@@ -80,26 +104,61 @@ def generate_curriculum(topic, country=None):
     return json.loads(cleaned_response)['levels']
 
 
-def generate_interleaved_level_content(topic, level_title):
-    """Generates slides and quiz for a single level."""
-    logger.info(f"AI: Generating interleaved content for level: '{level_title}'")
+def generate_help_curriculum(topic):
+    """Generates a step-by-step guide for a 'help' intent."""
+    logger.info(f"AI: Generating 'help' curriculum for topic: '{topic}'")
+    prompt = f"""You are a helpful and clear technical writer. A user needs help with: "{topic}".
+    Your task is to break down the solution into a series of simple, actionable steps. These steps will become the titles of a short guide.
+    Use simple, encouraging language. The titles should be very clear, like a checklist.
+    For example, for a topic like 'How to change a flat tire', the steps might be: ["1. Park Safely and Gather Tools", "2. Loosen the Lug Nuts", "3. Jack Up the Car", "4. Replace the Tire", "5. Lower the Car and Tighten"].
+
+    The output MUST be a single, valid JSON object with one key: "levels". "levels" should be an array of strings, where each string is a step in the process.
+    Do not include any text outside of the JSON object.
+    """
+    cleaned_response = _call_gemini_with_retry(prompt)
+    return json.loads(cleaned_response)['levels']
+
+
+def generate_learn_level_content(topic, level_title):
+    """Generates rich, interleaved content for a single 'learn' level."""
+    logger.info(f"AI: Generating 'learn' content for level: '{level_title}'")
     prompt = f"""
-    You are an expert educator creating a lesson for a learning app. The main course is "{topic}", and this specific lesson is titled "{level_title}".
-    Your task is to create an interleaved learning experience with slides and quizzes.
-    The output MUST be a single, valid JSON object with one key: "items".
-    "items" must be an array of objects. Each object must have a "type" ('slide' or 'quiz') and a "content" field.
+    You are an expert educator creating a thoughtful and challenging lesson for a learning app. The main course is "{topic}", and this specific lesson is titled "{level_title}".
+    Your task is to create an interleaved learning experience using simple English. The content must be rich with information but easy to understand.
+
+    The output MUST be a single, valid JSON object with one key: "items". "items" must be an array of objects. Each object must have a "type" ('slide' or 'quiz') and a "content" field.
 
     1.  For a 'slide' item:
-        - The "content" field should be a string with detailed, informative markdown.
+        - The "content" field should be a string with detailed, informative markdown in simple English.
         - Use markdown for formatting: `### Subheadings`, `**bold**`, `* item 1`, `* item 2`.
-        - The content should be detailed and informative, providing real value. A slide can be multiple paragraphs long.
-        - Structure the lesson logically: start with an introduction, explain concepts with a few slides, then add a quiz to check understanding. Repeat this pattern 2-3 times, ending with a final quiz. A typical level should have 5-8 items in total.
+        - The content should be detailed and valuable. Anticipate questions a learner might have.
+        - Structure the lesson logically: start with an introduction, explain concepts with a few slides, then add a quiz to check understanding. Repeat this pattern 2-3 times. A typical level should have 5-8 items in total.
 
     2.  For a 'quiz' item:
         - The "content" field should be a JSON object with four keys: "question" (string), "options" (array of 4 strings), "correctAnswerIndex" (integer 0-3), and "explanation" (string).
-        - The "explanation" should be a "Do you know? 🤓" fun fact or a clear explanation of why the correct answer is right. It should also be formatted with markdown.
+        - The questions should genuinely test the understanding of the concepts just taught.
+        - The "explanation" should provide deeper context or a "Do you know? 🤓" fun fact that enhances learning, written in simple English.
 
-    Generate the complete, interleaved lesson for "{level_title}". Do not include any text outside of the main JSON object.
+    Generate the complete, interleaved lesson for "{level_title}". Your goal is to empower the user. Do not include any text outside of the main JSON object.
+    """
+    cleaned_response = _call_gemini_with_retry(prompt)
+    return json.loads(cleaned_response)['items']
+
+
+def generate_help_level_content(topic, step_title):
+    """Generates a direct, helpful slide for a single 'help' step."""
+    logger.info(f"AI: Generating 'help' content for step: '{step_title}'")
+    prompt = f"""
+    You are an expert guide creating one part of a 'how-to' manual. The user's main goal is "{topic}", and this specific step is "{step_title}".
+    Your task is to write a clear, concise, and easy-to-follow explanation for this single step. Your tone must be supportive and non-patronizing.
+
+    - Use simple English. Be direct and to the point.
+    - Use markdown for formatting: `### Subheadings`, `**bold**` for emphasis on crucial actions, and numbered lists for any sub-steps.
+    - Assume the user is smart but unfamiliar with this specific task. Avoid jargon where possible, or explain it simply if necessary.
+    - The goal is to help the user successfully complete this one step.
+
+    The output MUST be a single, valid JSON object with one key: "items".
+    "items" must be an array containing a SINGLE object with "type": "slide" and "content": "your markdown explanation". Do not generate quizzes.
     """
     cleaned_response = _call_gemini_with_retry(prompt)
     return json.loads(cleaned_response)['items']

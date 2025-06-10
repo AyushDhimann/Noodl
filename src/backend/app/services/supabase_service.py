@@ -18,7 +18,7 @@ def upsert_user(wallet_address, name, country):
 
 
 def get_paths_by_creator(wallet_address):
-    return supabase_client.table('learning_paths').select("id, title, description, total_levels, created_at").eq(
+    return supabase_client.table('learning_paths').select("id, title, short_description, total_levels, created_at").eq(
         'creator_wallet', wallet_address).order('created_at', desc=True).execute()
 
 
@@ -30,11 +30,11 @@ def get_path_count_by_creator(wallet_address):
 
 # --- Path & Content Functions ---
 def get_all_paths():
-    return supabase_client.table('learning_paths').select("id, title, description, total_levels").execute()
+    return supabase_client.table('learning_paths').select("id, title, short_description, total_levels").execute()
 
 
 def get_path_by_id(path_id):
-    return supabase_client.table('learning_paths').select("title, description, creator_wallet").eq('id',
+    return supabase_client.table('learning_paths').select("title, short_description, long_description, creator_wallet").eq('id',
                                                                                    path_id).maybe_single().execute()
 
 
@@ -51,10 +51,11 @@ def get_full_path_details(path_id):
     ).maybe_single().execute()
 
 
-def create_learning_path(title, description, creator_wallet, total_levels, embedding):
+def create_learning_path(title, short_description, long_description, creator_wallet, total_levels, intent_type, embedding):
     return supabase_client.table('learning_paths').insert({
-        "title": title, "description": description, "creator_wallet": creator_wallet,
-        "total_levels": total_levels, "title_embedding": embedding
+        "title": title, "short_description": short_description, "long_description": long_description,
+        "creator_wallet": creator_wallet, "total_levels": total_levels, "intent_type": intent_type,
+        "title_embedding": embedding
     }).execute()
 
 
