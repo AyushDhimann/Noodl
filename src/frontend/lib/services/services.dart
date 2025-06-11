@@ -125,23 +125,38 @@ class APIservice{
   }
   
   static Future<LevelContentModel?> fetchLevelContent({required int pathID, required int levelID}) async {
-  final Uri url = Uri.parse('http://1725364.xyz:5000/paths/$pathID/levels/$levelID');
-  print(url.toString());
-  try {
-    final response = await http.get(url);
+    final Uri url = Uri.parse('http://1725364.xyz:5000/paths/$pathID/levels/$levelID');
+    try {
+      final response = await http.get(url);
 
-    if (response.statusCode == 200) {
-      final json = jsonDecode(response.body);
-      return LevelContentModel.fromJson(json);
-    } else {
-      print("Error: ${response.statusCode}");
+      if (response.statusCode == 200) {
+        final json = jsonDecode(response.body);
+        return LevelContentModel.fromJson(json);
+      } else {
+        print("Error: ${response.statusCode}");
+      }
+    } catch (e) {
+      print("Exception caught: $e");
     }
-  } catch (e) {
-    print("Exception caught: $e");
+
+    return null;
   }
 
-  return null;
-}
+  static Future<dynamic> fetchUserNameCountry({required String walletAdd}) async{
+    final Uri url = Uri.parse('http://1725364.xyz:5000/users/$walletAdd');
+    try{
+      final response = await http.get(url);
+      if(response.statusCode == 200 || response.statusCode==404){
+        return jsonDecode(response.body);
+      } else{
+        print("ERR @ /users/<walletID>: ${response.statusCode}");
+      }
+    } catch(e){
+        print("ERR @ /users/<walletID>: $e");
+    }
+    return null;
+  }
+
 
 
 }
