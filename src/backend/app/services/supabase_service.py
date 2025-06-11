@@ -8,6 +8,7 @@ import httpx
 
 def supabase_retry(retries=3, delay=2):
     """A decorator to retry Supabase operations on transient network errors."""
+
     def decorator(func):
         @wraps(func)
         def wrapper(*args, **kwargs):
@@ -20,7 +21,9 @@ def supabase_retry(retries=3, delay=2):
                         logger.error(f"DB: All retry attempts failed for {func.__name__}.")
                         raise
                     time.sleep(delay * (attempt + 1))  # Exponential backoff
+
         return wrapper
+
     return decorator
 
 
@@ -28,6 +31,7 @@ def supabase_retry(retries=3, delay=2):
 @supabase_retry()
 def get_user_by_wallet(wallet_address):
     return supabase_client.table('users').select('id').eq('wallet_address', wallet_address).maybe_single().execute()
+
 
 @supabase_retry()
 def get_user_by_wallet_full(wallet_address):
@@ -51,7 +55,8 @@ def get_paths_by_creator(wallet_address):
 @supabase_retry()
 def get_path_count_by_creator(wallet_address):
     """Efficiently gets the count of paths created by a user."""
-    response = supabase_client.table('learning_paths').select('id', count='exact').eq('creator_wallet', wallet_address).execute()
+    response = supabase_client.table('learning_paths').select('id', count='exact').eq('creator_wallet',
+                                                                                      wallet_address).execute()
     return response.count
 
 
@@ -63,8 +68,9 @@ def get_all_paths():
 
 @supabase_retry()
 def get_path_by_id(path_id):
-    return supabase_client.table('learning_paths').select("title, short_description, long_description, creator_wallet").eq('id',
-                                                                                   path_id).maybe_single().execute()
+    return supabase_client.table('learning_paths').select(
+        "title, short_description, long_description, creator_wallet").eq('id',
+                                                                         path_id).maybe_single().execute()
 
 
 @supabase_retry()
@@ -82,7 +88,8 @@ def get_full_path_details(path_id):
 
 
 @supabase_retry()
-def create_learning_path(title, short_description, long_description, creator_wallet, total_levels, intent_type, embedding):
+def create_learning_path(title, short_description, long_description, creator_wallet, total_levels, intent_type,
+                         embedding):
     return supabase_client.table('learning_paths').insert({
         "title": title, "short_description": short_description, "long_description": long_description,
         "creator_wallet": creator_wallet, "total_levels": total_levels, "intent_type": intent_type,
@@ -104,9 +111,13 @@ def update_path_hash(path_id, content_hash):
 
 @supabase_retry()
 def create_level(path_id, level_number, level_title):
-    return supabase_client.table('levels').insert({
+    """
+    Creates a new level for a path. This is now idempotent.
+    If a level with the same path_id and level_number already exists, it does nothing.
+    """
+    return supabase_client.table('levels').upsert({
         "path_id": path_id, "level_number": level_number, "level_title": level_title
-    }).execute()
+    }, on_conflict='path_id,level_number', ignore_duplicates=True).execute()
 
 
 @supabase_retry()
@@ -117,7 +128,15 @@ def get_level(path_id, level_num):
 
 @supabase_retry()
 def create_content_items(items_to_insert):
-    return supabase_client.table('content_items').insert(items_to_insert).execute()
+    """
+    Creates new content items for a level. This is now idempotent.
+    If an item with the same level_id and item_index already exists, it does nothing.
+    """
+    return supabase_client.table('content_items').upsert(
+        items_to_insert,
+        on_conflict='level_id,item_index',
+        ignore_duplicates=True
+    ).execute()
 
 
 @supabase_retry()
@@ -248,7 +267,10 @@ def create_progress(user_id, path_id):
         'current_item_index': -1, 'status': 'in_progress', 'started_at': datetime.now(timezone.utc).isoformat()
     }).execute()
 
+    # The insert operation returns a list with the new record.
     new_progress_id = insert_res.data[0]['id']
+
+    # Fetch the newly created progress record along with the level number.
     return supabase_client.table('user_progress').select('*, levels(level_number)').eq('id',
                                                                                        new_progress_id).single().execute()
 

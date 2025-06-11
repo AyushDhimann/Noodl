@@ -61,8 +61,20 @@ def generation_worker(task_id, original_topic, new_title, creator_wallet, countr
         for i, level_title in enumerate(curriculum_titles):
             level_number = i + 1
             update_progress(task_id, f"  - Lesson {level_number}: '{level_title}'")
+
+            # FIX: Handle race condition where a level is created but the response is missed.
             level_res = supabase_service.create_level(new_path_id, level_number, level_title)
-            new_level_id = level_res.data[0]['id']
+
+            if level_res.data:
+                new_level_id = level_res.data[0]['id']
+            else:
+                # If data is empty, it means the level already existed (due to upsert).
+                # We need to fetch its ID to continue.
+                logger.warning(f"TASK [{task_id}]: Level {level_number} already existed. Fetching its ID.")
+                level_res = supabase_service.get_level(new_path_id, level_number)
+                if not level_res.data:
+                    raise Exception(f"Could not create or find level {level_number} for path {new_path_id}.")
+                new_level_id = level_res.data['id']
 
             if intent == 'learn':
                 interleaved_items = ai_service.generate_learn_level_content(new_title, level_title)
