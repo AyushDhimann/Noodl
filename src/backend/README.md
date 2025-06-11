@@ -18,19 +18,20 @@ The core philosophy is to leverage cutting-edge AI to create high-quality, struc
 - **Dynamic Title & Description Generation**: Automatically transforms a simple user query (e.g., "learn python") into an engaging, SEO-friendly course title (`🐍 Python Programming: From Zero to Hero`) and a compelling description.
 - **Adaptive Curriculum Design**: The AI analyzes the complexity of the topic to generate a syllabus with an appropriate number of lessons—fewer for simple topics, more for complex ones.
 - **Rich, Interleaved Content**: Each lesson is a rich mix of detailed, markdown-formatted slides and interactive multiple-choice quizzes to reinforce learning.
-- **Mobile-First Content Generation**: Prompts are optimized to generate concise, readable content suitable for mobile screens, using short paragraphs and clear formatting.
+- **Creative Generation**: Utilizes a configurable temperature setting for the Gemini model to foster more creative and engaging content.
 - **"I'm Feeling Lucky" Topic Generation**: A dedicated endpoint can ask the AI to invent a novel, interesting topic, powering spontaneous discovery.
-- **Hybrid Search**: Combines semantic (vector) search with traditional keyword search to deliver highly relevant and accurate search results.
+- **State-of-the-Art Hybrid Search**: Combines the latest `text-embedding-004` model for semantic search with traditional keyword search to deliver highly relevant and accurate results.
 - **Reliable AI Interaction**: Implements a robust retry mechanism for API calls to handle transient network issues and ensure content generation completes successfully.
 
 ### 🔗 Web3 & Blockchain Integration
 - **Immutable Proof-of-Creation**: A unique hash of every learning path's content is registered on the Ethereum blockchain, providing a tamper-proof, verifiable record of the curriculum at the time of creation.
-- **On-Chain NFT Certificates**: Upon successful completion of a path, users are awarded a unique, AI-generated SVG-based NFT certificate, minted directly to their wallet. This serves as a permanent, transferable proof of achievement.
+- **On-Chain NFT Certificates**: Upon successful completion of a path, users are awarded a unique, programmatically-generated pixel-art certificate, minted directly to their wallet. This serves as a permanent, transferable proof of achievement.
+- **Idempotent Smart Contracts**: Both the Path Registry and NFT Certificate contracts are designed to be idempotent, allowing for "upsert" behavior. This makes the development workflow incredibly robust against database/blockchain desynchronization.
 
 ### 🚀 Robust Backend Architecture
 - **Asynchronous Task Handling**: Long-running processes like AI content generation are handled in background threads, providing an immediate response to the user and allowing them to poll for status updates.
 - **Persistent Task Logging**: Generation progress is logged to a database, ensuring that status updates can be retrieved even if the server restarts.
-- **Atomic Operations & Cleanup**: The system is designed to be atomic. If any part of the multi-step generation process fails, all partially created data (database records, etc.) is automatically rolled back, preventing orphaned data.
+- **Atomic & Resilient Operations**: The system is designed to be atomic and resilient. If any part of the multi-step generation process fails (e.g., due to a network error), it can gracefully recover or roll back changes, preventing orphaned data and duplicate record errors.
 - **Secure & Modular Routes**: The API is organized into logical, secure blueprints (Users, Paths, Progress, NFTs, Search) for clarity and maintainability.
 
 ### 💻 Developer Experience
@@ -118,6 +119,11 @@ SUPABASE_SERVICE_KEY="YOUR_SUPABASE_SERVICE_ROLE_KEY"
 ETHEREUM_NODE_URL="YOUR_INFURA_SEPOLIA_RPC_URL"
 BLOCK_EXPLORER_URL="https://sepolia.etherscan.io"
 
+# --- Gemini Configuration ---
+GEMINI_MODEL_TEXT="gemini-1.5-flash-latest"
+GEMINI_MODEL_EMBEDDING="models/text-embedding-004"
+GENERATION_TEMPERATURE=1.5
+
 # --- Web3 ---
 BACKEND_WALLET_PRIVATE_KEY="YOUR_BACKEND_WALLET_PRIVATE_KEY" # Do not include '0x' prefix
 BACKEND_WALLET_ADDRESS="YOUR_BACKEND_WALLET_ADDRESS"
@@ -149,7 +155,7 @@ FEATURE_FLAG_ENABLE_DUPLICATE_CHECK="true"
 5.  Deploy `LearningPathRegistry.sol`.
 6.  Deploy `NoodlCertificate.sol`, providing your wallet address as the `initialOwner`.
 7.  Copy the deployed contract addresses into your `.env` file.
-    > **Note**: The provided `LearningPathRegistry.sol` contract allows the owner to overwrite path hashes. This is intentional for development robustness, making it resilient to database resets without requiring contract redeployment.
+    > **Note**: Both contracts are designed to be idempotent. The `LearningPathRegistry` allows the owner to overwrite path hashes, and `NoodlCertificate` allows the owner to update a user's token URI if it already exists. This is intentional for development robustness, making the system resilient to database resets without requiring contract redeployment.
 8.  From the "Solidity Compiler" tab in Remix, copy the ABI for each contract and save them as `LearningPathRegistry.json` and `NoodlCertificate.json` inside the `contracts/` directory.
 
 ---
@@ -159,12 +165,11 @@ FEATURE_FLAG_ENABLE_DUPLICATE_CHECK="true"
 The application can be run with a single command, which intelligently starts services based on your `.env` file.
 
 ```bash
-python main.py
-```
+python main.py```
 - The **Flask API server** will be available at `http://localhost:5000`.
 - The **Gradio Live Demo UI** will be available at `http://localhost:9999` (if `RUN_LIVE_DEMO=true`).
 - The **Gradio Testing UI** will be available at `http://localhost:7000` (if `RUN_TESTING_UI=true` and `RUN_LIVE_DEMO=false`).
-
+```
 ---
 
 ## 🔌 API Endpoint Documentation
@@ -382,7 +387,7 @@ python main.py
 
 - **Get NFT Image**  
   **Endpoint**: `GET /nft/image/<path_id>`  
-  **Description**: Returns the AI-generated SVG image for the NFT.
+  **Description**: Returns the programmatically generated pixel-art PNG image for the NFT. If the image doesn't exist locally, it will be generated on the first request.
   - **URL Parameters**:
     - `path_id` (integer): The ID of the path corresponding to the NFT.
 
@@ -390,22 +395,41 @@ python main.py
 
 ## Complete Endpoint List
 
-`POST /users`  
-`GET /users/<wallet_address>`  
-`GET /users/<wallet_address>/paths`  
+`POST /users` 
+
+`GET /users/<wallet_address>`
+
+`GET /users/<wallet_address>/paths` 
+
 `GET /users/<wallet_address>/paths/count`  
+
 `POST /paths/generate`
+
 `GET /paths/random-topic`
-`GET /paths/generate/status/<task_id>`  
-`GET /paths`  
-`GET /paths/<path_id>`  
-`DELETE /paths/<path_id>`  
+
+`GET /paths/generate/status/<task_id>`
+
+`GET /paths`
+
+`GET /paths/<path_id>`
+
+`DELETE /paths/<path_id>`
+
 `GET /paths/<path_id>/levels/<level_num>`
+
 `GET /search`
-`POST /progress/start`  
-`POST /progress/location`  
-`POST /progress/update`  
-`GET /scores/<wallet_address>`  
-`POST /paths/<path_id>/complete`  
-`GET /nft/metadata/<path_id>`  
+
+`POST /progress/start`
+
+`POST /progress/location`
+
+`POST /progress/update`
+
+`GET /scores/<wallet_address>`
+
+`POST /paths/<path_id>/complete`
+
+`GET /nft/metadata/<path_id>`
+
 `GET /nft/image/<path_id>`
+
