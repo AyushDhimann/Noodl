@@ -12,6 +12,7 @@ class Config:
     # Feature Flags
     RUN_API_SERVER = os.getenv("RUN_API_SERVER", "true").lower() == "true"
     RUN_TESTING_UI = os.getenv("RUN_TESTING_UI", "true").lower() == "true"
+    RUN_LIVE_DEMO = os.getenv("RUN_LIVE_DEMO", "true").lower() == "true"
     FEATURE_FLAG_ENABLE_BLOCKCHAIN_REGISTRATION = os.getenv("FEATURE_FLAG_ENABLE_BLOCKCHAIN_REGISTRATION",
                                                             "true").lower() == "true"
     FEATURE_FLAG_ENABLE_NFT_MINTING = os.getenv("FEATURE_FLAG_ENABLE_NFT_MINTING", "true").lower() == "true"
@@ -23,6 +24,9 @@ class Config:
     SUPABASE_SERVICE_KEY = os.getenv("SUPABASE_SERVICE_KEY")
     ETHEREUM_NODE_URL = os.getenv("ETHEREUM_NODE_URL")
     BLOCK_EXPLORER_URL = os.getenv("BLOCK_EXPLORER_URL")
+
+    # Ports
+    LIVE_DEMO_PORT = int(os.getenv("LIVE_DEMO_PORT", 9999))
 
     # Gemini Models
     GEMINI_MODEL_TEXT = os.getenv("GEMINI_MODEL_TEXT", "gemini-1.5-flash-latest")

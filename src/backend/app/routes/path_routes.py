@@ -87,7 +87,7 @@ def generation_worker(task_id, original_topic, new_title, creator_wallet, countr
             supabase_service.update_path_hash(new_path_id, content_hash)
 
             tx_hash = receipt.transactionHash.hex()
-            explorer_url = f"{config.BLOCK_EXPLORER_URL.rstrip('/')}/tx/0x{tx_hash}" if config.BLOCK_EXPLORER_URL else None
+            explorer_url = f"{config.BLOCK_EXPLORER_URL.rstrip('/')}/tx/{tx_hash}" if config.BLOCK_EXPLORER_URL else None
 
             update_progress(task_id, f"Path {new_path_id} registered on-chain.",
                             {'txHash': tx_hash, 'explorer_url': explorer_url})
@@ -99,7 +99,16 @@ def generation_worker(task_id, original_topic, new_title, creator_wallet, countr
 
     except Exception as e:
         logger.error(f"TASK [{task_id}] FAILED: {e}", exc_info=True)
-        update_progress(task_id, f"❌ ERROR: Path generation failed. Please check server logs for details.")
+        error_detail = str(e)
+        if "insufficient funds" in error_detail:
+            user_message = "❌ ERROR: The server's wallet has insufficient funds to pay for the transaction."
+        elif "execution reverted" in error_detail:
+            user_message = f"❌ ERROR: A blockchain error occurred. This can happen if the contract state is out of sync. Details: {error_detail}"
+        else:
+            user_message = "❌ ERROR: Path generation failed. Please check server logs for details."
+
+        update_progress(task_id, user_message)
+
         if new_path_id:
             logger.warning(
                 f"TASK [{task_id}]: An error occurred. Cleaning up partially generated path ID: {new_path_id}")
@@ -123,9 +132,8 @@ def generate_new_path_route():
         return jsonify({"error": "topic and creator_wallet are required"}), 400
 
     try:
-        # Get user's country for context
         user_res = supabase_service.get_user_by_wallet_full(creator_wallet)
-        country = user_res.data.get('country') if user_res.data else None
+        country = user_res.data.get('country') if user_res and user_res.data else None
 
         logger.info(f"AI REPHRASE: Improving topic '{topic}'")
         new_title = ai_service.rephrase_topic_with_emoji(topic)
@@ -140,16 +148,17 @@ def generate_new_path_route():
                 count=1
             )
             if similar_paths_res.data:
-                logger.warning(f"DUPE CHECK: Found similar path for '{new_title}'.")
+                similar_path = similar_paths_res.data[0]
+                logger.warning(
+                    f"DUPE CHECK: Found a similar path (ID: {similar_path['id']}, Title: '{similar_path['title']}') for new topic '{new_title}'. Halting generation.")
                 return jsonify({
-                    "error": "A very similar learning path already exists.",
-                    "similar_path": similar_paths_res.data[0]
+                    "error": f"A very similar learning path already exists.",
+                    "similar_path": similar_path
                 }), 409
 
         task_id = str(uuid.uuid4())
         supabase_service.create_task_log(task_id)
 
-        # Pass original topic to worker for classification
         thread = threading.Thread(target=generation_worker, args=(task_id, topic, new_title, creator_wallet, country))
         thread.start()
 
@@ -158,6 +167,17 @@ def generate_new_path_route():
     except Exception as e:
         logger.error(f"GENERATE ROUTE: Failed during pre-generation step: {e}", exc_info=True)
         return jsonify({"error": "Failed to start generation process. Check server logs."}), 500
+
+
+# FIX: New route for the "I'm Feeling Lucky" feature
+@bp.route('/random-topic', methods=['GET'])
+def get_random_topic_route():
+    try:
+        topic = ai_service.generate_random_topic()
+        return jsonify({"topic": topic})
+    except Exception as e:
+        logger.error(f"RANDOM TOPIC ROUTE: Failed: {e}", exc_info=True)
+        return jsonify({"error": "Failed to generate a random topic."}), 500
 
 
 @bp.route('/generate/status/<task_id>', methods=['GET'])
@@ -193,7 +213,6 @@ def get_path_details_route(path_id):
 
         path_data = path_details_res.data
 
-        # Calculate total slides and questions for the entire path
         total_slides = 0
         total_questions = 0
         if 'levels' in path_data and path_data['levels']:
@@ -247,7 +266,6 @@ def get_level_content_route(path_id, level_num):
         items_res = supabase_service.get_content_items_for_level(level_res.data['id'])
         items = items_res.data
 
-        # Calculate counts for this specific level
         level_slides = 0
         level_questions = 0
         for item in items:

@@ -13,7 +13,8 @@ def upsert_user_with_checkpoint(wallet_address, name=None, country=None):
     user_res = supabase_service.get_user_by_wallet_full(wallet_address)
 
     update_data = {}
-    if user_res.data:
+    # FIX: Check if user_res is not None before accessing its data attribute.
+    if user_res and user_res.data:
         # User exists, check if we need to fill in missing info
         existing_user = user_res.data
         logger.info(f"User exists: {existing_user}")
@@ -31,8 +32,8 @@ def upsert_user_with_checkpoint(wallet_address, name=None, country=None):
             logger.info(f"No new info to update for {wallet_address}.")
             return user_res
     else:
-        # User does not exist, prepare to insert a new record
-        logger.info(f"User {wallet_address} not found. Creating new record.")
+        # This block now correctly handles both "user not found" and API errors where user_res is None.
+        logger.info(f"User {wallet_address} not found or API error. Preparing to create new record.")
         update_data = {
             'wallet_address': wallet_address,
             'name': name,

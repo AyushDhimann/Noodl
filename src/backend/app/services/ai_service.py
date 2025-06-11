@@ -122,24 +122,26 @@ def generate_help_curriculum(topic):
 def generate_learn_level_content(topic, level_title):
     """Generates rich, interleaved content for a single 'learn' level."""
     logger.info(f"AI: Generating 'learn' content for level: '{level_title}'")
+    # FIX: Updated prompt for mobile-friendliness and flexible quiz inclusion.
     prompt = f"""
-    You are an expert educator creating a thoughtful and challenging lesson for a learning app. The main course is "{topic}", and this specific lesson is titled "{level_title}".
-    Your task is to create an interleaved learning experience using simple English. The content must be rich with information but easy to understand.
+    You are an expert educator creating a lesson for a mobile learning app. The main course is "{topic}", and this specific lesson is "{level_title}".
+    Your task is to create an interleaved learning experience optimized for a small screen.
 
     The output MUST be a single, valid JSON object with one key: "items". "items" must be an array of objects. Each object must have a "type" ('slide' or 'quiz') and a "content" field.
 
-    1.  For a 'slide' item:
-        - The "content" field should be a string with detailed, informative markdown in simple English.
-        - Use markdown for formatting: `### Subheadings`, `**bold**`, `* item 1`, `* item 2`.
-        - The content should be detailed and valuable. Anticipate questions a learner might have.
-        - Structure the lesson logically: start with an introduction, explain concepts with a few slides, then add a quiz to check understanding. Repeat this pattern 2-3 times. A typical level should have 5-8 items in total.
+    **Content Guidelines:**
+    1.  **Mobile First:** Keep paragraphs short (2-3 sentences). Use markdown `### Subheadings`, `**bold**`, and bullet points (`* item`) to break up text and make it easy to read on a phone.
+    2.  **Multiple Slides:** A good level should have multiple slides. Explain a concept over 2-3 slides before checking for understanding. A typical level should have 5-8 items in total.
+    3.  **Flexible Quizzes:** Quizzes are great but not mandatory for every single concept. Include a quiz only when it makes sense to test a key piece of knowledge. If a concept is simple, a few clear slides are enough.
 
-    2.  For a 'quiz' item:
-        - The "content" field should be a JSON object with four keys: "question" (string), "options" (array of 4 strings), "correctAnswerIndex" (integer 0-3), and "explanation" (string).
-        - The questions should genuinely test the understanding of the concepts just taught.
-        - The "explanation" should provide deeper context or a "Do you know? 🤓" fun fact that enhances learning, written in simple English.
+    **'slide' item format:**
+    - "content" should be a string with detailed, informative markdown in simple English.
 
-    Generate the complete, interleaved lesson for "{level_title}". Your goal is to empower the user. Do not include any text outside of the main JSON object.
+    **'quiz' item format:**
+    - "content" should be a JSON object with four keys: "question" (string), "options" (array of 4 strings), "correctAnswerIndex" (integer 0-3), and "explanation" (string).
+    - The "explanation" should provide deeper context or a fun fact.
+
+    Generate the complete, mobile-friendly lesson for "{level_title}". Do not include any text outside of the main JSON object.
     """
     cleaned_response = _call_gemini_with_retry(prompt)
     return json.loads(cleaned_response)['items']
@@ -149,10 +151,10 @@ def generate_help_level_content(topic, step_title):
     """Generates a direct, helpful slide for a single 'help' step."""
     logger.info(f"AI: Generating 'help' content for step: '{step_title}'")
     prompt = f"""
-    You are an expert guide creating one part of a 'how-to' manual. The user's main goal is "{topic}", and this specific step is "{step_title}".
+    You are an expert guide creating one part of a 'how-to' manual for a mobile app. The user's main goal is "{topic}", and this specific step is "{step_title}".
     Your task is to write a clear, concise, and easy-to-follow explanation for this single step. Your tone must be supportive and non-patronizing.
 
-    - Use simple English. Be direct and to the point.
+    - Use simple English and short paragraphs for mobile readability.
     - Use markdown for formatting: `### Subheadings`, `**bold**` for emphasis on crucial actions, and numbered lists for any sub-steps.
     - Assume the user is smart but unfamiliar with this specific task. Avoid jargon where possible, or explain it simply if necessary.
     - The goal is to help the user successfully complete this one step.
@@ -162,6 +164,30 @@ def generate_help_level_content(topic, step_title):
     """
     cleaned_response = _call_gemini_with_retry(prompt)
     return json.loads(cleaned_response)['items']
+
+
+# FIX: New function for the "I'm Feeling Lucky" feature
+def generate_random_topic():
+    """Asks the AI to generate a single, random, interesting topic for a learning path."""
+    logger.info("AI: Generating a random topic...")
+    prompt = """
+    You are a creative idea generator. Your task is to invent a single, interesting, and non-trivial topic for a short learning course.
+    The topic should be something a curious person would want to learn, like a specific historical event, a scientific concept, a practical skill, or a philosophical idea or you are even open to give same questions to ask for help related something.
+
+    Examples of good topics:
+    - "The Great Emu War of 1932"
+    - "How to Make a Perfect Sourdough Starter"
+    - "An Introduction to Stoic Philosophy"
+    - "The Science of Black Holes"
+    - "How to Fix a Leaky Faucet"
+    - "How to Organize Your Digital Life"
+    - "How to Tie a Bowline Knot"
+
+    The output MUST be a single, valid JSON object with one key: "topic".
+    Do not include any text outside of the JSON object.
+    """
+    cleaned_response = _call_gemini_with_retry(prompt)
+    return json.loads(cleaned_response)['topic']
 
 
 def generate_nft_svg(title):

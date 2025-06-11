@@ -18,6 +18,9 @@ The core philosophy is to leverage cutting-edge AI to create high-quality, struc
 - **Dynamic Title & Description Generation**: Automatically transforms a simple user query (e.g., "learn python") into an engaging, SEO-friendly course title (`🐍 Python Programming: From Zero to Hero`) and a compelling description.
 - **Adaptive Curriculum Design**: The AI analyzes the complexity of the topic to generate a syllabus with an appropriate number of lessons—fewer for simple topics, more for complex ones.
 - **Rich, Interleaved Content**: Each lesson is a rich mix of detailed, markdown-formatted slides and interactive multiple-choice quizzes to reinforce learning.
+- **Mobile-First Content Generation**: Prompts are optimized to generate concise, readable content suitable for mobile screens, using short paragraphs and clear formatting.
+- **"I'm Feeling Lucky" Topic Generation**: A dedicated endpoint can ask the AI to invent a novel, interesting topic, powering spontaneous discovery.
+- **Hybrid Search**: Combines semantic (vector) search with traditional keyword search to deliver highly relevant and accurate search results.
 - **Reliable AI Interaction**: Implements a robust retry mechanism for API calls to handle transient network issues and ensure content generation completes successfully.
 
 ### 🔗 Web3 & Blockchain Integration
@@ -28,10 +31,12 @@ The core philosophy is to leverage cutting-edge AI to create high-quality, struc
 - **Asynchronous Task Handling**: Long-running processes like AI content generation are handled in background threads, providing an immediate response to the user and allowing them to poll for status updates.
 - **Persistent Task Logging**: Generation progress is logged to a database, ensuring that status updates can be retrieved even if the server restarts.
 - **Atomic Operations & Cleanup**: The system is designed to be atomic. If any part of the multi-step generation process fails, all partially created data (database records, etc.) is automatically rolled back, preventing orphaned data.
-- **Secure & Modular Routes**: The API is organized into logical, secure blueprints (Users, Paths, Progress, NFTs) for clarity and maintainability.
+- **Secure & Modular Routes**: The API is organized into logical, secure blueprints (Users, Paths, Progress, NFTs, Search) for clarity and maintainability.
 
 ### 💻 Developer Experience
-- **Comprehensive Testing UI**: Comes with a pre-built, aesthetic Gradio UI that provides a full suite of tools to test every single API endpoint without needing a separate frontend application.
+- **Multiple UIs for Development**:
+    - **Live Demo UI**: A user-facing, interactive Gradio application that simulates the real user experience.
+    - **Testing UI**: A comprehensive Gradio UI that provides a full suite of tools to test every single API endpoint individually.
 - **Extensive Configuration**: Application behavior can be easily modified via environment variables, including feature flags to toggle major functionalities like blockchain registration or duplicate checking.
 - **Detailed Documentation**: This README provides a complete guide to setup, architecture, and every available API endpoint.
 
@@ -121,7 +126,11 @@ BACKEND_WALLET_ADDRESS="YOUR_BACKEND_WALLET_ADDRESS"
 PATH_REGISTRY_CONTRACT_ADDRESS="DEPLOYED_REGISTRY_CONTRACT_ADDRESS"
 NFT_CONTRACT_ADDRESS="DEPLOYED_NFT_CONTRACT_ADDRESS"
 
-# --- Feature Flags ---
+# --- Feature Flags & App Behavior ---
+RUN_API_SERVER="true"
+RUN_TESTING_UI="false"
+RUN_LIVE_DEMO="true"
+LIVE_DEMO_PORT=9999
 FEATURE_FLAG_ENABLE_BLOCKCHAIN_REGISTRATION="true"
 FEATURE_FLAG_ENABLE_NFT_MINTING="true"
 FEATURE_FLAG_ENABLE_DUPLICATE_CHECK="true"
@@ -140,19 +149,22 @@ FEATURE_FLAG_ENABLE_DUPLICATE_CHECK="true"
 5.  Deploy `LearningPathRegistry.sol`.
 6.  Deploy `NoodlCertificate.sol`, providing your wallet address as the `initialOwner`.
 7.  Copy the deployed contract addresses into your `.env` file.
+    > **Note**: The provided `LearningPathRegistry.sol` contract allows the owner to overwrite path hashes. This is intentional for development robustness, making it resilient to database resets without requiring contract redeployment.
 8.  From the "Solidity Compiler" tab in Remix, copy the ABI for each contract and save them as `LearningPathRegistry.json` and `NoodlCertificate.json` inside the `contracts/` directory.
 
 ---
 
 ## 🏃‍♂️ Running the Application
 
-The application can be run with a single command, which starts both the API server and the testing UI.
+The application can be run with a single command, which intelligently starts services based on your `.env` file.
 
 ```bash
-python main.py```
-- The Flask API server will be available at `http://localhost:5000`.
-- The Gradio Testing UI will be available at `http://localhost:7000`.
+python main.py
 ```
+- The **Flask API server** will be available at `http://localhost:5000`.
+- The **Gradio Live Demo UI** will be available at `http://localhost:9999` (if `RUN_LIVE_DEMO=true`).
+- The **Gradio Testing UI** will be available at `http://localhost:7000` (if `RUN_TESTING_UI=true` and `RUN_LIVE_DEMO=false`).
+
 ---
 
 ## 🔌 API Endpoint Documentation
@@ -222,6 +234,16 @@ python main.py```
     ```
   - **Error Response (409)**: If a path with a highly similar title already exists.
 
+- **Get a Random Topic**  
+  **Endpoint**: `GET /paths/random-topic`  
+  **Description**: Asks the AI to generate a single, interesting topic for a learning path. Perfect for an "I'm Feeling Lucky" feature.
+  - **Success Response (200)**:
+    ```json
+    {
+      "topic": "The History of the Rosetta Stone"
+    }
+    ```
+
 - **Get Generation Status**  
   **Endpoint**: `GET /paths/generate/status/<task_id>`  
   **Description**: **(Persistent)** Poll this endpoint to get progress updates for a generation task. Status survives server restarts.
@@ -263,6 +285,33 @@ python main.py```
     ```
   - **Success Response (200)**: Confirms successful deletion.
   - **Error Response (403)**: If the `user_wallet` does not match the path's creator.
+
+### Search Endpoints
+
+- **Search for Paths**  
+  **Endpoint**: `GET /search`  
+  **Description**: Performs a hybrid search that combines semantic (vector) search on titles with keyword search across titles and descriptions.
+  - **Query Parameters**:
+    - `q` (string): The search query. Must be at least 2 characters long.
+  - **Success Response (200)**: Returns an interleaved array of keyword and semantic matches.
+    ```json
+    [
+      {
+        "id": 12,
+        "match_type": "keyword",
+        "result_in": "title",
+        "similarity": null,
+        "title": "🐍 An Introduction to Python"
+      },
+      {
+        "id": 23,
+        "match_type": "semantic",
+        "result_in": "title",
+        "similarity": 0.8912,
+        "title": "Learn the Basics of Coding with Python"
+      }
+    ]
+    ```
 
 ### Progress & Scoring Endpoints
 
@@ -345,12 +394,14 @@ python main.py```
 `GET /users/<wallet_address>`  
 `GET /users/<wallet_address>/paths`  
 `GET /users/<wallet_address>/paths/count`  
-`POST /paths/generate`  
+`POST /paths/generate`
+`GET /paths/random-topic`
 `GET /paths/generate/status/<task_id>`  
 `GET /paths`  
 `GET /paths/<path_id>`  
 `DELETE /paths/<path_id>`  
-`GET /paths/<path_id>/levels/<level_num>`  
+`GET /paths/<path_id>/levels/<level_num>`
+`GET /search`
 `POST /progress/start`  
 `POST /progress/location`  
 `POST /progress/update`  

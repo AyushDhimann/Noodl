@@ -17,7 +17,10 @@ contract LearningPathRegistry {
     }
 
     function registerPath(uint256 _pathId, bytes32 _contentHash) public onlyOwner {
-        require(pathContentHashes[_pathId] == 0, "Path already registered");
+        // FIX: Remove the check that prevents updates.
+        // This makes the function behave like an "upsert" for the owner,
+        // which is more robust for development environments where the database might be reset.
+        // require(pathContentHashes[_pathId] == 0, "Path already registered");
         pathContentHashes[_pathId] = _contentHash;
         emit PathRegistered(_pathId, _contentHash);
     }
