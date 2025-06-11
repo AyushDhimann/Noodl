@@ -106,13 +106,19 @@ def generate_learn_curriculum(topic, country=None):
     country_context = f"The user is from {country}, so you can use local examples or spellings if relevant, but it's not a requirement." if country else ""
     prompt = f"""You are an expert curriculum designer for a learning app. For the course titled "{topic}", create a detailed syllabus using simple English. The goal is to take a user from beginner to competent. {country_context}
 
-    The output MUST be a single, valid JSON object with one key: "levels". "levels" should be an array of strings, where each string is a concise title for a learning level. The titles should represent a logical progression.
+    **RULES:**
+    1.  The output MUST be a single, valid JSON object with one key: "levels".
+    2.  "levels" must be an array of strings.
+    3.  Each string in the array is a concise title for a learning level.
+    4.  Each title MUST start with a single, relevant emoji.
+    5.  Each title MUST NOT start with a number (e.g., "1.", "2."). The numbering is handled automatically by the frontend.
 
-    IMPORTANT: The number of levels should be appropriate for the topic's complexity.
+    **IMPORTANT:** The number of levels should be appropriate for the topic's complexity.
     - For simple, everyday topics (e.g., 'how to brush your teeth'), use 3-4 levels.
     - For complex, academic, or broad topics (e.g., 'The History of the Renaissance'), use 7-10 levels.
 
-    Do not include any text outside of the JSON object. Also make sure the title of each level starts with a single, appropriate emoji."""
+    Do not include any text outside of the JSON object.
+    """
     cleaned_response = _call_gemini_with_retry(prompt)
     return json.loads(cleaned_response)['levels']
 
@@ -122,10 +128,21 @@ def generate_help_curriculum(topic):
     logger.info(f"AI: Generating 'help' curriculum for topic: '{topic}'")
     prompt = f"""You are a helpful and clear technical writer. A user needs help with: "{topic}".
     Your task is to break down the solution into a series of simple, actionable steps. These steps will become the titles of a short guide.
-    Use simple, encouraging language. The titles should be very clear, like a checklist.
-    For example, for a topic like 'How to change a flat tire', the steps might be: ["1. Park Safely and Gather Tools", "2. Loosen the Lug Nuts", "3. Jack Up the Car", "4. Replace the Tire", "5. Lower the Car and Tighten"].
 
-    The output MUST be a single, valid JSON object with one key: "levels". "levels" should be an array of strings, where each string is a step in the process.
+    **RULES:**
+    1.  The output MUST be a single, valid JSON object with one key: "levels".
+    2.  "levels" must be an array of strings.
+    3.  Each string is a step in the process, written in simple, encouraging language.
+    4.  Each title MUST start with a single, relevant emoji.
+    5.  Each title MUST NOT start with a number (e.g., "1.", "2.").
+
+    **Example for 'How to change a flat tire':**
+    - "🚗 Park Safely and Gather Tools"
+    - "🔧 Loosen the Lug Nuts"
+    - "⬆️ Jack Up the Car"
+    - "🔄 Replace the Tire"
+    - "⬇️ Lower the Car and Tighten"
+
     Do not include any text outside of the JSON object.
     """
     cleaned_response = _call_gemini_with_retry(prompt)
@@ -194,18 +211,20 @@ def generate_random_topic():
     The goal is to be engaging and useful for everyday people, not a university lecture.
 
     **RULES:**
-    1.  The topic should be a specific skill, a "how-to" question, or a fascinating concept explained simply.
-    2.  Avoid overly academic, philosophical, or abstract topics like "The Epistemology of Knowledge" or "Post-structuralist critiques of...".
-    3.  The topic should sound like something a real person would search for.
+    1.  **BE CREATIVE**: Generate a topic that is fresh, interesting, and not something you have suggested recently. Think outside the box.
+    2.  **PRACTICAL & FUN**: The topic should be a specific skill, a "how-to" question, or a fascinating concept explained simply.
+    3.  **AVOID ACADEMIA**: Avoid overly academic, philosophical, or abstract topics like "The Epistemology of Knowledge" or "Post-structuralist critiques of...".
+    4.  **REAL-WORLD APPEAL**: The topic should sound like something a real person would search for.
 
-    **Examples of good, practical topics:**
-    - "How to Make a Perfect Cup of Coffee"
-    - "A Beginner's Guide to Investing in Stocks"
-    - "How to Meal Prep for a Busy Week"
-    - "What are the Northern Lights and How Can I See Them?"
-    - "How to Change a Bicycle's Inner Tube"
-    - "Simple Tricks to Improve Your Sleep Quality"
-    - "How to Build a Simple Website with HTML and CSS"
+    **Examples of good, creative, and practical topics:**
+    - "How to Start a Balcony Garden for Fresh Herbs"
+    - "The Science of Making the Perfect Pizza Dough"
+    - "A Beginner's Guide to Reading Body Language"
+    - "How to Create Your Own Simple Mobile App Without Code"
+    - "The Art of Storytelling: How to Captivate Any Audience"
+    - "Basic First Aid for Common Household Accidents"
+    - "How to Negotiate a Higher Salary at Your Job"
+    - "Understanding Your Cat's Behavior"
 
     The output MUST be a single, valid JSON object with one key: "topic".
     Do not include any text outside of the JSON object.
