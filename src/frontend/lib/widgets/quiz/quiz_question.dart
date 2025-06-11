@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_markdown/flutter_markdown.dart';
 import 'package:frontend/constants/colors.dart' as appColors;
+import 'package:markdown_widget/markdown_widget.dart';
 
 class QuizQuestion extends StatelessWidget {
   final String text;
@@ -14,14 +16,26 @@ class QuizQuestion extends StatelessWidget {
         color: appColors.primary.withOpacity(0.25),
         borderRadius: const BorderRadius.all(Radius.circular(12.5))
       ),
-      child: Text(
-        text,
-        style: TextStyle(
-          color: appColors.white,
-          fontFamily: 'NSansM',
-          fontSize: 20
+      child: Markdown(
+        data: text,
+        padding: EdgeInsets.zero,
+        styleSheet: MarkdownStyleSheet(
+          p: TextStyle(
+            fontSize: 20,
+            fontFamily: 'NSansM'
+          )
         ),
+        physics: NeverScrollableScrollPhysics(),
+        shrinkWrap: true,
       ),
+      // child: Text(
+      //   text,
+      //   style: TextStyle(
+      //     color: appColors.white,
+      //     fontFamily: 'NSansM',
+      //     fontSize: 20
+      //   ),
+      // ),
     );
   }
 }

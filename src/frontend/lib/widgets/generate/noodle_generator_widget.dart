@@ -57,10 +57,15 @@ class NoodleGeneratorWidget extends StatelessWidget {
             SizedBox(height: 12,),
             GenerateButton(
               onTap: () async{
+                FocusScope.of(context).unfocus();
+                generatePageprovider.initialLoadingTrue();
                 dynamic response = await APIservice.generateNoodle(
                   prompt: generatePageprovider.generatorTextEditingController.text,
-                  user_wallet_id: metaMaskProvider.walletAddress!
+                  walletAdd: metaMaskProvider.walletAddress
+                  ??"0x718fafb76e1631f5945bf58104f3b81d9588819b",
+                  // user_wallet_id: "0x718fafb76e1631f5945bf58104f3b81d9588819b"
                 );
+                generatePageprovider.initialLoadingFalse();
                 response['message'] != 'E'?
                   generatePageprovider.setGeneratingTaskID(response['task_id'])
                     :null;

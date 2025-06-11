@@ -1,11 +1,15 @@
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 import 'package:frontend/constants/colors.dart' as appColors;
+import 'package:frontend/models/noodl_model.dart';
+import 'package:frontend/pages/levels_page.dart';
 
 class NoodlButton extends StatelessWidget {
-  final String title;
-  final String description;
-  const NoodlButton({super.key, required this.title, required this.description});
+  // final String title;
+  // final String description;
+  final NoodlModel data;
+  final bool isCommunityNoodl=false;
+  const NoodlButton({super.key, required this.data,});
 
   @override
   Widget build(BuildContext context) {
@@ -16,8 +20,14 @@ class NoodlButton extends StatelessWidget {
         color: Colors.white.withOpacity(0.08),
         child: InkWell(
         borderRadius: BorderRadius.all(Radius.circular(12.5)),
-          onTap: () {
-          },
+          onTap: () => 
+            Navigator
+              .of(context)
+                .push(
+                  MaterialPageRoute(
+                    builder: (context) => LevelsPage(noodlModel: data),
+                  )
+            ),
           child: SizedBox(
             width: double.infinity,
             child: Stack(
@@ -56,16 +66,16 @@ class NoodlButton extends StatelessWidget {
                         // ),
                         // SizedBox(height: 5,),
                         Text(
-                          title,
+                          data.title,
                           style: TextStyle(
                             color: appColors.white,
-                            fontSize: 20,
+                            fontSize: 18,
                             fontFamily: 'NSansB'
                           ),
                         ),
                         SizedBox(height: 5,),
                         Text(
-                          description,
+                          data.description,
                           style: TextStyle(
                             color: appColors.white,
                             fontSize: 14,

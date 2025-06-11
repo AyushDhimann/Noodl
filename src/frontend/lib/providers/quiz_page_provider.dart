@@ -8,6 +8,16 @@ class QuizPageProvider extends ChangeNotifier{
     notifyListeners();
   }
 
+  void setNoSelectedOption(){
+    selectedOption = 0;
+    notifyListeners();
+  }
+
+  void setProgressBarZero(){
+    progress = 0;
+    notifyListeners();
+  }
+
   PageController quizQuesContoller = PageController();
 
   void goToNextQues(){
