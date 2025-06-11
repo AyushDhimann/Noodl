@@ -1,28 +1,54 @@
 from app import supabase_client, logger
 from datetime import datetime, timezone
 from . import ai_service
+import time
+from functools import wraps
+import httpx
+
+
+def supabase_retry(retries=3, delay=2):
+    """A decorator to retry Supabase operations on transient network errors."""
+    def decorator(func):
+        @wraps(func)
+        def wrapper(*args, **kwargs):
+            for attempt in range(retries):
+                try:
+                    return func(*args, **kwargs)
+                except httpx.ReadError as e:
+                    logger.warning(f"DB: Network error on attempt {attempt + 1}/{retries} for {func.__name__}: {e}")
+                    if attempt + 1 == retries:
+                        logger.error(f"DB: All retry attempts failed for {func.__name__}.")
+                        raise
+                    time.sleep(delay * (attempt + 1))  # Exponential backoff
+        return wrapper
+    return decorator
 
 
 # --- User Functions ---
+@supabase_retry()
 def get_user_by_wallet(wallet_address):
     return supabase_client.table('users').select('id').eq('wallet_address', wallet_address).maybe_single().execute()
 
+@supabase_retry()
 def get_user_by_wallet_full(wallet_address):
     """Fetches the full user object, not just the ID."""
     return supabase_client.table('users').select('*').eq('wallet_address', wallet_address).maybe_single().execute()
 
 
+@supabase_retry()
 def upsert_user(wallet_address, name, country):
     return supabase_client.table('users').upsert({
         'wallet_address': wallet_address, 'name': name, 'country': country
     }, on_conflict='wallet_address').execute()
 
 
+@supabase_retry()
 def get_paths_by_creator(wallet_address):
     return supabase_client.table('learning_paths').select("id, title, short_description, total_levels, created_at").eq(
         'creator_wallet', wallet_address).order('created_at', desc=True).execute()
 
 
+@supabase_retry()
 def get_path_count_by_creator(wallet_address):
     """Efficiently gets the count of paths created by a user."""
     response = supabase_client.table('learning_paths').select('id', count='exact').eq('creator_wallet', wallet_address).execute()
@@ -30,15 +56,18 @@ def get_path_count_by_creator(wallet_address):
 
 
 # --- Path & Content Functions ---
+@supabase_retry()
 def get_all_paths():
     return supabase_client.table('learning_paths').select("id, title, short_description, total_levels").execute()
 
 
+@supabase_retry()
 def get_path_by_id(path_id):
     return supabase_client.table('learning_paths').select("title, short_description, long_description, creator_wallet").eq('id',
                                                                                    path_id).maybe_single().execute()
 
 
+@supabase_retry()
 def get_full_path_details(path_id):
     """
     Fetches a single path and all its related levels and content items in one query.
@@ -52,6 +81,7 @@ def get_full_path_details(path_id):
     ).maybe_single().execute()
 
 
+@supabase_retry()
 def create_learning_path(title, short_description, long_description, creator_wallet, total_levels, intent_type, embedding):
     return supabase_client.table('learning_paths').insert({
         "title": title, "short_description": short_description, "long_description": long_description,
@@ -60,37 +90,44 @@ def create_learning_path(title, short_description, long_description, creator_wal
     }).execute()
 
 
+@supabase_retry()
 def delete_path_by_id(path_id):
     """Deletes a path and its cascaded content. Use with care."""
     logger.warning(f"DB: Deleting path with ID: {path_id} and all its content.")
     return supabase_client.table('learning_paths').delete().eq('id', path_id).execute()
 
 
+@supabase_retry()
 def update_path_hash(path_id, content_hash):
     return supabase_client.table('learning_paths').update({'content_hash': content_hash}).eq('id', path_id).execute()
 
 
+@supabase_retry()
 def create_level(path_id, level_number, level_title):
     return supabase_client.table('levels').insert({
         "path_id": path_id, "level_number": level_number, "level_title": level_title
     }).execute()
 
 
+@supabase_retry()
 def get_level(path_id, level_num):
     return supabase_client.table('levels').select('id, level_title').eq('path_id', path_id).eq('level_number',
                                                                                                level_num).single().execute()
 
 
+@supabase_retry()
 def create_content_items(items_to_insert):
     return supabase_client.table('content_items').insert(items_to_insert).execute()
 
 
+@supabase_retry()
 def get_content_items_for_level(level_id):
     return supabase_client.table('content_items').select('id, item_index, item_type, content').eq('level_id',
                                                                                                   level_id).order(
         'item_index').execute()
 
 
+@supabase_retry()
 def find_similar_paths(embedding, threshold, count):
     """Calls the match_similar_paths RPC in Supabase."""
     logger.info(f"DB: Finding similar paths with threshold {threshold}")
@@ -101,6 +138,7 @@ def find_similar_paths(embedding, threshold, count):
     }).execute()
 
 
+@supabase_retry()
 def hybrid_search_paths(query_text):
     """
     Performs a hybrid search using both semantic vector search and keyword text search.
@@ -167,6 +205,7 @@ def hybrid_search_paths(query_text):
 
 
 # --- Task Progress Log Functions ---
+@supabase_retry()
 def create_task_log(task_id):
     """Creates a new entry for a task in the logs table."""
     return supabase_client.table('task_progress_logs').insert({
@@ -175,6 +214,7 @@ def create_task_log(task_id):
     }).execute()
 
 
+@supabase_retry()
 def update_task_log(task_id, new_log_entry):
     """Appends a new log entry to a task's log array in the database."""
     return supabase_client.rpc('append_to_log', {
@@ -183,17 +223,20 @@ def update_task_log(task_id, new_log_entry):
     }).execute()
 
 
+@supabase_retry()
 def get_task_log(task_id):
     """Retrieves the logs for a specific task."""
     return supabase_client.table('task_progress_logs').select('logs').eq('task_id', task_id).single().execute()
 
 
 # --- Progress & Scoring Functions ---
+@supabase_retry()
 def get_progress(user_id, path_id):
     return supabase_client.table('user_progress').select('*, levels(level_number)').eq('user_id', user_id).eq('path_id',
                                                                                                               path_id).maybe_single().execute()
 
 
+@supabase_retry()
 def create_progress(user_id, path_id):
     first_level_res = supabase_client.table('levels').select('id').eq('path_id', path_id).eq('level_number',
                                                                                              1).single().execute()
@@ -210,10 +253,12 @@ def create_progress(user_id, path_id):
                                                                                        new_progress_id).single().execute()
 
 
+@supabase_retry()
 def get_quiz_item(item_id):
     return supabase_client.table('content_items').select('content, item_index').eq('id', item_id).single().execute()
 
 
+@supabase_retry()
 def log_quiz_attempt(progress_id, item_id, answer_index, is_correct):
     return supabase_client.table('quiz_attempts').insert({
         'progress_id': progress_id, 'content_item_id': item_id,
@@ -221,11 +266,13 @@ def log_quiz_attempt(progress_id, item_id, answer_index, is_correct):
     }).execute()
 
 
+@supabase_retry()
 def update_user_progress_item(progress_id, item_index):
     return supabase_client.table('user_progress').update({'current_item_index': item_index}).eq('id',
                                                                                                 progress_id).execute()
 
 
+@supabase_retry()
 def get_user_scores(user_id):
     progress_records = supabase_client.table('user_progress').select('id, path_id, status, learning_paths(title)').eq(
         'user_id', user_id).execute()

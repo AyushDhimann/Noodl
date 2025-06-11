@@ -19,8 +19,17 @@ supabase_client: Client = create_client(config.SUPABASE_URL, config.SUPABASE_SER
 logger.info("Supabase client initialized.")
 
 genai.configure(api_key=config.GEMINI_API_KEY)
-text_model = genai.GenerativeModel(config.GEMINI_MODEL_TEXT)
-logger.info("Gemini AI model initialized.")
+
+# Create a generation config with the desired temperature
+generation_config = genai.types.GenerationConfig(temperature=config.GENERATION_TEMPERATURE)
+
+# Initialize the text model with the generation config
+text_model = genai.GenerativeModel(
+    config.GEMINI_MODEL_TEXT,
+    generation_config=generation_config
+)
+logger.info("Gemini AI text model initialized.")
+
 
 w3 = Web3(Web3.HTTPProvider(config.ETHEREUM_NODE_URL))
 w3.middleware_onion.inject(ExtraDataToPOAMiddleware, layer=0)

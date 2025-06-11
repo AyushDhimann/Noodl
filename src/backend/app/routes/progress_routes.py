@@ -22,16 +22,15 @@ def start_or_get_progress_route():
 
         progress_res = supabase_service.get_progress(user_id, path_id)
 
-        # FIX: Ensure a consistent return type.
-        # If progress exists, return the dictionary directly.
         if progress_res and progress_res.data:
             return jsonify(progress_res.data)
 
-        # If progress does not exist, create it and return the new dictionary.
         new_progress_res = supabase_service.create_progress(user_id, path_id)
-        # The create_progress function returns a list with one item. Extract it.
+
+        # FIX: The 'create_progress' service function returns a single dictionary, not a list.
+        # Accessing its 'data' attribute directly is correct.
         if new_progress_res and new_progress_res.data:
-            return jsonify(new_progress_res.data[0]), 201
+            return jsonify(new_progress_res.data), 201
 
         # Fallback error
         return jsonify({"error": "Could not create or retrieve progress."}), 500

@@ -1,7 +1,8 @@
-from flask import Blueprint, request, jsonify, Response
+from flask import Blueprint, request, jsonify, send_file
 from app import logger
 from app.services import supabase_service, blockchain_service, ai_service
 from app.config import config
+import os
 
 bp = Blueprint('nft_routes', __name__)
 
@@ -57,9 +58,25 @@ def get_nft_metadata_route(path_id):
 
 @bp.route('/nft/image/<int:path_id>', methods=['GET'])
 def get_nft_image_route(path_id):
-    path_res = supabase_service.get_path_by_id(path_id)
-    if not path_res or not path_res.data:
-        return "Path not found", 404
+    """
+    Serves the NFT image. Checks for a local copy first,
+    and generates a new one if it doesn't exist.
+    """
+    cert_dir = os.path.abspath("certificates")
+    file_path = os.path.join(cert_dir, f"path_{path_id}.png")
 
-    svg_data = ai_service.generate_nft_svg(path_res.data['title'])
-    return Response(svg_data, mimetype='image/svg+xml')
+    if not os.path.exists(file_path):
+        logger.info(f"IMAGE: Certificate for path {path_id} not found locally. Generating...")
+        path_res = supabase_service.get_path_by_id(path_id)
+        if not path_res or not path_res.data:
+            return "Path not found", 404
+
+        generated_path = ai_service.generate_pixel_cert(path_res.data['title'], path_id)
+        if not generated_path:
+            return "Failed to generate NFT image.", 500
+
+    try:
+        return send_file(file_path, mimetype='image/png')
+    except FileNotFoundError:
+        logger.error(f"IMAGE: File not found at {file_path} after attempting to serve.")
+        return "Image file not found on server.", 404

@@ -30,6 +30,10 @@ class Config:
 
     # Gemini Models
     GEMINI_MODEL_TEXT = os.getenv("GEMINI_MODEL_TEXT", "gemini-1.5-flash-latest")
+    GEMINI_MODEL_EMBEDDING = os.getenv("GEMINI_MODEL_EMBEDDING", "models/text-embedding-004")
+
+    # Gemini Generation Config
+    GENERATION_TEMPERATURE = float(os.getenv("GENERATION_TEMPERATURE", 1.5))
 
     # Web3
     BACKEND_WALLET_PRIVATE_KEY = os.getenv("BACKEND_WALLET_PRIVATE_KEY")

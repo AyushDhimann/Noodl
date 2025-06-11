@@ -11,12 +11,15 @@ contract NoodlCertificate is ERC721, ERC721URIStorage, Ownable {
     using Counters for Counters.Counter;
     Counters.Counter private _tokenIdCounter;
 
-    mapping(address => mapping(uint256 => bool)) public hasMinted;
+    // FIX: Store the tokenId for a given user and path. 0 means not minted.
+    mapping(address => mapping(uint256 => uint256)) public userPathToTokenId;
 
     constructor(address initialOwner)
         ERC721("Noodl Certificate", "NOODL")
         Ownable(initialOwner)
     {
+        // FIX: Start token counter at 1, so we can use 0 as a "not minted" sentinel value.
+        _tokenIdCounter.increment();
         console.log("NoodlCertificate deployed! Owner:", initialOwner);
         console.log("Contract address:", address(this));
     }
@@ -27,24 +30,34 @@ contract NoodlCertificate is ERC721, ERC721URIStorage, Ownable {
         console.log("Path ID:", pathId);
         console.log("URI:", uri);
 
-        require(!hasMinted[to][pathId], "Certificate already minted for this user/path");
-        console.log("Duplicate check: PASSED");
+        uint256 existingTokenId = userPathToTokenId[to][pathId];
 
-        uint256 tokenId = _tokenIdCounter.current();
-        console.log("Token ID to mint:", tokenId);
+        // If a token ID is already stored for this user/path, just update the metadata.
+        // This prevents errors in development if the database is reset but the chain is not.
+        if (existingTokenId != 0) {
+            console.log("Token already exists (ID: %s), updating URI.", existingTokenId);
+            _setTokenURI(existingTokenId, uri);
+            console.log("URI updated: SUCCESS");
+            console.log("=== MINT COMPLETE (URI Update) ===");
+        } else {
+            // Otherwise, mint a new token.
+            uint256 tokenId = _tokenIdCounter.current();
+            console.log("Token ID to mint:", tokenId);
 
-        _tokenIdCounter.increment();
-        console.log("Counter after increment:", _tokenIdCounter.current());
+            _tokenIdCounter.increment();
+            console.log("Counter after increment:", _tokenIdCounter.current());
 
-        _safeMint(to, tokenId);
-        console.log("Token minted: SUCCESS");
+            _safeMint(to, tokenId);
+            console.log("Token minted: SUCCESS");
 
-        _setTokenURI(tokenId, uri);
-        console.log("URI set: SUCCESS");
+            _setTokenURI(tokenId, uri);
+            console.log("URI set: SUCCESS");
 
-        hasMinted[to][pathId] = true;
-        console.log("Tracking updated: SUCCESS");
-        console.log("=== MINT COMPLETE ===");
+            // Record the newly minted token ID for this user and path.
+            userPathToTokenId[to][pathId] = tokenId;
+            console.log("Tracking updated: SUCCESS");
+            console.log("=== MINT COMPLETE (New Mint) ===");
+        }
     }
 
     function burn(uint256 tokenId) public {
@@ -96,7 +109,7 @@ contract NoodlCertificate is ERC721, ERC721URIStorage, Ownable {
     }
 
     function hasUserMinted(address user, uint256 pathId) public view returns (bool) {
-        bool minted = hasMinted[user][pathId];
+        bool minted = userPathToTokenId[user][pathId] != 0;
         console.log("Mint check - User:", user);
         console.log("Path:", pathId);
         console.log("Has minted:", minted);
