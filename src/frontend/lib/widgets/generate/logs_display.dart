@@ -78,7 +78,6 @@ class LogsDisplay extends StatelessWidget {
                     ),
                     SizedBox(height: 12,),
                     CupertinoActivityIndicator(),
-                    SizedBox(height: 18,),
                   ],
                 ),
               ),

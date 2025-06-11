@@ -3,6 +3,7 @@ import 'dart:convert';
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 import 'package:frontend/test/test_data.dart' as testData;
+import 'package:frontend/widgets/generate/go_to_noodl_page_button.dart';
 import 'package:frontend/widgets/generate/logs_display.dart';
 import 'package:frontend/providers/generate_page_provider.dart';
 import 'package:frontend/services/services.dart';
@@ -66,6 +67,10 @@ class GenerateNoodlPage extends StatelessWidget {
                       SizedBox(height: 12,),
                       NoodleGeneratorWidget(),
                       SizedBox(height: 12,),
+                      provider.initialLoading? Padding(
+                        padding: const EdgeInsets.only(top: 24),
+                        child: CupertinoActivityIndicator(),
+                      ):SizedBox.shrink(),
                       provider.generatingTaskID != null
                         ? StreamBuilder(
                             stream: Stream.periodic(const Duration(seconds: 2))
@@ -74,16 +79,35 @@ class GenerateNoodlPage extends StatelessWidget {
                                     )),
                                 builder: (context, snapshot) {
                                   provider.logsDisplayScrollToBottom();
+                                  
                                   if (snapshot.connectionState == ConnectionState.waiting && !snapshot.hasData) {
                                     return  LoadingStartingGenerationWidget();
                                   } else if (snapshot.hasError) {
                                     return Text('Error: ${snapshot.error}');
                                   } else if (snapshot.hasData) {
+                                    List<dynamic> listStatus= snapshot.data['progress'];
+                                    int len = listStatus.length;
+                                    if(listStatus[len-1]['data']!=null){
+                                      return Column(
+                                        mainAxisSize: MainAxisSize.min,
+                                        children: [
+                                          Text(
+                                            'Generation successful! Your generated Noodl is now available on your Noodls page.',
+                                            style: TextStyle(
+                                              fontFamily: 'NSansL',
+                                              color: appColors.white,
+                                              fontSize: 14
+                                            ),
+                                          ),
+                                          GoToNoodlPageButton()
+                                        ],
+                                      );
+                                    }
                                     // return Text(snapshot.data['progress'].toString());
                                   return LogsDisplay(items: snapshot.data['progress']);
-                                  } 
-                                  return const Text('No data yet');
-                                  
+                                  } else{
+                                    return const Text('No data yet');
+                                  }
                                 },
                               )
                             : const SizedBox.shrink(),

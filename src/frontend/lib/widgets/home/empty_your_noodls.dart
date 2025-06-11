@@ -12,11 +12,11 @@ class EmptyYourNoodls extends StatelessWidget {
         width: 200,
         alignment: Alignment.center,
         child: Text(
-          'No noodls yet! Start by generating one or picking from the community..',
+          'No noodls yet! Start by generating one or picking from the community.',
           textAlign: TextAlign.center,
           style: TextStyle(
             color: appColors.white.withOpacity(0.35),
-            fontFamily: 'NSansM',
+            fontFamily: 'NSansL',
             fontSize: 15,
           ),
         ),

@@ -25,6 +25,8 @@ class MyApp extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     SystemChrome.setSystemUIOverlayStyle(SystemUiOverlayStyle.light);
+    SystemChrome.setSystemUIOverlayStyle(SystemUiOverlayStyle(statusBarColor: Colors.transparent));
+
     return MultiProvider(
       providers: [
         ChangeNotifierProvider(create: (context) => QuizPageProvider(),),
@@ -37,8 +39,6 @@ class MyApp extends StatelessWidget {
           useMaterial3: true
         ),
         // ignore: prefer_const_constructors
-        // home: QuizPage(),
-        // home: LoginPage(),
         // home: Consumer<MetaMaskProvider>(
         //   builder: (context, provider, child) {
         //     if (provider.isConnected && provider.isOnboardingComplete) {
@@ -50,29 +50,7 @@ class MyApp extends StatelessWidget {
         //     }
         //   },
         // ),
-        // home: OnboardingPage(),
-        // ignore: prefer_const_constructors
-      //   home: StreamBuilder(
-      //   stream: FirebaseAuth.instance.authStateChanges(),
-      //   builder: (context, snapshot) {
-      //     if(snapshot.hasData){
-      //       return const QuizPage();
-      //     } else {
-      //       return const LoginPage();
-      //     }
-      //   },
-      // ),
-        // home: HomePage(),
-      //   home: StreamBuilder(
-      //   stream: FirebaseAuth.instance.authStateChanges(),
-      //   builder: (context, snapshot) {
-      //     if(snapshot.hasData){
-      //       return const QuizPage();
-      //     } else {
-      //       return const LoginPage();
-      //     }
-      //   },
-      // ),
+        // ________ TESTING________
         home: HomePage(),
       ),
     );

@@ -1,11 +1,13 @@
 import 'package:flutter/material.dart';
 import 'package:frontend/constants/colors.dart' as appColors;
+import 'package:frontend/models/quiz_item_model.dart';
 
-class QuizSubmitButton extends StatelessWidget {
+class QuestionSubmitButton extends StatelessWidget {
   final String text;
   final VoidCallback? onTap;
   final bool isActive;
-  const QuizSubmitButton(this.text, {super.key, this.onTap, required this.isActive,});
+  final QuizItemModel currentquiz;
+  const QuestionSubmitButton(this.text, {super.key, this.onTap, required this.isActive, required this.currentquiz,});
 
   @override
   Widget build(BuildContext context) {
@@ -17,10 +19,10 @@ class QuizSubmitButton extends StatelessWidget {
         opacity: isActive?1:0,
         child: Material(
           color: appColors.white,
-          borderRadius: const BorderRadius.all(Radius.circular(12.5)),
+          borderRadius: const BorderRadius.all(Radius.circular(100)),
           child: InkWell(
             onTap: isActive?onTap:null,
-            borderRadius: const BorderRadius.all(Radius.circular(12.5)),
+            borderRadius: const BorderRadius.all(Radius.circular(100)),
             child: Container(
               alignment: Alignment.center,
               padding: const EdgeInsets.all(12),

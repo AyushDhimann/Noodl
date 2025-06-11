@@ -4,35 +4,46 @@ import 'package:frontend/widgets/generate/logs_display.dart';
 class GeneratePageProvider extends ChangeNotifier{
   String? generatingTaskID;
   bool? isGenerationComplete;
+  bool initialLoading = false;
 
-  setGeneratingTaskID(String id){
+  void initialLoadingTrue(){
+    initialLoading = true;
+    notifyListeners();
+  }
+
+  void initialLoadingFalse(){
+    initialLoading = false;
+    notifyListeners();
+  }
+
+  void setGeneratingTaskID(String id){
     generatingTaskID = id;
     notifyListeners();
   }
 
-  nullGenereatingTaskID(){
+  void nullGenereatingTaskID(){
     generatingTaskID = null;
     notifyListeners();
   }
 
-  setGeneratingBoolTrue(){
+  void setGeneratingBoolTrue(){
     isGenerationComplete = true;
     notifyListeners();
   }
 
-  setGeneratingBoolFalse(){
+  void setGeneratingBoolFalse(){
     isGenerationComplete = false;
     notifyListeners();
   }
 
-  nullifyGeneratingBool(){
+  void nullifyGeneratingBool(){
     isGenerationComplete = null;
     notifyListeners();
   }
 
   ScrollController logsDisplayScrollController = ScrollController();
 
-  logsDisplayScrollToBottom(){
+  void logsDisplayScrollToBottom(){
 
     logsDisplayScrollController.hasClients?
     logsDisplayScrollController.animateTo(
