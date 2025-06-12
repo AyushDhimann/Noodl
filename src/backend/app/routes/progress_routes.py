@@ -2,16 +2,23 @@ from flask import Blueprint, request, jsonify
 from app import logger
 from app.services import supabase_service
 
-bp = Blueprint('progress_routes', __name__, url_prefix='/progress')
+bp = Blueprint('progress_routes', __name__)
 
 
-@bp.route('/level', methods=['POST'])
+# This route is for submitting data, so it correctly only accepts POST requests.
+# It expects a JSON body with a 'Content-Type: application/json' header.
+# Manually sending data as URL parameters will result in a 415 Unsupported Media Type error.
+# Accessing this URL with a GET request (e.g., in a browser) will result in a 405 Method Not Allowed error.
+@bp.route('/progress/level', methods=['POST'])
 def upsert_level_progress_route():
     """
     Receives progress for a specific level. If the user has not started this path,
     it creates a new progress record before saving the level score.
     """
     data = request.get_json()
+    if not data:
+        return jsonify({"error": "Invalid JSON body"}), 400
+
     user_wallet = data.get('user_wallet')
     path_id = data.get('path_id')
     level_index = data.get('level_index')
@@ -22,12 +29,15 @@ def upsert_level_progress_route():
         return jsonify({"error": "user_wallet, path_id, level_index, correct_answers, and total_questions are required"}), 400
 
     try:
-        # The service function now handles the logic of starting a path if it's the first update
-        supabase_service.upsert_level_progress(user_wallet, path_id, level_index, correct_answers, total_questions)
+        path_id_int = int(path_id)
+        level_index_int = int(level_index)
+        correct_answers_int = int(correct_answers)
+        total_questions_int = int(total_questions)
+
+        supabase_service.upsert_level_progress(user_wallet, path_id_int, level_index_int, correct_answers_int, total_questions_int)
         return jsonify({"message": "Progress updated successfully"}), 200
-    except ValueError as ve:
-        logger.error(f"ROUTE: /progress/level ValueError: {ve}")
-        return jsonify({"error": str(ve)}), 404
+    except (ValueError, TypeError):
+        return jsonify({"error": "path_id, level_index, correct_answers, and total_questions must be valid integers"}), 400
     except Exception as e:
         logger.error(f"ROUTE: /progress/level failed: {e}", exc_info=True)
         return jsonify({"error": "Failed to update level progress."}), 500
@@ -50,7 +60,6 @@ def get_level_score_route():
         if score_data:
             return jsonify(score_data), 200
         else:
-            # If no score is found, it means the user hasn't completed the level yet.
             return jsonify({"correct_answers": 0, "total_questions": 0}), 200
     except ValueError as ve:
         logger.error(f"ROUTE: /scores/level ValueError: {ve}")
