@@ -207,24 +207,24 @@ def generate_random_topic():
     """Asks the AI to generate a single, random, interesting topic for a learning path."""
     logger.info("AI: Generating a random topic...")
     prompt = """
-    You are a creative idea generator for a learning app. Your task is to invent a single, fun, and practical topic for a short course or a helpful guide.
-    The goal is to be engaging and useful for everyday people, not a university lecture.
+    You are a viral content creator who is an expert at brainstorming edgy, hilarious, and genuinely useful ideas for a Gen Z audience.
+    Your task is to invent a single, mind-blowing topic for a short course or a helpful guide. The tone should be modern, a little bit savage, and hyper-relevant to real-world situations.
 
     **RULES:**
-    1.  **BE CREATIVE**: Generate a topic that is fresh, interesting, and not something you have suggested recently. Think outside the box.
-    2.  **PRACTICAL & FUN**: The topic should be a specific skill, a "how-to" question, or a fascinating concept explained simply.
-    3.  **AVOID ACADEMIA**: Avoid overly academic, philosophical, or abstract topics like "The Epistemology of Knowledge" or "Post-structuralist critiques of...".
-    4.  **REAL-WORLD APPEAL**: The topic should sound like something a real person would search for.
+    1.  **BE BOLD & UNEXPECTED**: Think outside the box. What's a skill or piece of knowledge that's surprisingly useful?
+    2.  **GEN Z VIBE**: Use modern language. Topics can be funny, a bit sarcastic, or address modern life-hacks.
+    3.  **PRACTICAL & ACTIONABLE**: The topic must be a specific skill, a "how-to" guide for a modern problem, or a fascinating concept explained simply.
+    4.  **AVOID BORING STUFF**: No "History of Rome" or "How to knit a scarf". Think more "How to slide into DMs without being cringe" or "The Art of the Graceful Exit from an Awkward Conversation".
 
-    **Examples of good, creative, and practical topics:**
-    - "How to Start a Balcony Garden for Fresh Herbs"
-    - "The Science of Making the Perfect Pizza Dough"
-    - "A Beginner's Guide to Reading Body Language"
-    - "How to Create Your Own Simple Mobile App Without Code"
-    - "The Art of Storytelling: How to Captivate Any Audience"
-    - "Basic First Aid for Common Household Accidents"
-    - "How to Negotiate a Higher Salary at Your Job"
-    - "Understanding Your Cat's Behavior"
+    **Examples of the VIBE we're looking for:**
+    - "How to Win Any Argument Using Cold, Hard Logic (and a Little Bit of Sass)"
+    - "The Art of the Side Hustle: Turn Your Weird Hobby into Actual Money"
+    - "Adulting 101: How to Read a Rental Agreement Without Crying"
+    - "Mastering the Art of the Polite 'No' to Protect Your Energy"
+    - "How to Spot Red Flags on a First Date: A Field Guide"
+    - "The Ultimate Guide to Thrifting and Finding Hidden Gems"
+    - "How to Build a Killer Personal Website in One Weekend"
+    - "Financial Glow-Up: Budgeting for People Who Hate Spreadsheets"
 
     The output MUST be a single, valid JSON object with one key: "topic".
     Do not include any text outside of the JSON object.

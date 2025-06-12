@@ -346,6 +346,7 @@ def mint_nft_for_path(path_data, user_wallet):
 # --- Gradio UI Definition ---
 def create_and_launch_demo_ui(port):
     with gr.Blocks(theme=gr.themes.Soft(), css="footer {display: none !important}", title="Noodl Live Demo") as demo:
+        # --- State Management ---
         user_wallet = gr.State(None)
         user_name = gr.State(None)
         user_country = gr.State(None)
@@ -355,6 +356,11 @@ def create_and_launch_demo_ui(port):
         current_item_index = gr.State(0)
         level_quiz_answers = gr.State({})
 
+        # --- Predefined Users ---
+        user_ayush = ("0xa2948def51A43CBbc504Ac5e756E4a3563A60347", "Ayush Dhiman", "India")
+        user_parth = ("0x718fafb76e1631f5945bf58104f3b81d9588819b", "Parth Kalia", "India")
+
+        # --- UI Layout ---
         with gr.Tabs() as main_tabs:
             with gr.TabItem("Login", id=0):
                 with gr.Row():
@@ -362,6 +368,13 @@ def create_and_launch_demo_ui(port):
                         gr.Image("ui/assets/logo.png", show_label=False, container=False)
                     with gr.Column(scale=2):
                         gr.Markdown("# Welcome to Noodl!\nYour personal AI-powered learning companion.")
+
+                        gr.Markdown("--- \n ### ⚡ Fast Login")
+                        with gr.Row():
+                            fast_login_ayush = gr.Button("Login as Ayush Dhiman")
+                            fast_login_parth = gr.Button("Login as Parth Kalia")
+
+                        gr.Markdown("--- \n ### Or, Login Manually")
                         login_wallet_input = gr.Textbox(label="Your Wallet Address", placeholder="0x123...")
                         login_name_input = gr.Textbox(label="Your Name", placeholder="Alex")
                         login_country_input = gr.Textbox(label="Your Country", placeholder="Canada")
@@ -430,14 +443,22 @@ def create_and_launch_demo_ui(port):
 
         # --- Event Handling ---
 
+        # Login Logic
+        login_outputs = [user_wallet, user_name, user_country, main_tabs]
+        dashboard_outputs = [my_paths_df, all_paths_df, my_scores_df]
+
+        fast_login_ayush.click(lambda: login_user(user_ayush[0], user_ayush[1], user_ayush[2]), [], login_outputs).then(
+            fn=refresh_dashboard, inputs=[user_wallet], outputs=dashboard_outputs)
+
+        fast_login_parth.click(lambda: login_user(user_parth[0], user_parth[1], user_parth[2]), [], login_outputs).then(
+            fn=refresh_dashboard, inputs=[user_wallet], outputs=dashboard_outputs)
+
         login_button.click(fn=login_user, inputs=[login_wallet_input, login_name_input, login_country_input],
-                           outputs=[user_wallet, user_name, user_country, main_tabs]).then(fn=refresh_dashboard,
-                                                                                           inputs=[user_wallet],
-                                                                                           outputs=[my_paths_df,
-                                                                                                    all_paths_df,
-                                                                                                    my_scores_df])
-        refresh_dashboard_button.click(fn=refresh_dashboard, inputs=[user_wallet],
-                                       outputs=[my_paths_df, all_paths_df, my_scores_df])
+                           outputs=login_outputs).then(fn=refresh_dashboard, inputs=[user_wallet],
+                                                       outputs=dashboard_outputs)
+
+        # Dashboard Logic
+        refresh_dashboard_button.click(fn=refresh_dashboard, inputs=[user_wallet], outputs=dashboard_outputs)
         search_button.click(search_for_paths, search_query_input, search_results_df)
 
         generate_button.click(fn=generate_path_live, inputs=[generate_topic_input, user_wallet],
@@ -449,6 +470,7 @@ def create_and_launch_demo_ui(port):
                                                                                              generate_continue_button,
                                                                                              generate_tx_button])
 
+        # Navigation from Dashboard to Learning View
         def continue_to_path_from_generation(path_id_str, wallet):
             path_id = int(path_id_str.split()[-1])
             return start_learning_path(path_id, wallet)
@@ -462,13 +484,15 @@ def create_and_launch_demo_ui(port):
         start_learning_button.click(fn=start_learning_path, inputs=[selected_path_id, user_wallet],
                                     outputs=start_learning_outputs)
 
+        # Learning View Logic
         render_outputs = [learn_header_md, learn_content_md, quiz_options_radio, submit_quiz_button, quiz_feedback_md,
                           prev_button, next_button]
 
         def trigger_render(path_data, level_idx, item_idx, quiz_answers):
-            # FIX: Add a guard for when no path is loaded yet to prevent errors.
             if not path_data:
-                return gr.Radio(choices=[], value=None), "## Welcome!", "Select a path from the dashboard to begin.", gr.Radio(), gr.Button(), gr.Markdown(), gr.Button(visible=False), gr.Button(visible=False)
+                return gr.Radio(choices=[],
+                                value=None), "## Welcome!", "Select a path from the dashboard to begin.", gr.Radio(), gr.Button(), gr.Markdown(), gr.Button(
+                    visible=False), gr.Button(visible=False)
             new_level_title = path_data['levels'][level_idx]['level_title']
             ui_updates = render_learn_view(path_data, level_idx, item_idx, quiz_answers)
             return gr.Radio(value=new_level_title), *ui_updates
@@ -497,10 +521,6 @@ def create_and_launch_demo_ui(port):
             fn=trigger_render, inputs=[current_path_data, current_level_index, current_item_index, level_quiz_answers],
             outputs=[level_selector_radio, *render_outputs])
 
-        # FIX: The original code was trying to navigate immediately after submitting a quiz.
-        # This is confusing for the user and was causing progress to not be saved correctly.
-        # The new logic just updates the UI to show feedback and the "Next" button,
-        # allowing the user to proceed at their own pace.
         submit_quiz_button.click(
             fn=submit_quiz,
             inputs=[current_path_data, current_level_index, current_item_index, quiz_options_radio, level_quiz_answers],
@@ -513,6 +533,8 @@ def create_and_launch_demo_ui(port):
 
         mint_nft_button.click(fn=mint_nft_for_path, inputs=[current_path_data, user_wallet],
                               outputs=[minting_output_md])
+
+        back_to_dashboard_button.click(lambda: gr.Tabs(selected=1), None, main_tabs)
 
         main_tabs.select(
             fn=trigger_render,

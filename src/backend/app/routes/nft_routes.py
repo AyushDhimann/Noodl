@@ -21,6 +21,14 @@ def complete_path_and_mint_nft_route(path_id):
     try:
         minted_token_id = blockchain_service.mint_nft_on_chain(user_wallet, path_id, metadata_url)
         if minted_token_id is not None:
+            # NEW: Mark path as complete in DB after successful mint
+            try:
+                supabase_service.set_path_completed(user_wallet, path_id)
+                logger.info(f"DB: Marked path {path_id} as complete for {user_wallet}.")
+            except Exception as db_e:
+                # Log the error but don't fail the entire request, as the mint was successful
+                logger.error(f"DB: Failed to mark path {path_id} as complete for {user_wallet} after minting. Error: {db_e}")
+
             return jsonify({
                 "message": "NFT minted successfully!",
                 "token_id": minted_token_id,

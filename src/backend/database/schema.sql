@@ -47,7 +47,7 @@ CREATE TABLE user_progress (
     id BIGINT PRIMARY KEY GENERATED ALWAYS AS IDENTITY,
     user_id BIGINT REFERENCES users(id) ON DELETE CASCADE,
     path_id BIGINT REFERENCES learning_paths(id) ON DELETE CASCADE,
-    status TEXT DEFAULT 'not_started',
+    is_complete BOOLEAN NOT NULL DEFAULT false,
     started_at TIMESTAMPTZ,
     completed_at TIMESTAMPTZ,
     UNIQUE(user_id, path_id)
@@ -60,6 +60,7 @@ CREATE TABLE level_progress (
     level_number INT NOT NULL,
     correct_answers INT,
     total_questions INT,
+    is_complete BOOLEAN NOT NULL DEFAULT false,
     created_at TIMESTAMPTZ DEFAULT now(),
     updated_at TIMESTAMPTZ DEFAULT now(),
     UNIQUE(progress_id, level_number)
@@ -192,3 +193,22 @@ CREATE INDEX IF NOT EXISTS trgm_idx_paths_long_desc ON learning_paths USING gin 
 -- This is an example using IVFFlat, which is good for performance/accuracy balance.
 -- You can adjust `lists` based on the number of rows you expect.
 -- CREATE INDEX ON learning_paths USING ivfflat (title_embedding vector_cosine_ops) WITH (lists = 100);
+
+
+-- 13. FUNCTION TO GET LEVEL COMPLETION STATUS FOR A USER AND PATH (NEW)
+CREATE OR REPLACE FUNCTION get_level_completion_for_path(p_user_id bigint, p_path_id bigint)
+RETURNS TABLE(level_number int, is_complete boolean)
+LANGUAGE plpgsql
+AS $$
+BEGIN
+  RETURN QUERY
+  SELECT
+    lp.level_number,
+    lp.is_complete
+  FROM level_progress lp
+  JOIN user_progress up ON lp.progress_id = up.id
+  WHERE
+    up.user_id = p_user_id AND
+    up.path_id = p_path_id;
+END;
+$$;
