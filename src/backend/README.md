@@ -165,11 +165,12 @@ FEATURE_FLAG_ENABLE_DUPLICATE_CHECK="true"
 The application can be run with a single command, which intelligently starts services based on your `.env` file.
 
 ```bash
-python main.py```
+python main.py
+```
 - The **Flask API server** will be available at `http://localhost:5000`.
 - The **Gradio Live Demo UI** will be available at `http://localhost:9999` (if `RUN_LIVE_DEMO=true`).
-- The **Gradio Testing UI** will be available at `http://localhost:7000` (if `RUN_TESTING_UI=true` and `RUN_LIVE_DEMO=false`).
-```
+- The **Gradio Testing UI** will be available at `http://localhost:7000` (if `RUN_TESTING_UI=true`).
+
 ---
 
 ## 🔌 API Endpoint Documentation
@@ -334,28 +335,56 @@ python main.py```
 
 - **Update User's Current Location**  
   **Endpoint**: `POST /progress/location`  
-  **Description**: A "fire-and-forget" endpoint to log the user's current position (item index) in a lesson.
+  **Description**: A "fire-and-forget" endpoint to log the user's current position (item index) in a lesson. This action is protected and requires the user's wallet address for verification.
   - **Request Body**:
     ```json
     {
+      "user_wallet": "0x...",
       "progress_id": 1,
       "item_index": 3
     }
     ```
   - **Success Response (200)**: Confirms the location was updated.
+  - **Error Response (403)**: If the `user_wallet` does not own the `progress_id`.
 
 - **Log a Quiz Attempt**  
   **Endpoint**: `POST /progress/update`  
-  **Description**: Logs a user's answer to a quiz question.
+  **Description**: Logs a user's answer to a quiz question. This action is protected and requires the user's wallet address for verification.
   - **Request Body**:
     ```json
     {
+      "user_wallet": "0x...",
       "progress_id": 1,
       "content_item_id": 45,
       "user_answer_index": 2
     }
     ```
   - **Success Response (200)**: Returns whether the answer was correct.
+  - **Error Response (403)**: If the `user_wallet` does not own the `progress_id`.
+
+- **Get All Progress for a User**  
+  **Endpoint**: `GET /progress/<wallet_address>`  
+  **Description**: Retrieves a comprehensive summary of all learning paths a user has started, including their current position and calculated score.
+  - **URL Parameters**:
+    - `wallet_address` (string): The user's public wallet address.
+  - **Success Response (200)**: Returns an array of detailed progress objects.
+    ```json
+    [
+      {
+        "progress_id": 1,
+        "path_id": 4,
+        "path_title": "📱 iPhone 11 Screen Repair: A Step-by-Step Guide",
+        "status": "in_progress",
+        "current_level_number": 2,
+        "current_level_title": "📝 Preparing Your Workspace",
+        "current_item_index": 1,
+        "total_levels": 7,
+        "score_percent": 85.71,
+        "correct_answers": 6,
+        "total_questions_answered": 7
+      }
+    ]
+    ```
 
 - **Get User Scores**  
   **Endpoint**: `GET /scores/<wallet_address>`  
@@ -387,7 +416,7 @@ python main.py```
 
 - **Get NFT Image**  
   **Endpoint**: `GET /nft/image/<path_id>`  
-  **Description**: Returns the programmatically generated pixel-art PNG image for the NFT. If the image doesn't exist locally, it will be generated on the first request.
+  **Description**: Returns the programmatically generated certificate image for the NFT.
   - **URL Parameters**:
     - `path_id` (integer): The ID of the path corresponding to the NFT.
 
@@ -425,6 +454,8 @@ python main.py```
 
 `POST /progress/update`
 
+`GET /progress/<wallet_address>`
+
 `GET /scores/<wallet_address>`
 
 `POST /paths/<path_id>/complete`
@@ -432,4 +463,3 @@ python main.py```
 `GET /nft/metadata/<path_id>`
 
 `GET /nft/image/<path_id>`
-
