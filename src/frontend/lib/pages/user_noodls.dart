@@ -89,7 +89,7 @@ class UserNoodlsPage extends StatelessWidget {
                 ),
               ),
               Topbar(
-                leftIcon: CupertinoIcons.clear,
+                leftIcon: CupertinoIcons.arrow_left,
                 // leftOnTap: () => Navigator.of(context).pushReplacement(MaterialPageRoute(builder: (context) => HomePage(),)),
                 leftOnTap: () => Navigator.of(context).pop()
               )

@@ -6,6 +6,8 @@ import 'package:frontend/models/core_level_model.dart';
 import 'package:frontend/models/full_level_content_model.dart';
 import 'package:frontend/models/quiz_item_model.dart';
 import 'package:frontend/pages/components/quiz_screen.dart';
+import 'package:frontend/pages/home.dart';
+import 'package:frontend/pages/levels_page.dart';
 import 'package:frontend/pages/quiz.dart';
 import 'package:frontend/providers/quiz_page_provider.dart';
 import 'package:frontend/services/services.dart';
@@ -89,7 +91,6 @@ class ResultScreen extends StatelessWidget {
               ),
       
               // all of these should clear everything
-              SizedBox(height: 12,),
               FutureBuilder(
                 future: APIservice.fetchLevelsFromNoodl(pathID: shortData.pathId),
                 builder: (context, snapshot) =>
@@ -97,12 +98,13 @@ class ResultScreen extends StatelessWidget {
                   ResultsPageButton(
                     text: 'Lesson ${shortData.levelNumber+1}',
                     onTap: (){
+
+                      // add api endpoint to push s
                       provider.zeroScore();
                       provider.setNoSelectedOption();
                       provider.setProgressBarZero();
 
                       Navigator.of(context)
-                        // ..pop()
                           .pushReplacement(
                             MaterialPageRoute(
                               builder: (context) => 
@@ -115,12 +117,25 @@ class ResultScreen extends StatelessWidget {
                   ):CupertinoActivityIndicator()
               ),
       
-      
-      
-              SizedBox(height: 12,),
-              ResultsPageButton(text: 'All Lessons'),
-              SizedBox(height: 12,),
-              ResultsPageButton(text: 'Back Home'),
+              ResultsPageButton(
+                text: 'All Lessons',
+                onTap: () {
+                  provider.zeroScore();
+                  provider.setNoSelectedOption();
+                  provider.setProgressBarZero();
+                  Navigator.of(context).pop();
+                },
+              ),
+
+              ResultsPageButton(
+                text: 'Back Home',
+                onTap: () {
+                  provider.zeroScore();
+                  provider.setNoSelectedOption();
+                  provider.setProgressBarZero();
+                  Navigator.of(context)..pop()..pushReplacement(MaterialPageRoute(builder: (context) => HomePage(),));
+                },
+              ),
             ],
           ),
         ),
