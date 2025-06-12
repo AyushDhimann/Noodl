@@ -27,7 +27,7 @@ def get_paths_by_creator(wallet_address):
 def get_path_count_by_creator(wallet_address):
     """Efficiently gets the count of paths created by a user."""
     response = supabase_client.table('learning_paths').select('id', count='exact').eq('creator_wallet',
-                                                                                      wallet_address).execute()
+                                                                                       wallet_address).execute()
     return response.count
 
 
@@ -131,7 +131,7 @@ def create_content_items(items_to_insert):
 
 def get_content_items_for_level(level_id):
     return supabase_client.table('content_items').select('id, item_index, item_type, content').eq('level_id',
-                                                                                                  level_id).order(
+                                                                                                   level_id).order(
         'item_index').execute()
 
 
@@ -263,7 +263,7 @@ def upsert_level_progress(user_wallet, path_id, level_index, correct_answers, to
 
     # 2. Get or Create Progress Record
     progress_res = supabase_client.table('user_progress').select('id').eq('user_id', user_id).eq('path_id',
-                                                                                                 path_id).maybe_single().execute()
+                                                                                                   path_id).maybe_single().execute()
 
     if progress_res and progress_res.data:
         progress_id = progress_res.data['id']
@@ -295,7 +295,7 @@ def get_level_score(user_wallet, path_id, level_index):
     user_id = user_res.data['id']
 
     progress_res = supabase_client.table('user_progress').select('id').eq('user_id', user_id).eq('path_id',
-                                                                                                 path_id).maybe_single().execute()
+                                                                                                   path_id).maybe_single().execute()
     if not progress_res or not progress_res.data:
         logger.warning(f"DB: No progress record found for user {user_id} on path {path_id}.")
         return None
@@ -304,7 +304,7 @@ def get_level_score(user_wallet, path_id, level_index):
 
     logger.info(f"DB: Querying level_progress for progress_id {progress_id} and level_number {level_index}.")
     score_res = supabase_client.table('level_progress').select('correct_answers, total_questions').eq('progress_id',
-                                                                                                      progress_id).eq(
+                                                                                                        progress_id).eq(
         'level_number', level_index).maybe_single().execute()
 
     return score_res.data if score_res else None
@@ -362,9 +362,11 @@ def set_path_completed(user_wallet, path_id):
         raise ValueError(f"User not found for wallet {user_wallet}")
     user_id = user_res.data['id']
 
-    progress_res = supabase_client.table('user_progress').select('id').eq('user_id', user_id).eq('path_id', path_id).maybe_single().execute()
+    progress_res = supabase_client.table('user_progress').select('id').eq('user_id', user_id).eq('path_id',
+                                                                                                   path_id).maybe_single().execute()
     if not progress_res or not progress_res.data:
-        logger.warning(f"DB: No progress record found for user {user_id} on path {path_id}. Creating one to mark as complete.")
+        logger.warning(
+            f"DB: No progress record found for user {user_id} on path {path_id}. Creating one to mark as complete.")
         _create_progress_record(user_id, path_id)
 
     return supabase_client.table('user_progress').update({
@@ -381,7 +383,8 @@ def get_user_progress_for_paths(user_wallet, path_ids: list):
         return {}
     user_id = user_res.data['id']
 
-    progress_res = supabase_client.table('user_progress').select('path_id, is_complete').eq('user_id', user_id).in_('path_id', path_ids).execute()
+    progress_res = supabase_client.table('user_progress').select('path_id, is_complete').eq('user_id', user_id).in_(
+        'path_id', path_ids).execute()
 
     if not progress_res.data:
         return {}
@@ -397,9 +400,44 @@ def get_path_completion_status(user_wallet, path_id):
         return False
     user_id = user_res.data['id']
 
-    progress_res = supabase_client.table('user_progress').select('is_complete').eq('user_id', user_id).eq('path_id', path_id).maybe_single().execute()
+    progress_res = supabase_client.table('user_progress').select('is_complete').eq('user_id', user_id).eq('path_id',
+                                                                                                          path_id).maybe_single().execute()
 
     if progress_res and progress_res.data:
         return progress_res.data.get('is_complete', False)
 
     return False
+
+
+# --- NFT Functions (NEW) ---
+def save_user_nft(user_wallet, path_id, token_id, contract_address):
+    """Saves a record of a minted NFT for a user."""
+    logger.info(f"DB: Saving NFT record for wallet {user_wallet}, path {path_id}, token {token_id}")
+    user_res = get_user_by_wallet(user_wallet)
+    if not user_res or not user_res.data:
+        raise ValueError(f"User not found for wallet {user_wallet}")
+    user_id = user_res.data['id']
+
+    return supabase_client.table('user_nfts').insert({
+        'user_id': user_id,
+        'path_id': path_id,
+        'token_id': token_id,
+        'nft_contract_address': contract_address
+    }).execute()
+
+
+def get_nfts_by_user(wallet_address):
+    """Retrieves all NFTs owned by a specific user."""
+    logger.info(f"DB: Fetching all NFTs for wallet {wallet_address}")
+    user_res = get_user_by_wallet_full(wallet_address)
+    if not user_res or not user_res.data:
+        # Return empty list if user not found, as they have no NFTs
+        return []
+    user_id = user_res.data['id']
+
+    # Join user_nfts with learning_paths to get the title
+    response = supabase_client.table('user_nfts').select(
+        'path_id, token_id, nft_contract_address, minted_at, learning_paths(title)'
+    ).eq('user_id', user_id).order('minted_at', desc=True).execute()
+
+    return response.data if response.data else []

@@ -219,7 +219,7 @@
 
 - **Complete a Path & Mint NFT**  
   **Endpoint**: `POST /paths/<path_id>/complete`  
-  **Description**: Initiates the minting of an NFT certificate for a user and marks the entire path as complete for that user in the database.
+  **Description**: Initiates the minting of a personalized NFT certificate for a user, marks the path as complete, and saves a record of the NFT to the database.
   - **URL Parameters**:
     - `path_id` (integer): The ID of the completed path.
   - **Request Body**:
@@ -230,17 +230,39 @@
     ```
   - **Success Response (200)**: Returns the transaction details and token ID.
 
-- **Get NFT Metadata**  
-  **Endpoint**: `GET /nft/metadata/<path_id>`  
-  **Description**: Returns the ERC721 standard JSON metadata for an NFT.
+- **Get All User NFTs**  
+  **Endpoint**: `GET /nfts/<wallet_address>`  
+  **Description**: Retrieves a list of all NFT certificates a user has earned, including the path title and token ID.
   - **URL Parameters**:
-    - `path_id` (integer): The ID of the path corresponding to the NFT.
+    - `wallet_address` (string): The user's public wallet address.
+  - **Success Response (200)**:
+    ```json
+    [
+      {
+        "path_id": 12,
+        "token_id": 3,
+        "nft_contract_address": "0x...",
+        "minted_at": "2023-10-27T10:00:00Z",
+        "learning_paths": {
+          "title": "⚛️ Understand the Basics of Quantum Mechanics."
+        }
+      }
+    ]
+    ```
 
-- **Get NFT Image**  
-  **Endpoint**: `GET /nft/image/<path_id>`  
-  **Description**: Returns the programmatically generated certificate image for the NFT.
+- **Get NFT Metadata (User-Specific)**  
+  **Endpoint**: `GET /nft/metadata/<path_id>/<user_wallet>`  
+  **Description**: Returns the ERC721 standard JSON metadata for a personalized NFT, including a user-specific name, description, and image URL.
   - **URL Parameters**:
     - `path_id` (integer): The ID of the path corresponding to the NFT.
+    - `user_wallet` (string): The wallet address of the NFT owner.
+
+- **Get NFT Image (User-Specific)**  
+  **Endpoint**: `GET /nft/image/<path_id>/<user_wallet>`  
+  **Description**: Returns the programmatically generated, personalized certificate image for the NFT, including the user's name.
+  - **URL Parameters**:
+    - `path_id` (integer): The ID of the path corresponding to the NFT.
+    - `user_wallet` (string): The wallet address of the NFT owner.
 
 ---
 
@@ -280,6 +302,8 @@
 
 `POST /paths/<path_id>/complete`
 
-`GET /nft/metadata/<path_id>`
+`GET /nfts/<wallet_address>`
 
-`GET /nft/image/<path_id>`
+`GET /nft/metadata/<path_id>/<user_wallet>`
+
+`GET /nft/image/<path_id>/<user_wallet>`

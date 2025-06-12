@@ -245,7 +245,7 @@ def generate_certificate_image(path_title, user_name, output_file_path):
     # 1. Generate the base image using Gemini
     base_image = None
     try:
-        image_model = genai.GenerativeModel("gemini-2.0-flash-preview-image-generation")
+        client = genai.Client(api_key=config.GEMINI_API_KEY)
 
         prompt = (
             f"Create a vibrant, high-contrast 128x128 pixel digital art NFT image representing the topic: '{path_title}'. "
@@ -255,10 +255,10 @@ def generate_certificate_image(path_title, user_name, output_file_path):
             "collectible NFT series with consistent artistic style and color harmony across variations."
         )
 
-        # CORRECTED: Pass the generation_config as a dictionary.
-        response = image_model.generate_content(
+        response = client.models.generate_content(
+            model="gemini-2.0-flash-preview-image-generation",
             contents=prompt,
-            generation_config={"response_modalities": ["IMAGE", "TEXT"]}
+            generation_config=types.GenerationConfig(response_modalities=["IMAGE"])
         )
 
         base_image_bytes = None
@@ -269,7 +269,6 @@ def generate_certificate_image(path_title, user_name, output_file_path):
                     break
 
         if not base_image_bytes:
-            logger.error(f"AI model did not return image data. Full response: {response}")
             raise ValueError("AI model did not return image data.")
 
         logger.info("IMAGE: AI base image generated successfully.")
@@ -279,11 +278,7 @@ def generate_certificate_image(path_title, user_name, output_file_path):
         logger.error(f"IMAGE: Failed during Gemini image generation step: {e}", exc_info=True)
         base_image = Image.new('RGB', (128, 128), color=(10, 10, 20))
         draw = ImageDraw.Draw(base_image)
-        try:
-            font_fallback = ImageFont.truetype("arial.ttf", 12)
-        except IOError:
-            font_fallback = ImageFont.load_default()
-        draw.text((10, 10), "AI Gen\nFailed", fill=(255, 0, 0), font=font_fallback)
+        draw.text((10, 10), "AI Gen\nFailed", fill=(255, 0, 0))
         logger.warning("IMAGE: Created a fallback placeholder image.")
 
     # 2. Frame the image and add text using Pillow
@@ -304,11 +299,9 @@ def generate_certificate_image(path_title, user_name, output_file_path):
             width=5
         )
 
-        inner_area_size = W - 2 * (FRAME_THICKNESS + 5)
-        inner_offset = FRAME_THICKNESS + 5
-
+        inner_area_size = W - 2 * FRAME_THICKNESS
         base_image = base_image.resize((inner_area_size, inner_area_size), Image.Resampling.NEAREST)
-        final_image.paste(base_image, (inner_offset, inner_offset))
+        final_image.paste(base_image, (FRAME_THICKNESS, FRAME_THICKNESS))
 
         try:
             font_issuer = ImageFont.truetype("arial.ttf", 18)
