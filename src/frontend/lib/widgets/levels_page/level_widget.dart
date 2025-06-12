@@ -13,7 +13,8 @@ import 'package:provider/provider.dart';
 
 class LevelWidget extends StatelessWidget {
   final MiniLevelModel data;
-  const LevelWidget({super.key, required this.data,});
+  final bool nullOnTap;
+  const LevelWidget({super.key, required this.data, this.nullOnTap=false,});
 
   @override
   Widget build(BuildContext context) {
@@ -24,12 +25,13 @@ class LevelWidget extends StatelessWidget {
         color: Colors.white.withOpacity(0.08),
         child: InkWell(
         borderRadius: BorderRadius.all(Radius.circular(12.5)),
-          onTap: () {
+          onTap: nullOnTap?null:
+          () {
             // remove hardcoded wallet add
-            String userWalletAdd = Provider.of<MetaMaskProvider>(context).walletAddress
-              ??"0x718fafb76e1631f5945bf58104f3b81d9588819b";
+            // String userWalletAdd = Provider.of<MetaMaskProvider>(context, listen: false).walletAddress
+            //   ??"0x718fafb76e1631f5945bf58104f3b81d9588819b";
 
-            APIservice.postStartUserProgress(walletAdd: userWalletAdd, pathID: data.pathId);
+            // APIservice.postStartUserProgress(walletAdd: userWalletAdd, pathID: data.pathId);
             Navigator.of(context).push(MaterialPageRoute(builder: (context) => QuizPage(shortData: data,),));
           },
           child: SizedBox(
@@ -100,10 +102,13 @@ class LevelWidget extends StatelessWidget {
                                 ),
                               ),
                             ),
-                            SizedBox(height: 5,),
-                            Icon(
-                              CupertinoIcons.arrow_right,
-                              color: appColors.white,
+                            nullOnTap?SizedBox.shrink():
+                            Padding(
+                              padding: const EdgeInsets.only(left: 5),
+                              child: Icon(
+                                CupertinoIcons.arrow_right,
+                                color: appColors.white,
+                              ),
                             )
                           ],
                         ),

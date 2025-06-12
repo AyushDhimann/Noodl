@@ -11,15 +11,20 @@ import 'package:provider/provider.dart';
 
 class QuizAppBar extends StatelessWidget {
   final String title;
-  const QuizAppBar({super.key, required this.title});
+  final bool showQuit;
+  const QuizAppBar({super.key, required this.title, this.showQuit=true});
 
   @override
   Widget build(BuildContext context) {
     Size size = MediaQuery.of(context).size;
     EdgeInsets dp = MediaQuery.of(context).padding;
+
+    bool isResultsPage = false;
+    
     return Container(
       padding: EdgeInsets.fromLTRB(8, dp.top+8, 8, 16),
       height: dp.top + 58.25,
+      // 50.25 - 16 = 34.25
       // ignore: prefer_const_constructors
       child: Stack(
         children: [
@@ -52,6 +57,8 @@ class QuizAppBar extends StatelessWidget {
           
             ],
           ),
+
+          showQuit?
           Align(
             alignment: Alignment.centerRight,
             child: ClipRRect(
@@ -73,7 +80,9 @@ class QuizAppBar extends StatelessWidget {
                       showQuitDialog(context);
                       },
                     child: Container(
-                      padding: EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                      padding: EdgeInsets.symmetric(horizontal: 12, vertical: 4), // 50.25
+                      height: 34.25,
+                      // alignment: Alignment.center,
                       child: Row(
                         mainAxisSize: MainAxisSize.min,
                         children: [
@@ -92,7 +101,7 @@ class QuizAppBar extends StatelessWidget {
                 ),
               ),
             ),
-          ),
+          ) : SizedBox.shrink(),
         
         ],
       ),

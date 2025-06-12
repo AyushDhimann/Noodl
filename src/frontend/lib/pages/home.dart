@@ -48,6 +48,7 @@ class HomePage extends StatelessWidget {
               },
 
             child: SingleChildScrollView(
+              physics: AlwaysScrollableScrollPhysics(),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.center,
                 children: [
