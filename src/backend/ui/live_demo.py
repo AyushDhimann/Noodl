@@ -44,17 +44,21 @@ def login_user(wallet, name, country):
 
 def refresh_dashboard(wallet):
     if not wallet:
-        return [], []
+        return [], [], []
 
     my_paths_data = make_api_request("GET", f"{BACKEND_URL}/users/{wallet}/paths")
     all_paths_data = make_api_request("GET", f"{BACKEND_URL}/paths")
+    my_scores_data = make_api_request("GET", f"{BACKEND_URL}/progress/scores/{wallet}")
 
     my_paths_formatted = [[p.get('id'), p.get('title'), p.get('total_levels')] for p in my_paths_data] if isinstance(
         my_paths_data, list) else []
     all_paths_formatted = [[p.get('id'), p.get('title'), p.get('total_levels')] for p in all_paths_data] if isinstance(
         all_paths_data, list) else []
+    my_scores_formatted = [[s.get('path_title'), f"{s.get('score_percent', 0)}%", s.get('correct_answers'),
+                            s.get('total_questions_answered')] for s in my_scores_data] if isinstance(my_scores_data,
+                                                                                                      list) else []
 
-    return my_paths_formatted, all_paths_formatted
+    return my_paths_formatted, all_paths_formatted, my_scores_formatted
 
 
 def search_for_paths(query):
@@ -125,143 +129,159 @@ def generate_path_live(topic, wallet):
 def start_learning_path(path_id, user_wallet):
     if not path_id:
         gr.Warning("Please enter a Path ID to start learning.")
-        return None, None, 0, 0, gr.Tabs(selected=1), None, gr.Button(visible=True), gr.Button(visible=True), gr.Button(visible=False), gr.Markdown(visible=False)
-
+        return None, 0, 0, {}, gr.Tabs(selected=1), None, gr.Button(visible=False), gr.Markdown(visible=False)
 
     try:
         path_id_int = int(path_id)
     except (ValueError, TypeError):
         gr.Warning(f"Invalid Path ID: '{path_id}'. Please enter a number.")
-        return None, None, 0, 0, gr.Tabs(selected=1), None, gr.Button(visible=True), gr.Button(visible=True), gr.Button(visible=False), gr.Markdown(visible=False)
-
+        return None, 0, 0, {}, gr.Tabs(selected=1), None, gr.Button(visible=False), gr.Markdown(visible=False)
 
     path_data = make_api_request("GET", f"{BACKEND_URL}/paths/{path_id_int}")
     if "error" in path_data:
         gr.Error(f"Could not load path: {path_data['error']}")
-        return None, None, 0, 0, gr.Tabs(selected=1), None, gr.Button(visible=True), gr.Button(visible=True), gr.Button(visible=False), gr.Markdown(visible=False)
-
-
-    progress_res = make_api_request("POST", f"{BACKEND_URL}/progress/start",
-                                    payload={"user_wallet": user_wallet, "path_id": path_id_int})
-
-    progress_id = progress_res.get('id') if isinstance(progress_res, dict) else None
-    if not progress_id:
-        gr.Error("Could not get a valid progress ID from the backend.")
-        return None, None, 0, 0, gr.Tabs(selected=1), None, gr.Button(visible=True), gr.Button(visible=True), gr.Button(visible=False), gr.Markdown(visible=False)
-
+        return None, 0, 0, {}, gr.Tabs(selected=1), None, gr.Button(visible=False), gr.Markdown(visible=False)
 
     level_titles = [level.get('level_title', f"Level {i + 1}") for i, level in enumerate(path_data.get('levels', []))]
 
-    return (path_data, progress_id, 0, 0, gr.Tabs(selected=2),
+    return (path_data, 0, 0, {}, gr.Tabs(selected=2),
             gr.Radio(choices=level_titles, value=level_titles[0]),
-            gr.Button(visible=True), gr.Button(visible=True),
             gr.Button(visible=False), gr.Markdown(visible=False))
 
 
-def render_learn_view(path_data, level_idx, item_idx):
+def render_learn_view(path_data, level_idx, item_idx, quiz_answers):
     if not path_data:
-        return "No path loaded.", "", gr.Radio(choices=[], value=None, visible=False), gr.Button(visible=False), ""
+        return "No path loaded.", "", gr.Radio(choices=[], value=None, visible=False), gr.Button(
+            visible=False), "", gr.Button(visible=False), gr.Button(visible=False)
 
     level = path_data['levels'][level_idx]
     item = level['content_items'][item_idx]
+    item_id = item['id']
 
     header = f"## {path_data['title']} - Level {level_idx + 1}/{path_data['total_levels']}"
     content_md = f"### {level['level_title']} ({item_idx + 1}/{len(level['content_items'])})\n\n---\n\n"
 
     quiz_options = gr.Radio(choices=[], value=None, visible=False)
-    submit_button = gr.Button(visible=False)
+    submit_quiz_button = gr.Button(visible=False)
     feedback_md = ""
+    prev_button_visible = not (level_idx == 0 and item_idx == 0)
+    next_button_visible = True
 
     if item['item_type'] == 'slide':
         content_md += item['content']
     elif item['item_type'] == 'quiz':
         quiz_data = item['content']
         content_md += f"**Question:** {quiz_data['question']}"
-        quiz_options = gr.Radio(choices=quiz_data['options'], value=None, visible=True, interactive=True)
-        submit_button = gr.Button(visible=True)
 
-    return header, content_md, quiz_options, submit_button, feedback_md
+        # If answer is already submitted, show feedback and disable quiz
+        if item_id in quiz_answers:
+            is_correct = quiz_answers[item_id]
+            correct_idx = quiz_data['correctAnswerIndex']
+            options = quiz_data['options']
+            if is_correct:
+                feedback_md = f"✅ **You answered correctly!**\n\n---\n\n**Explanation:** {quiz_data['explanation']}"
+            else:
+                feedback_md = f"❌ **You answered incorrectly.** The correct answer was: **{options[correct_idx]}**\n\n---\n\n**Explanation:** {quiz_data['explanation']}"
+            quiz_options = gr.Radio(choices=quiz_data['options'], value=options[correct_idx], visible=True,
+                                    interactive=False)
+        else:
+            quiz_options = gr.Radio(choices=quiz_data['options'], value=None, visible=True, interactive=True)
+            submit_quiz_button = gr.Button(visible=True)
+            next_button_visible = False  # Hide next until quiz is answered
+
+    # Logic for the final "Next" button
+    is_last_item = (item_idx == len(level['content_items']) - 1)
+    is_last_level = (level_idx == len(path_data['levels']) - 1)
+
+    if is_last_item and not is_last_level:
+        next_button_text = "Complete Level & Go to Next ➡️"
+    elif is_last_item and is_last_level:
+        next_button_text = "Complete Final Level 🏆"
+    else:
+        next_button_text = "Next ➡️"
+
+    next_button = gr.Button(value=next_button_text, visible=next_button_visible)
+
+    return header, content_md, quiz_options, submit_quiz_button, feedback_md, gr.Button(
+        visible=prev_button_visible), next_button
 
 
-def handle_navigation(path_data, progress_id, user_wallet, level_idx, item_idx, direction):
-    if not path_data:
-        return path_data, progress_id, level_idx, item_idx, None, gr.Button(visible=True), gr.Button(visible=True), gr.Button(visible=False), gr.Markdown(visible=False)
-
-
+def handle_navigation(path_data, user_wallet, level_idx, item_idx, quiz_answers, direction):
     num_levels = len(path_data['levels'])
     num_items_in_level = len(path_data['levels'][level_idx]['content_items'])
 
     if direction == "next":
-        if item_idx < num_items_in_level - 1:
-            item_idx += 1
-        elif level_idx < num_levels - 1:
-            level_idx += 1
-            item_idx = 0
-            gr.Info(f"Great work! Moving to Level {level_idx + 1}.")
+        is_last_item = (item_idx == num_items_in_level - 1)
+        if is_last_item:
+            # This is a level transition, so we submit the score
+            total_questions = 0
+            correct_answers = 0
+            for item in path_data['levels'][level_idx]['content_items']:
+                if item['item_type'] == 'quiz':
+                    total_questions += 1
+                    if quiz_answers.get(item['id'], False):  # Default to False if not answered
+                        correct_answers += 1
+
+            make_api_request("POST", f"{BACKEND_URL}/progress/level", payload={
+                "user_wallet": user_wallet, "path_id": path_data['id'], "level_index": level_idx + 1,
+                "correct_answers": correct_answers, "total_questions": total_questions
+            })
+
+            is_last_level = (level_idx == num_levels - 1)
+            if is_last_level:
+                gr.Info("🎉 Congratulations! You have completed the path!")
+                return level_idx, item_idx, quiz_answers, gr.Button(visible=True), gr.Markdown(visible=True)
+            else:
+                gr.Info(f"Level {level_idx + 1} complete! Moving to the next level.")
+                level_idx += 1
+                item_idx = 0
+                quiz_answers = {}  # Reset answers for new level
         else:
-            gr.Info("🎉 Congratulations! You have completed the path!")
-            return (path_data, progress_id, level_idx, item_idx, gr.Radio(),
-                    gr.Button(visible=False), gr.Button(visible=False),
-                    gr.Button(visible=True),
-                    gr.Markdown(visible=True, value="### You've earned an NFT!\n\nClick the button below to mint your certificate to your wallet."))
+            item_idx += 1
     elif direction == "prev":
         if item_idx > 0:
             item_idx -= 1
         elif level_idx > 0:
             level_idx -= 1
             item_idx = len(path_data['levels'][level_idx]['content_items']) - 1
+            quiz_answers = {}  # Reset answers as we are going to a previous level
 
-    make_api_request("POST", f"{BACKEND_URL}/progress/location",
-                     payload={"progress_id": progress_id, "item_index": item_idx, "user_wallet": user_wallet})
-
-    new_level_title = path_data['levels'][level_idx]['level_title']
-    return (path_data, progress_id, level_idx, item_idx, gr.Radio(value=new_level_title),
-            gr.Button(visible=True), gr.Button(visible=True),
-            gr.Button(visible=False), gr.Markdown(visible=False))
+    return level_idx, item_idx, quiz_answers, gr.Button(visible=False), gr.Markdown(visible=False)
 
 
-def select_level(path_data, progress_id, user_wallet, selected_title):
+def select_level(path_data, selected_title):
     if not path_data or not selected_title:
-        return 0, 0
-
+        return 0, 0, {}
     level_titles = [level.get('level_title') for level in path_data.get('levels', [])]
     try:
         new_level_index = level_titles.index(selected_title)
-        make_api_request("POST", f"{BACKEND_URL}/progress/location",
-                         payload={"progress_id": progress_id, "item_index": 0, "user_wallet": user_wallet})
-        return new_level_index, 0
+        return new_level_index, 0, {}
     except ValueError:
-        return 0, 0
+        return 0, 0, {}
 
 
-def submit_quiz(path_data, progress_id, user_wallet, level_idx, item_idx, selected_answer):
+def submit_quiz(path_data, level_idx, item_idx, selected_answer, quiz_answers):
     if selected_answer is None:
         gr.Warning("Please select an answer.")
-        return ""
+        return "", quiz_answers, gr.Button(visible=True)
 
     item = path_data['levels'][level_idx]['content_items'][item_idx]
     quiz_data = item['content']
+    item_id = item['id']
 
     correct_idx = quiz_data['correctAnswerIndex']
     options = quiz_data['options']
     selected_idx = options.index(selected_answer)
     is_correct = selected_idx == correct_idx
 
-    make_api_request("POST", f"{BACKEND_URL}/progress/update", payload={
-        "progress_id": progress_id,
-        "content_item_id": item['id'],
-        "user_answer_index": selected_idx,
-        "user_wallet": user_wallet
-    })
+    quiz_answers[item_id] = is_correct
 
     if is_correct:
         feedback = f"✅ **Correct!** Great job.\n\n---\n\n**Explanation:** {quiz_data['explanation']}"
-        gr.Info("Correct! Moving to the next item in 3 seconds...")
-        time.sleep(3)
     else:
         feedback = f"❌ **Incorrect.** The correct answer was: **{options[correct_idx]}**\n\n---\n\n**Explanation:** {quiz_data['explanation']}"
 
-    return feedback
+    return feedback, quiz_answers, gr.Button(visible=False)
 
 
 def get_lucky_topic():
@@ -331,9 +351,9 @@ def create_and_launch_demo_ui(port):
         user_country = gr.State(None)
 
         current_path_data = gr.State(None)
-        current_progress_id = gr.State(None)
         current_level_index = gr.State(0)
         current_item_index = gr.State(0)
+        level_quiz_answers = gr.State({})
 
         with gr.Tabs() as main_tabs:
             with gr.TabItem("Login", id=0):
@@ -371,6 +391,9 @@ def create_and_launch_demo_ui(port):
                                                            icon="https://etherscan.io/images/favicon.ico")
                 gr.Markdown("---")
                 with gr.Tabs():
+                    with gr.TabItem("My Learning Progress"):
+                        my_scores_df = gr.DataFrame(headers=["Path", "Score", "Correct", "Total Answered"],
+                                                    interactive=False, col_count=(4, "fixed"))
                     with gr.TabItem("My Created Paths"):
                         my_paths_df = gr.DataFrame(headers=["ID", "Title", "Levels"], interactive=False,
                                                    col_count=(3, "fixed"))
@@ -383,7 +406,6 @@ def create_and_launch_demo_ui(port):
                     with gr.Column(scale=1, min_width=200):
                         start_learning_button = gr.Button("Start Learning Selected Path", variant="secondary")
                 refresh_dashboard_button = gr.Button("Refresh Dashboard")
-
 
             with gr.TabItem("Learn", id=2):
                 with gr.Row():
@@ -401,7 +423,7 @@ def create_and_launch_demo_ui(port):
                         with gr.Row():
                             prev_button = gr.Button("⬅️ Previous")
                             next_button = gr.Button("Next ➡️")
-                        
+
                         gr.Markdown("---", visible=True)
                         mint_nft_button = gr.Button("🏆 Mint Completion NFT", variant="primary", visible=False)
                         minting_output_md = gr.Markdown(visible=False)
@@ -412,8 +434,10 @@ def create_and_launch_demo_ui(port):
                            outputs=[user_wallet, user_name, user_country, main_tabs]).then(fn=refresh_dashboard,
                                                                                            inputs=[user_wallet],
                                                                                            outputs=[my_paths_df,
-                                                                                                    all_paths_df])
-        refresh_dashboard_button.click(fn=refresh_dashboard, inputs=[user_wallet], outputs=[my_paths_df, all_paths_df])
+                                                                                                    all_paths_df,
+                                                                                                    my_scores_df])
+        refresh_dashboard_button.click(fn=refresh_dashboard, inputs=[user_wallet],
+                                       outputs=[my_paths_df, all_paths_df, my_scores_df])
         search_button.click(search_for_paths, search_query_input, search_results_df)
 
         generate_button.click(fn=generate_path_live, inputs=[generate_topic_input, user_wallet],
@@ -429,9 +453,8 @@ def create_and_launch_demo_ui(port):
             path_id = int(path_id_str.split()[-1])
             return start_learning_path(path_id, wallet)
 
-        start_learning_outputs = [current_path_data, current_progress_id, current_level_index,
-                                  current_item_index, main_tabs, level_selector_radio,
-                                  prev_button, next_button, mint_nft_button, minting_output_md]
+        start_learning_outputs = [current_path_data, current_level_index, current_item_index, level_quiz_answers,
+                                  main_tabs, level_selector_radio, mint_nft_button, minting_output_md]
 
         generate_continue_button.click(fn=continue_to_path_from_generation,
                                        inputs=[generate_continue_button, user_wallet],
@@ -439,43 +462,58 @@ def create_and_launch_demo_ui(port):
         start_learning_button.click(fn=start_learning_path, inputs=[selected_path_id, user_wallet],
                                     outputs=start_learning_outputs)
 
-        render_outputs = [learn_header_md, learn_content_md, quiz_options_radio, submit_quiz_button, quiz_feedback_md]
-        main_tabs.select(fn=render_learn_view, inputs=[current_path_data, current_level_index, current_item_index],
-                         outputs=render_outputs)
+        render_outputs = [learn_header_md, learn_content_md, quiz_options_radio, submit_quiz_button, quiz_feedback_md,
+                          prev_button, next_button]
 
-        back_to_dashboard_button.click(lambda: gr.Tabs(selected=1), outputs=[main_tabs])
+        # This function will trigger the rendering of the current slide/quiz
+        def trigger_render(path_data, level_idx, item_idx, quiz_answers):
+            # Update the level selector radio without triggering its own event
+            new_level_title = path_data['levels'][level_idx]['level_title']
+            ui_updates = render_learn_view(path_data, level_idx, item_idx, quiz_answers)
+            return gr.Radio(value=new_level_title), *ui_updates
 
-        nav_outputs = [current_path_data, current_progress_id, current_level_index, current_item_index,
-                       level_selector_radio, prev_button, next_button, mint_nft_button, minting_output_md]
+        # Chain events for navigation and rendering
+        nav_outputs = [current_level_index, current_item_index, level_quiz_answers, mint_nft_button, minting_output_md]
 
         prev_button.click(fn=handle_navigation,
-                          inputs=[current_path_data, current_progress_id, user_wallet, current_level_index, current_item_index,
-                                  gr.State("prev")],
-                          outputs=nav_outputs).then(fn=render_learn_view,
-                                                    inputs=[current_path_data, current_level_index,
-                                                            current_item_index],
-                                                    outputs=render_outputs)
+                          inputs=[current_path_data, user_wallet, current_level_index, current_item_index,
+                                  level_quiz_answers, gr.State("prev")],
+                          outputs=nav_outputs).then(fn=trigger_render,
+                                                    inputs=[current_path_data, current_level_index, current_item_index,
+                                                            level_quiz_answers],
+                                                    outputs=[level_selector_radio, *render_outputs])
+
         next_button.click(fn=handle_navigation,
-                          inputs=[current_path_data, current_progress_id, user_wallet, current_level_index, current_item_index,
-                                  gr.State("next")],
-                          outputs=nav_outputs).then(fn=render_learn_view,
-                                                    inputs=[current_path_data, current_level_index,
-                                                            current_item_index],
-                                                    outputs=render_outputs)
+                          inputs=[current_path_data, user_wallet, current_level_index, current_item_index,
+                                  level_quiz_answers, gr.State("next")],
+                          outputs=nav_outputs).then(fn=trigger_render,
+                                                    inputs=[current_path_data, current_level_index, current_item_index,
+                                                            level_quiz_answers],
+                                                    outputs=[level_selector_radio, *render_outputs])
 
         level_selector_radio.select(fn=select_level,
-                                    inputs=[current_path_data, current_progress_id, user_wallet, level_selector_radio],
-                                    outputs=[current_level_index, current_item_index]).then(fn=render_learn_view,
-                                                                                            inputs=[current_path_data,
-                                                                                                    current_level_index,
-                                                                                                    current_item_index],
-                                                                                            outputs=render_outputs)
+                                    inputs=[current_path_data, level_selector_radio],
+                                    outputs=[current_level_index, current_item_index, level_quiz_answers]).then(
+            fn=trigger_render, inputs=[current_path_data, current_level_index, current_item_index, level_quiz_answers],
+            outputs=[level_selector_radio, *render_outputs])
 
-        submit_quiz_button.click(fn=submit_quiz, inputs=[current_path_data, current_progress_id, user_wallet, current_level_index,
-                                                         current_item_index, quiz_options_radio],
-                                 outputs=[quiz_feedback_md])
+        submit_quiz_button.click(fn=submit_quiz,
+                                 inputs=[current_path_data, current_level_index, current_item_index, quiz_options_radio,
+                                         level_quiz_answers],
+                                 outputs=[quiz_feedback_md, level_quiz_answers, submit_quiz_button]).then(
+            fn=handle_navigation,
+            inputs=[current_path_data, user_wallet, current_level_index, current_item_index, level_quiz_answers,
+                    gr.State("next")], outputs=nav_outputs).then(fn=trigger_render,
+                                                                 inputs=[current_path_data, current_level_index,
+                                                                         current_item_index, level_quiz_answers],
+                                                                 outputs=[level_selector_radio, *render_outputs])
 
         mint_nft_button.click(fn=mint_nft_for_path, inputs=[current_path_data, user_wallet],
                               outputs=[minting_output_md])
+
+        main_tabs.select(lambda: {}, outputs=[level_quiz_answers]).then(fn=trigger_render,
+                                                                        inputs=[current_path_data, current_level_index,
+                                                                                current_item_index, level_quiz_answers],
+                                                                        outputs=[level_selector_radio, *render_outputs])
 
     demo.queue().launch(server_name="0.0.0.0", server_port=port, share=False)
