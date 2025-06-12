@@ -59,34 +59,39 @@ def generation_worker(task_id, original_topic, new_title, creator_wallet, countr
         update_progress(task_id, f"🧠 Generating content for {total_levels} lessons...")
         all_content_for_hash = []
         for i, level_title in enumerate(curriculum_titles):
-            level_number = i + 1
-            update_progress(task_id, f"  - Lesson {level_number}: '{level_title}'")
+            try:
+                level_number = i + 1
+                update_progress(task_id, f"  - Lesson {level_number}: '{level_title}'")
 
-            # FIX: Handle race condition where a level is created but the response is missed.
-            level_res = supabase_service.create_level(new_path_id, level_number, level_title)
+                level_res = supabase_service.create_level(new_path_id, level_number, level_title)
 
-            if level_res.data:
-                new_level_id = level_res.data[0]['id']
-            else:
-                # If data is empty, it means the level already existed (due to upsert).
-                # We need to fetch its ID to continue.
-                logger.warning(f"TASK [{task_id}]: Level {level_number} already existed. Fetching its ID.")
-                level_res = supabase_service.get_level(new_path_id, level_number)
-                if not level_res.data:
-                    raise Exception(f"Could not create or find level {level_number} for path {new_path_id}.")
-                new_level_id = level_res.data['id']
+                if level_res.data:
+                    new_level_id = level_res.data[0]['id']
+                else:
+                    logger.warning(f"TASK [{task_id}]: Level {level_number} already existed. Fetching its ID.")
+                    level_res = supabase_service.get_level(new_path_id, level_number)
+                    if not level_res.data:
+                        raise Exception(f"Could not create or find level {level_number} for path {new_path_id}.")
+                    new_level_id = level_res.data['id']
 
-            if intent == 'learn':
-                interleaved_items = ai_service.generate_learn_level_content(new_title, level_title)
-            else:  # intent == 'help'
-                interleaved_items = ai_service.generate_help_level_content(new_title, level_title)
+                if intent == 'learn':
+                    interleaved_items = ai_service.generate_learn_level_content(new_title, level_title)
+                else:  # intent == 'help'
+                    interleaved_items = ai_service.generate_help_level_content(new_title, level_title)
 
-            all_content_for_hash.append({"level": level_title, "items": interleaved_items})
+                all_content_for_hash.append({"level": level_title, "items": interleaved_items})
 
-            items_to_insert = [
-                {"level_id": new_level_id, "item_index": j, "item_type": item['type'], "content": item['content']} for
-                j, item in enumerate(interleaved_items)]
-            supabase_service.create_content_items(items_to_insert)
+                items_to_insert = [
+                    {"level_id": new_level_id, "item_index": j, "item_type": item['type'], "content": item['content']} for
+                    j, item in enumerate(interleaved_items)]
+                supabase_service.create_content_items(items_to_insert)
+            except Exception as level_e:
+                error_msg = f"  - ❌ Failed to generate content for level {i+1} ('{level_title}'). Error: {level_e}"
+                logger.error(f"TASK [{task_id}]: {error_msg}", exc_info=True)
+                update_progress(task_id, error_msg)
+                # Continue to the next level instead of crashing
+                continue
+
 
         update_progress(task_id, "✅ All lesson content has been generated and saved.")
 
@@ -196,7 +201,7 @@ def get_random_topic_route():
 def get_generation_status(task_id):
     try:
         log_res = supabase_service.get_task_log(task_id)
-        if not log_res.data:
+        if not log_res or not log_res.data:
             return jsonify({"error": "Task not found."}), 404
         return jsonify({"progress": log_res.data.get('logs', [])})
     except Exception as e:
@@ -220,7 +225,7 @@ def get_path_details_route(path_id):
     logger.info(f"ROUTE: /paths/<id> GET for path {path_id}")
     try:
         path_details_res = supabase_service.get_full_path_details(path_id)
-        if not path_details_res.data:
+        if not path_details_res or not path_details_res.data:
             return jsonify({"error": "Path not found"}), 404
 
         path_data = path_details_res.data
@@ -243,6 +248,39 @@ def get_path_details_route(path_id):
     except Exception as e:
         logger.error(f"ROUTE: /paths/<id> GET failed: {e}", exc_info=True)
         return jsonify({"error": "Failed to fetch path details."}), 500
+
+
+@bp.route('/<int:path_id>/<wallet_address>', methods=['GET'])
+def get_path_details_for_user_route(path_id, wallet_address):
+    """
+    Gets full path details and enriches each level with the user-specific completion status.
+    """
+    logger.info(f"ROUTE: /paths/<id>/<wallet> GET for path {path_id} and user {wallet_address}")
+    try:
+        path_data = supabase_service.get_full_path_details_for_user(path_id, wallet_address)
+
+        if not path_data:
+            return jsonify({"error": "Path not found"}), 404
+
+        # Calculate total slides and questions
+        total_slides = 0
+        total_questions = 0
+        if 'levels' in path_data and path_data['levels']:
+            for level in path_data['levels']:
+                if 'content_items' in level and level['content_items']:
+                    for item in level['content_items']:
+                        if item['item_type'] == 'slide':
+                            total_slides += 1
+                        elif item['item_type'] == 'quiz':
+                            total_questions += 1
+
+        path_data['total_slides'] = total_slides
+        path_data['total_questions'] = total_questions
+
+        return jsonify(path_data)
+    except Exception as e:
+        logger.error(f"ROUTE: /paths/<id>/<wallet> GET failed: {e}", exc_info=True)
+        return jsonify({"error": "Failed to fetch path details for user."}), 500
 
 
 @bp.route('/<int:path_id>', methods=['DELETE'])

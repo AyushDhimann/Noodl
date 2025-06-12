@@ -43,10 +43,29 @@ def get_user_route(wallet_address):
 
 @bp.route('/<wallet_address>/paths', methods=['GET'])
 def get_user_created_paths_route(wallet_address):
+    """
+    Gets paths created by a user and includes whether that same user has completed them.
+    """
     logger.info(f"ROUTE: /users/<wallet>/paths GET for wallet: {wallet_address}")
     try:
+        # The user viewing is the same as the creator in this context
+        viewer_wallet = wallet_address
+
         paths_res = user_service.supabase_service.get_paths_by_creator(wallet_address)
-        return jsonify(paths_res.data)
+        if not paths_res.data:
+            return jsonify([])
+
+        paths = paths_res.data
+        path_ids = [p['id'] for p in paths]
+
+        # Get completion status for these paths for the viewer
+        completion_status = user_service.supabase_service.get_user_progress_for_paths(viewer_wallet, path_ids)
+
+        # Add the is_complete flag to each path
+        for path in paths:
+            path['is_complete'] = completion_status.get(path['id'], False)
+
+        return jsonify(paths)
     except Exception as e:
         logger.error(f"ROUTE: /users/<wallet>/paths GET failed: {e}", exc_info=True)
         return jsonify({"error": "Failed to retrieve user-created paths."}), 500
