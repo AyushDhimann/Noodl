@@ -255,10 +255,9 @@ def generate_certificate_image(path_title, user_name, output_file_path):
             "collectible NFT series with consistent artistic style and color harmony across variations."
         )
 
-        # CORRECTED: Pass the generation_config as a dictionary.
         response = image_model.generate_content(
             contents=prompt,
-            generation_config={"response_modalities": ["IMAGE", "TEXT"]}
+            generation_config={"response_mime_type": "image/png"}
         )
 
         base_image_bytes = None
@@ -277,13 +276,22 @@ def generate_certificate_image(path_title, user_name, output_file_path):
 
     except Exception as e:
         logger.error(f"IMAGE: Failed during Gemini image generation step: {e}", exc_info=True)
-        base_image = Image.new('RGB', (128, 128), color=(10, 10, 20))
+        # Create a more graceful fallback image
+        base_image = Image.new('RGB', (256, 256), color=(15, 20, 40))
         draw = ImageDraw.Draw(base_image)
         try:
-            font_fallback = ImageFont.truetype("arial.ttf", 12)
+            font_title = ImageFont.truetype("arial.ttf", 20)
+            font_body = ImageFont.truetype("arial.ttf", 14)
         except IOError:
-            font_fallback = ImageFont.load_default()
-        draw.text((10, 10), "AI Gen\nFailed", fill=(255, 0, 0), font=font_fallback)
+            font_title = ImageFont.load_default()
+            font_body = ImageFont.load_default()
+
+        wrapper = textwrap.TextWrapper(width=25)
+        wrapped_title = '\n'.join(wrapper.wrap(text=path_title))
+
+        draw.text((128, 50), "KODO Certificate", font=font_title, fill=(255, 215, 0), anchor="ms")
+        draw.text((128, 128), wrapped_title, font=font_body, fill=(240, 240, 240), anchor="mm")
+        draw.text((128, 200), "Generation Failed", font=font_body, fill=(255, 80, 80), anchor="ms")
         logger.warning("IMAGE: Created a fallback placeholder image.")
 
     # 2. Frame the image and add text using Pillow
