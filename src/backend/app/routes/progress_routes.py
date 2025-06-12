@@ -12,6 +12,9 @@ def upsert_level_progress_route():
     it creates a new progress record before saving the level score.
     """
     data = request.get_json()
+    if not data:
+        return jsonify({"error": "Invalid JSON body"}), 400
+
     user_wallet = data.get('user_wallet')
     path_id = data.get('path_id')
     level_index = data.get('level_index')
@@ -22,12 +25,16 @@ def upsert_level_progress_route():
         return jsonify({"error": "user_wallet, path_id, level_index, correct_answers, and total_questions are required"}), 400
 
     try:
-        # The service function now handles the logic of starting a path if it's the first update
-        supabase_service.upsert_level_progress(user_wallet, path_id, level_index, correct_answers, total_questions)
+        # FIX: Ensure all numeric types are correctly cast to integers.
+        path_id_int = int(path_id)
+        level_index_int = int(level_index)
+        correct_answers_int = int(correct_answers)
+        total_questions_int = int(total_questions)
+
+        supabase_service.upsert_level_progress(user_wallet, path_id_int, level_index_int, correct_answers_int, total_questions_int)
         return jsonify({"message": "Progress updated successfully"}), 200
-    except ValueError as ve:
-        logger.error(f"ROUTE: /progress/level ValueError: {ve}")
-        return jsonify({"error": str(ve)}), 404
+    except (ValueError, TypeError):
+        return jsonify({"error": "path_id, level_index, correct_answers, and total_questions must be valid integers"}), 400
     except Exception as e:
         logger.error(f"ROUTE: /progress/level failed: {e}", exc_info=True)
         return jsonify({"error": "Failed to update level progress."}), 500

@@ -205,6 +205,9 @@ def _create_progress_record(user_id, path_id):
         'status': 'in_progress',
         'started_at': datetime.now(timezone.utc).isoformat()
     }).execute()
+    if not insert_res.data:
+        raise Exception(f"Failed to create progress record for user {user_id} on path {path_id}")
+    logger.info(f"DB: Successfully created progress record with ID: {insert_res.data[0]['id']}")
     return insert_res.data[0]
 
 
@@ -215,7 +218,7 @@ def upsert_level_progress(user_wallet, path_id, level_index, correct_answers, to
     # 1. Get User ID
     user_res = get_user_by_wallet(user_wallet)
     if not user_res or not user_res.data:
-        raise ValueError("User not found.")
+        raise ValueError(f"User not found for wallet {user_wallet}")
     user_id = user_res.data['id']
 
     # 2. Get or Create Progress Record
@@ -225,11 +228,13 @@ def upsert_level_progress(user_wallet, path_id, level_index, correct_answers, to
     if progress_res.data:
         progress_id = progress_res.data['id']
     else:
+        logger.info(f"No progress found for user {user_id} on path {path_id}. Creating new progress record.")
         new_progress = _create_progress_record(user_id, path_id)
         progress_id = new_progress['id']
 
     # 3. Upsert Level Score
-    logger.info(f"DB: Upserting level progress for progress_id {progress_id}, level {level_index}.")
+    logger.info(
+        f"DB: Upserting level progress for progress_id {progress_id}, level {level_index} with score {correct_answers}/{total_questions}.")
     return supabase_client.table('level_progress').upsert({
         'progress_id': progress_id,
         'level_number': level_index,
@@ -242,21 +247,24 @@ def get_level_score(user_wallet, path_id, level_index):
     """
     Retrieves the score for a specific level of a path for a user.
     """
+    logger.info(f"DB: Getting level score for wallet {user_wallet}, path {path_id}, level {level_index}.")
     # 1. Get User ID
     user_res = get_user_by_wallet(user_wallet)
     if not user_res or not user_res.data:
-        raise ValueError("User not found.")
+        raise ValueError(f"User not found for wallet {user_wallet}")
     user_id = user_res.data['id']
 
     # 2. Get Progress ID
     progress_res = supabase_client.table('user_progress').select('id').eq('user_id', user_id).eq('path_id',
                                                                                                  path_id).maybe_single().execute()
     if not progress_res.data:
+        logger.warning(f"DB: No progress record found for user {user_id} on path {path_id}.")
         return None  # No progress, so no score
 
     progress_id = progress_res.data['id']
 
     # 3. Get Level Score
+    logger.info(f"DB: Querying level_progress for progress_id {progress_id} and level_number {level_index}.")
     score_res = supabase_client.table('level_progress').select('correct_answers, total_questions').eq('progress_id',
                                                                                                       progress_id).eq(
         'level_number', level_index).maybe_single().execute()
@@ -301,7 +309,7 @@ def get_user_scores(user_id):
         correct = scores['correct_answers']
         score_percent = (correct / total * 100) if total > 0 else 0
         scores['score_percent'] = round(score_percent, 2)
-        scores['status'] = 'in_progress'  # Note: Completion status would need more logic
+        scores['status'] = 'in_progress'
         final_scores.append(scores)
 
     return final_scores
