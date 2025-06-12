@@ -7,6 +7,9 @@ import 'package:frontend/models/core_level_model.dart';
 import 'package:frontend/models/noodl_model.dart';
 import 'package:frontend/pages/levels_page.dart';
 import 'package:frontend/pages/quiz.dart';
+import 'package:frontend/providers/metamask_provider.dart';
+import 'package:frontend/services/services.dart';
+import 'package:provider/provider.dart';
 
 class LevelWidget extends StatelessWidget {
   final MiniLevelModel data;
@@ -21,7 +24,14 @@ class LevelWidget extends StatelessWidget {
         color: Colors.white.withOpacity(0.08),
         child: InkWell(
         borderRadius: BorderRadius.all(Radius.circular(12.5)),
-          onTap: () => Navigator.of(context).push(MaterialPageRoute(builder: (context) => QuizPage(shortData: data,),)),
+          onTap: () {
+            // remove hardcoded wallet add
+            String userWalletAdd = Provider.of<MetaMaskProvider>(context).walletAddress
+              ??"0x718fafb76e1631f5945bf58104f3b81d9588819b";
+
+            APIservice.postStartUserProgress(walletAdd: userWalletAdd, pathID: data.pathId);
+            Navigator.of(context).push(MaterialPageRoute(builder: (context) => QuizPage(shortData: data,),));
+          },
           child: SizedBox(
             width: double.infinity,
             child: Stack(

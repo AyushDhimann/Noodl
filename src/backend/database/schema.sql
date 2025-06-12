@@ -47,22 +47,22 @@ CREATE TABLE user_progress (
     id BIGINT PRIMARY KEY GENERATED ALWAYS AS IDENTITY,
     user_id BIGINT REFERENCES users(id) ON DELETE CASCADE,
     path_id BIGINT REFERENCES learning_paths(id) ON DELETE CASCADE,
-    current_level_id BIGINT REFERENCES levels(id),
-    current_item_index INT,
     status TEXT DEFAULT 'not_started',
     started_at TIMESTAMPTZ,
     completed_at TIMESTAMPTZ,
     UNIQUE(user_id, path_id)
 );
 
--- 6. QUIZ ATTEMPT HISTORY & SCORES
-CREATE TABLE quiz_attempts (
+-- 6. LEVEL PROGRESS & SCORES (REPLACES quiz_attempts)
+CREATE TABLE level_progress (
     id BIGINT PRIMARY KEY GENERATED ALWAYS AS IDENTITY,
     progress_id BIGINT REFERENCES user_progress(id) ON DELETE CASCADE,
-    content_item_id BIGINT REFERENCES content_items(id) ON DELETE CASCADE,
-    user_answer_index INT,
-    is_correct BOOLEAN,
-    attempted_at TIMESTAMPTZ DEFAULT now()
+    level_number INT NOT NULL,
+    correct_answers INT,
+    total_questions INT,
+    created_at TIMESTAMPTZ DEFAULT now(),
+    updated_at TIMESTAMPTZ DEFAULT now(),
+    UNIQUE(progress_id, level_number)
 );
 
 -- 7. FUNCTION FOR SIMILARITY SEARCH (for duplicate check)
@@ -101,11 +101,18 @@ BEGIN
 END;
 $$ LANGUAGE plpgsql;
 
--- Trigger to update the timestamp on row update
-CREATE TRIGGER set_timestamp
+-- Trigger to update the timestamp on task_progress_logs
+CREATE TRIGGER set_timestamp_task_logs
 BEFORE UPDATE ON task_progress_logs
 FOR EACH ROW
 EXECUTE PROCEDURE trigger_set_timestamp();
+
+-- Trigger for the new level_progress table
+CREATE TRIGGER set_timestamp_level_progress
+BEFORE UPDATE ON level_progress
+FOR EACH ROW
+EXECUTE PROCEDURE trigger_set_timestamp();
+
 
 -- 9. FUNCTION TO APPEND LOGS
 CREATE OR REPLACE FUNCTION append_to_log(task_uuid UUID, new_log JSONB)

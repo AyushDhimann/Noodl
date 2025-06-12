@@ -141,22 +141,26 @@ def get_level_content(path_id, level_num):
     return make_api_request("GET", f"{BACKEND_URL}/paths/{path_id}/levels/{level_num}")
 
 
-def start_progress(wallet, path_id):
-    return make_api_request("POST", f"{BACKEND_URL}/progress/start", payload={"user_wallet": wallet, "path_id": path_id})
+def upsert_level_progress(wallet, path_id, level_index, correct, total):
+    return make_api_request("POST", f"{BACKEND_URL}/progress/level", payload={
+        "user_wallet": wallet,
+        "path_id": path_id,
+        "level_index": level_index,
+        "correct_answers": correct,
+        "total_questions": total
+    })
 
 
-def update_location(progress_id, item_index):
-    return make_api_request("POST", f"{BACKEND_URL}/progress/location",
-                            payload={"progress_id": progress_id, "item_index": item_index})
+def get_level_score(wallet, path_id, level_index):
+    return make_api_request("GET", f"{BACKEND_URL}/progress/scores/level", params={
+        "user_wallet": wallet,
+        "path_id": path_id,
+        "level_index": level_index
+    })
 
 
-def update_progress(progress_id, item_id, answer_idx):
-    return make_api_request("POST", f"{BACKEND_URL}/progress/update",
-                            payload={"progress_id": progress_id, "content_item_id": item_id, "user_answer_index": answer_idx})
-
-
-def get_scores(wallet):
-    return make_api_request("GET", f"{BACKEND_URL}/scores/{wallet}")
+def get_user_total_scores(wallet):
+    return make_api_request("GET", f"{BACKEND_URL}/progress/scores/{wallet}")
 
 
 def mint_nft(path_id, wallet):
@@ -196,12 +200,10 @@ def create_and_launch_ui():
                 task_id_input = gr.Textbox(label="Task ID (from generation)", placeholder="UUID...")
             with gr.Row():
                 path_id_input = gr.Number(label="Path ID", precision=0)
-                level_num_input = gr.Number(label="Level Number", precision=0)
+                level_num_input = gr.Number(label="Level Number / Index", precision=0)
             with gr.Row():
-                progress_id_input = gr.Number(label="Progress ID", precision=0)
-                content_item_id_input = gr.Number(label="Content Item ID", precision=0)
-                answer_index_input = gr.Number(label="Answer Index (0-3)", precision=0)
-                item_index_input = gr.Number(label="Item Index (for location)", precision=0)
+                correct_answers_input = gr.Number(label="Correct Answers", precision=0)
+                total_questions_input = gr.Number(label="Total Questions", precision=0)
             with gr.Row():
                 search_query_input = gr.Textbox(label="Search Query", placeholder="Enter 2+ characters to search...")
 
@@ -248,12 +250,9 @@ def create_and_launch_ui():
 
             with gr.Accordion("🏃‍♂️ Progress & Scoring Endpoints", open=False):
                 with gr.Row():
-                    gr.Button("POST /progress/start").click(start_progress, [wallet_input, path_id_input], api_output)
-                    gr.Button("POST /progress/location").click(update_location, [progress_id_input, item_index_input],
-                                                               api_output)
-                    gr.Button("POST /progress/update").click(update_progress, [progress_id_input, content_item_id_input,
-                                                                               answer_index_input], api_output)
-                    gr.Button("GET /scores/<wallet>").click(get_scores, [wallet_input], api_output)
+                    gr.Button("POST /progress/level").click(upsert_level_progress, [wallet_input, path_id_input, level_num_input, correct_answers_input, total_questions_input], api_output)
+                    gr.Button("GET /progress/scores/level").click(get_level_score, [wallet_input, path_id_input, level_num_input], api_output)
+                    gr.Button("GET /progress/scores/<wallet>").click(get_user_total_scores, [wallet_input], api_output)
 
             with gr.Accordion("🏆 NFT Endpoints", open=False):
                 with gr.Row():

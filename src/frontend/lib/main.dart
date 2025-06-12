@@ -42,14 +42,32 @@ class MyApp extends StatelessWidget {
           useMaterial3: true
         ),
         // ignore: prefer_const_constructors
-        home: Consumer<MetaMaskProvider>(
+        // home: Consumer<MetaMaskProvider>(
+        //   builder: (context, provider, child) {
+        //     if (provider.isConnected && provider.isOnboardingComplete) {
+        //       return const HomePage();
+        //     } else if (provider.isConnected && !provider.isOnboardingComplete) {
+        //       print(provider.walletAddress);
+        //       return FutureBuilder(
+        //         future:APIservice.fetchUserNameCountry(walletAdd: provider.walletAddress!),
+        //         builder: (context, snapshot) {
+        //           if(snapshot.hasData){
+        //             if(snapshot.data!['id']!=null){
+        //               return HomePage();
+        //             } 
+        //             return OnboardingPage();
+        //           }
+        //           return Scaffold(backgroundColor: appColors.bgColor, body: Center(child: CupertinoActivityIndicator())); 
+        //         },
+        //       );
+        //     } else {
+        //       return const LoginPage();
+        //     }
+        //   },
           // builder: (context, provider, child) {
-          //   if (provider.isConnected && provider.isOnboardingComplete) {
-          //     return const HomePage();
-          //   } else if (provider.isConnected && !provider.isOnboardingComplete) {
-          //     print(provider.walletAddress);
+          //   if (provider.isConnected) {
           //     return FutureBuilder(
-          //       future:APIservice.fetchUserNameCountry(walletAdd: provider.walletAddress!),
+          //       future: APIservice.fetchUserNameCountry(walletAdd: provider.walletAddress!),
           //       builder: (context, snapshot) {
           //         if(snapshot.hasData){
           //           if(snapshot.data!['id']!=null){
@@ -57,34 +75,16 @@ class MyApp extends StatelessWidget {
           //           } 
           //           return OnboardingPage();
           //         }
-          //         return Scaffold(backgroundColor: appColors.bgColor, body: Center(child: CupertinoActivityIndicator())); 
+          //         return Scaffold(backgroundColor: appColors.bgColor, body: Center(child: CupertinoActivityIndicator()));
           //       },
           //     );
           //   } else {
           //     return const LoginPage();
           //   }
           // },
-          builder: (context, provider, child) {
-            if (provider.isConnected) {
-              return FutureBuilder(
-                future: APIservice.fetchUserNameCountry(walletAdd: provider.walletAddress!),
-                builder: (context, snapshot) {
-                  if(snapshot.hasData){
-                    if(snapshot.data!['id']!=null){
-                      return HomePage();
-                    } 
-                    return OnboardingPage();
-                  }
-                  return Scaffold(backgroundColor: appColors.bgColor, body: Center(child: CupertinoActivityIndicator()));
-                },
-              );
-            } else {
-              return const LoginPage();
-            }
-          },
-        ),
+        // ),  
         // ________ TESTING________
-        // home: HomePage(),
+        home: HomePage(),
       ),
     );
   }

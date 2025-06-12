@@ -7,6 +7,7 @@ from . import ai_service
 def get_user_by_wallet(wallet_address):
     return supabase_client.table('users').select('id').eq('wallet_address', wallet_address).maybe_single().execute()
 
+
 def get_user_by_wallet_full(wallet_address):
     """Fetches the full user object, not just the ID."""
     return supabase_client.table('users').select('*').eq('wallet_address', wallet_address).maybe_single().execute()
@@ -25,7 +26,8 @@ def get_paths_by_creator(wallet_address):
 
 def get_path_count_by_creator(wallet_address):
     """Efficiently gets the count of paths created by a user."""
-    response = supabase_client.table('learning_paths').select('id', count='exact').eq('creator_wallet', wallet_address).execute()
+    response = supabase_client.table('learning_paths').select('id', count='exact').eq('creator_wallet',
+                                                                                      wallet_address).execute()
     return response.count
 
 
@@ -35,8 +37,9 @@ def get_all_paths():
 
 
 def get_path_by_id(path_id):
-    return supabase_client.table('learning_paths').select("title, short_description, long_description, creator_wallet").eq('id',
-                                                                                   path_id).maybe_single().execute()
+    return supabase_client.table('learning_paths').select(
+        "title, short_description, long_description, creator_wallet").eq('id',
+                                                                         path_id).maybe_single().execute()
 
 
 def get_full_path_details(path_id):
@@ -52,7 +55,8 @@ def get_full_path_details(path_id):
     ).maybe_single().execute()
 
 
-def create_learning_path(title, short_description, long_description, creator_wallet, total_levels, intent_type, embedding):
+def create_learning_path(title, short_description, long_description, creator_wallet, total_levels, intent_type,
+                         embedding):
     return supabase_client.table('learning_paths').insert({
         "title": title, "short_description": short_description, "long_description": long_description,
         "creator_wallet": creator_wallet, "total_levels": total_levels, "intent_type": intent_type,
@@ -189,86 +193,115 @@ def get_task_log(task_id):
 
 
 # --- Progress & Scoring Functions ---
-def get_progress(user_id, path_id):
-    return supabase_client.table('user_progress').select('*, levels(level_number)').eq('user_id', user_id).eq('path_id',
-                                                                                                              path_id).maybe_single().execute()
-
-
-def create_progress(user_id, path_id):
-    first_level_res = supabase_client.table('levels').select('id').eq('path_id', path_id).eq('level_number',
-                                                                                             1).single().execute()
-    if not first_level_res.data:
-        raise ValueError(f"Path ID {path_id} has no level 1.")
-
+def _create_progress_record(user_id, path_id):
+    """
+    Internal function to create a new user_progress record.
+    This is called automatically when a user submits their first level progress for a path.
+    """
+    logger.info(f"DB: Creating new progress record for user {user_id} on path {path_id}.")
     insert_res = supabase_client.table('user_progress').insert({
-        'user_id': user_id, 'path_id': path_id, 'current_level_id': first_level_res.data['id'],
-        'current_item_index': -1, 'status': 'in_progress', 'started_at': datetime.now(timezone.utc).isoformat()
+        'user_id': user_id,
+        'path_id': path_id,
+        'status': 'in_progress',
+        'started_at': datetime.now(timezone.utc).isoformat()
     }).execute()
-
-    new_progress_id = insert_res.data[0]['id']
-    return supabase_client.table('user_progress').select('*, levels(level_number)').eq('id',
-                                                                                       new_progress_id).single().execute()
+    return insert_res.data[0]
 
 
-def get_quiz_item(item_id):
-    return supabase_client.table('content_items').select('content, item_index').eq('id', item_id).single().execute()
+def upsert_level_progress(user_wallet, path_id, level_index, correct_answers, total_questions):
+    """
+    Handles starting a path if it doesn't exist and updating the score for a specific level.
+    """
+    # 1. Get User ID
+    user_res = get_user_by_wallet(user_wallet)
+    if not user_res or not user_res.data:
+        raise ValueError("User not found.")
+    user_id = user_res.data['id']
+
+    # 2. Get or Create Progress Record
+    progress_res = supabase_client.table('user_progress').select('id').eq('user_id', user_id).eq('path_id',
+                                                                                                 path_id).maybe_single().execute()
+
+    if progress_res.data:
+        progress_id = progress_res.data['id']
+    else:
+        new_progress = _create_progress_record(user_id, path_id)
+        progress_id = new_progress['id']
+
+    # 3. Upsert Level Score
+    logger.info(f"DB: Upserting level progress for progress_id {progress_id}, level {level_index}.")
+    return supabase_client.table('level_progress').upsert({
+        'progress_id': progress_id,
+        'level_number': level_index,
+        'correct_answers': correct_answers,
+        'total_questions': total_questions
+    }, on_conflict='progress_id, level_number').execute()
 
 
-def log_quiz_attempt(progress_id, item_id, answer_index, is_correct):
-    return supabase_client.table('quiz_attempts').insert({
-        'progress_id': progress_id, 'content_item_id': item_id,
-        'user_answer_index': answer_index, 'is_correct': is_correct
-    }).execute()
+def get_level_score(user_wallet, path_id, level_index):
+    """
+    Retrieves the score for a specific level of a path for a user.
+    """
+    # 1. Get User ID
+    user_res = get_user_by_wallet(user_wallet)
+    if not user_res or not user_res.data:
+        raise ValueError("User not found.")
+    user_id = user_res.data['id']
 
+    # 2. Get Progress ID
+    progress_res = supabase_client.table('user_progress').select('id').eq('user_id', user_id).eq('path_id',
+                                                                                                 path_id).maybe_single().execute()
+    if not progress_res.data:
+        return None  # No progress, so no score
 
-def update_user_progress_item(progress_id, item_index):
-    return supabase_client.table('user_progress').update({'current_item_index': item_index}).eq('id',
-                                                                                                progress_id).execute()
+    progress_id = progress_res.data['id']
+
+    # 3. Get Level Score
+    score_res = supabase_client.table('level_progress').select('correct_answers, total_questions').eq('progress_id',
+                                                                                                      progress_id).eq(
+        'level_number', level_index).maybe_single().execute()
+
+    return score_res.data
 
 
 def get_user_scores(user_id):
-    progress_records = supabase_client.table('user_progress').select('id, path_id, status, learning_paths(title)').eq(
-        'user_id', user_id).execute()
-    scores = []
-    for record in progress_records.data:
-        attempts = supabase_client.table('quiz_attempts').select('is_correct', count='exact').eq('progress_id',
-                                                                                                 record['id']).execute()
-        total_attempts = attempts.count
-        correct_attempts = supabase_client.table('quiz_attempts').select('is_correct', count='exact').eq('progress_id',
-                                                                                                         record[
-                                                                                                             'id']).eq(
-            'is_correct', True).execute().count
-        score = (correct_attempts / total_attempts * 100) if total_attempts > 0 else 0
-        scores.append({
-            "path_id": record['path_id'], "path_title": record['learning_paths']['title'],
-            "status": record['status'], "score_percent": round(score, 2),
-            "correct_answers": correct_attempts, "total_questions_answered": total_attempts
-        })
-    return scores
-
-
-def get_all_user_progress(user_id):
     """
-    Fetches all progress records for a user, including path and level details.
+    Aggregates scores for a user across all their learning paths.
     """
-    return supabase_client.table('user_progress').select(
-        '*, learning_paths(title, total_levels), levels(level_number, level_title)'
-    ).eq('user_id', user_id).execute()
+    # Fetch all level progress for the user, joining through user_progress to get path_id
+    res = supabase_client.table('level_progress').select(
+        'correct_answers, total_questions, user_progress!inner(path_id, learning_paths(title))'
+    ).eq('user_progress.user_id', user_id).execute()
 
+    if not res.data:
+        return []
 
-def get_quiz_attempts_for_progress_ids(progress_ids):
-    """
-    Fetches all quiz attempts for a list of progress IDs.
-    """
-    return supabase_client.table('quiz_attempts').select(
-        'progress_id, is_correct'
-    ).in_('progress_id', progress_ids).execute()
+    # Aggregate scores by path
+    path_scores = {}
+    for record in res.data:
+        path_info = record.get('user_progress', {}).get('learning_paths', {})
+        path_id = record.get('user_progress', {}).get('path_id')
+        path_title = path_info.get('title', 'N/A')
 
+        if path_id not in path_scores:
+            path_scores[path_id] = {
+                "path_id": path_id,
+                "path_title": path_title,
+                "correct_answers": 0,
+                "total_questions_answered": 0
+            }
 
-def verify_progress_ownership(progress_id, user_id):
-    """
-    Verifies that a user_progress record belongs to the specified user.
-    Returns True if the user is the owner, False otherwise.
-    """
-    res = supabase_client.table('user_progress').select('id').eq('id', progress_id).eq('user_id', user_id).maybe_single().execute()
-    return res.data is not None
+        path_scores[path_id]["correct_answers"] += record.get('correct_answers', 0)
+        path_scores[path_id]["total_questions_answered"] += record.get('total_questions', 0)
+
+    # Calculate final percentages
+    final_scores = []
+    for path_id, scores in path_scores.items():
+        total = scores['total_questions_answered']
+        correct = scores['correct_answers']
+        score_percent = (correct / total * 100) if total > 0 else 0
+        scores['score_percent'] = round(score_percent, 2)
+        scores['status'] = 'in_progress'  # Note: Completion status would need more logic
+        final_scores.append(scores)
+
+    return final_scores

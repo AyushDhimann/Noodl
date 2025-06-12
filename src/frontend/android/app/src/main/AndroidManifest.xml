@@ -1,4 +1,6 @@
 <manifest xmlns:android="http://schemas.android.com/apk/res/android">
+<!-- added this neechwe wala -->
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE" /> 
     <uses-permission android:name="android.permission.INTERNET"/>
     <application
         android:label="frontend"
@@ -42,5 +44,16 @@
             <action android:name="android.intent.action.PROCESS_TEXT"/>
             <data android:mimeType="text/plain"/>
         </intent>
+
+        <!-- added 2 intents -->
+        <intent>
+            <action android:name="android.intent.action.VIEW"/>
+            <data android:scheme="http"/>
+        </intent>
+        <intent>
+            <action android:name="android.intent.action.VIEW"/>
+            <data android:scheme="https"/>
+        </intent>
+        <!-- yaha tk -->
     </queries>
 </manifest>
