@@ -54,4 +54,5 @@ class GeneratePageProvider extends ChangeNotifier{
   }
 
   TextEditingController generatorTextEditingController = TextEditingController();
+
 }

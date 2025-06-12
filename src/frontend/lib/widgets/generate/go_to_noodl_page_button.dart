@@ -22,6 +22,7 @@ class GoToNoodlPageButton extends StatelessWidget {
           
             onTap: () {
               // Navigator.of(context).pushReplacement(MaterialPageRoute(builder: (context) => UserNoodlsPage(),));
+              FocusScope.of(context).unfocus();
               Navigator.of(context).push(MaterialPageRoute(builder: (context) => UserNoodlsPage(),));
               Provider.of<GeneratePageProvider>(context, listen: false).nullGenereatingTaskID();
               },

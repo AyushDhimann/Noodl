@@ -64,24 +64,24 @@ class MyApp extends StatelessWidget {
         //       return const LoginPage();
         //     }
         //   },
-          // builder: (context, provider, child) {
-          //   if (provider.isConnected) {
-          //     return FutureBuilder(
-          //       future: APIservice.fetchUserNameCountry(walletAdd: provider.walletAddress!),
-          //       builder: (context, snapshot) {
-          //         if(snapshot.hasData){
-          //           if(snapshot.data!['id']!=null){
-          //             return HomePage();
-          //           } 
-          //           return OnboardingPage();
-          //         }
-          //         return Scaffold(backgroundColor: appColors.bgColor, body: Center(child: CupertinoActivityIndicator()));
-          //       },
-          //     );
-          //   } else {
-          //     return const LoginPage();
-          //   }
-          // },
+        //   builder: (context, provider, child) {
+        //     if (provider.isConnected) {
+        //       return FutureBuilder(
+        //         future: APIservice.fetchUserNameCountry(walletAdd: provider.walletAddress!),
+        //         builder: (context, snapshot) {
+        //           if(snapshot.hasData){
+        //             if(snapshot.data!['id']!=null){
+        //               return HomePage();
+        //             } 
+        //             return OnboardingPage();
+        //           }
+        //           return Scaffold(backgroundColor: appColors.bgColor, body: Center(child: CupertinoActivityIndicator()));
+        //         },
+        //       );
+        //     } else {
+        //       return const LoginPage();
+        //     }
+        //   },
         // ),  
         // ________ TESTING________
         home: HomePage(),
