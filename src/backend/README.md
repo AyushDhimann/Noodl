@@ -321,77 +321,66 @@ python main.py
 
 ### Progress & Scoring Endpoints
 
-- **Start or Get Progress on a Path**  
-  **Endpoint**: `POST /progress/start`  
-  **Description**: Initiates or retrieves a learning session for a user on a path.
+- **Upsert Level Progress**  
+  **Endpoint**: `POST /progress/level`  
+  **Description**: Upserts a user's progress for a specific level. If this is the first time a user is submitting progress for a path, this endpoint will automatically create the main progress record before saving the level's score. This is the primary endpoint for tracking learning progress.
   - **Request Body**:
     ```json
     {
       "user_wallet": "0x...",
-      "path_id": 1
+      "path_id": 1,
+      "level_index": 3,
+      "correct_answers": 8,
+      "total_questions": 10
     }
     ```
-  - **Success Response (200 or 201)**: Returns the user progress object.
-
-- **Update User's Current Location**  
-  **Endpoint**: `POST /progress/location`  
-  **Description**: A "fire-and-forget" endpoint to log the user's current position (item index) in a lesson. This action is protected and requires the user's wallet address for verification.
-  - **Request Body**:
+  - **Success Response (200)**:
     ```json
     {
-      "user_wallet": "0x...",
-      "progress_id": 1,
-      "item_index": 3
+      "message": "Progress updated successfully"
     }
     ```
-  - **Success Response (200)**: Confirms the location was updated.
-  - **Error Response (403)**: If the `user_wallet` does not own the `progress_id`.
 
-- **Log a Quiz Attempt**  
-  **Endpoint**: `POST /progress/update`  
-  **Description**: Logs a user's answer to a quiz question. This action is protected and requires the user's wallet address for verification.
-  - **Request Body**:
+- **Get Level Score**  
+  **Endpoint**: `GET /scores/level`  
+  **Description**: Retrieves the score for a single, specific level that a user has completed.
+  - **Query Parameters**:
+    - `user_wallet` (string): The user's public wallet address.
+    - `path_id` (integer): The ID of the learning path.
+    - `level_index` (integer): The 1-based index of the level.
+  - **Success Response (200)**:
     ```json
     {
-      "user_wallet": "0x...",
-      "progress_id": 1,
-      "content_item_id": 45,
-      "user_answer_index": 2
+      "correct_answers": 8,
+      "total_questions": 10
     }
     ```
-  - **Success Response (200)**: Returns whether the answer was correct.
-  - **Error Response (403)**: If the `user_wallet` does not own the `progress_id`.
+  - **Success Response (200, if not started)**:
+    ```json
+    {
+      "correct_answers": 0,
+      "total_questions": 0
+    }
+    ```
 
-- **Get All Progress for a User**  
-  **Endpoint**: `GET /progress/<wallet_address>`  
-  **Description**: Retrieves a comprehensive summary of all learning paths a user has started, including their current position and calculated score.
+- **Get All User Scores**  
+  **Endpoint**: `GET /scores/<wallet_address>`  
+  **Description**: Retrieves an aggregated summary of scores for all paths a user has made progress on. It calculates the total score by summing up the results from all completed levels within each path.
   - **URL Parameters**:
     - `wallet_address` (string): The user's public wallet address.
-  - **Success Response (200)**: Returns an array of detailed progress objects.
+  - **Success Response (200)**: Returns an array of score summary objects.
     ```json
     [
       {
-        "progress_id": 1,
         "path_id": 4,
         "path_title": "📱 iPhone 11 Screen Repair: A Step-by-Step Guide",
         "status": "in_progress",
-        "current_level_number": 2,
-        "current_level_title": "📝 Preparing Your Workspace",
-        "current_item_index": 1,
-        "total_levels": 7,
         "score_percent": 85.71,
         "correct_answers": 6,
         "total_questions_answered": 7
       }
     ]
     ```
-
-- **Get User Scores**  
-  **Endpoint**: `GET /scores/<wallet_address>`  
-  **Description**: Retrieves a summary of scores for a user across all paths they have attempted.
-  - **URL Parameters**:
-    - `wallet_address` (string): The user's public wallet address.
-  - **Success Response (200)**: Returns an array of score summary objects.
 
 ### NFT Endpoints
 
@@ -448,13 +437,9 @@ python main.py
 
 `GET /search`
 
-`POST /progress/start`
+`POST /progress/level`
 
-`POST /progress/location`
-
-`POST /progress/update`
-
-`GET /progress/<wallet_address>`
+`GET /scores/level`
 
 `GET /scores/<wallet_address>`
 
