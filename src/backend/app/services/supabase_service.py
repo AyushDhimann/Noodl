@@ -225,7 +225,8 @@ def upsert_level_progress(user_wallet, path_id, level_index, correct_answers, to
     progress_res = supabase_client.table('user_progress').select('id').eq('user_id', user_id).eq('path_id',
                                                                                                  path_id).maybe_single().execute()
 
-    if progress_res.data:
+    # FIX: Check if the response object itself is None before checking its data
+    if progress_res and progress_res.data:
         progress_id = progress_res.data['id']
     else:
         logger.info(f"No progress found for user {user_id} on path {path_id}. Creating new progress record.")
@@ -257,7 +258,8 @@ def get_level_score(user_wallet, path_id, level_index):
     # 2. Get Progress ID
     progress_res = supabase_client.table('user_progress').select('id').eq('user_id', user_id).eq('path_id',
                                                                                                  path_id).maybe_single().execute()
-    if not progress_res.data:
+    # FIX: Check if the response object itself is None before checking its data
+    if not progress_res or not progress_res.data:
         logger.warning(f"DB: No progress record found for user {user_id} on path {path_id}.")
         return None  # No progress, so no score
 
@@ -269,7 +271,8 @@ def get_level_score(user_wallet, path_id, level_index):
                                                                                                       progress_id).eq(
         'level_number', level_index).maybe_single().execute()
 
-    return score_res.data
+    # FIX: Check if the score response object is valid before returning its data
+    return score_res.data if score_res else None
 
 
 def get_user_scores(user_id):
@@ -277,8 +280,9 @@ def get_user_scores(user_id):
     Aggregates scores for a user across all their learning paths.
     """
     # Fetch all level progress for the user, joining through user_progress to get path_id
+    # FIX: Changed from !inner to a default (left) join to be more robust against orphaned progress records.
     res = supabase_client.table('level_progress').select(
-        'correct_answers, total_questions, user_progress!inner(path_id, learning_paths(title))'
+        'correct_answers, total_questions, user_progress(path_id, learning_paths(title))'
     ).eq('user_progress.user_id', user_id).execute()
 
     if not res.data:
@@ -287,9 +291,16 @@ def get_user_scores(user_id):
     # Aggregate scores by path
     path_scores = {}
     for record in res.data:
-        path_info = record.get('user_progress', {}).get('learning_paths', {})
-        path_id = record.get('user_progress', {}).get('path_id')
-        path_title = path_info.get('title', 'N/A')
+        # FIX: Add a guard to skip records where the user_progress or learning_path may have been deleted.
+        if not record.get('user_progress') or not record['user_progress'].get('path_id'):
+            continue
+
+        progress_data = record['user_progress']
+        path_id = progress_data['path_id']
+
+        # Use a fallback title if the learning_path was deleted
+        path_info = progress_data.get('learning_paths') or {}
+        path_title = path_info.get('title', f'Deleted Path ({path_id})')
 
         if path_id not in path_scores:
             path_scores[path_id] = {

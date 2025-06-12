@@ -48,7 +48,7 @@ def refresh_dashboard(wallet):
 
     my_paths_data = make_api_request("GET", f"{BACKEND_URL}/users/{wallet}/paths")
     all_paths_data = make_api_request("GET", f"{BACKEND_URL}/paths")
-    my_scores_data = make_api_request("GET", f"{BACKEND_URL}/progress/scores/{wallet}")
+    my_scores_data = make_api_request("GET", f"{BACKEND_URL}/scores/{wallet}")
 
     my_paths_formatted = [[p.get('id'), p.get('title'), p.get('total_levels')] for p in my_paths_data] if isinstance(
         my_paths_data, list) else []
@@ -465,14 +465,14 @@ def create_and_launch_demo_ui(port):
         render_outputs = [learn_header_md, learn_content_md, quiz_options_radio, submit_quiz_button, quiz_feedback_md,
                           prev_button, next_button]
 
-        # This function will trigger the rendering of the current slide/quiz
         def trigger_render(path_data, level_idx, item_idx, quiz_answers):
-            # Update the level selector radio without triggering its own event
+            # FIX: Add a guard for when no path is loaded yet to prevent errors.
+            if not path_data:
+                return gr.Radio(choices=[], value=None), "## Welcome!", "Select a path from the dashboard to begin.", gr.Radio(), gr.Button(), gr.Markdown(), gr.Button(visible=False), gr.Button(visible=False)
             new_level_title = path_data['levels'][level_idx]['level_title']
             ui_updates = render_learn_view(path_data, level_idx, item_idx, quiz_answers)
             return gr.Radio(value=new_level_title), *ui_updates
 
-        # Chain events for navigation and rendering
         nav_outputs = [current_level_index, current_item_index, level_quiz_answers, mint_nft_button, minting_output_md]
 
         prev_button.click(fn=handle_navigation,
@@ -497,23 +497,27 @@ def create_and_launch_demo_ui(port):
             fn=trigger_render, inputs=[current_path_data, current_level_index, current_item_index, level_quiz_answers],
             outputs=[level_selector_radio, *render_outputs])
 
-        submit_quiz_button.click(fn=submit_quiz,
-                                 inputs=[current_path_data, current_level_index, current_item_index, quiz_options_radio,
-                                         level_quiz_answers],
-                                 outputs=[quiz_feedback_md, level_quiz_answers, submit_quiz_button]).then(
-            fn=handle_navigation,
-            inputs=[current_path_data, user_wallet, current_level_index, current_item_index, level_quiz_answers,
-                    gr.State("next")], outputs=nav_outputs).then(fn=trigger_render,
-                                                                 inputs=[current_path_data, current_level_index,
-                                                                         current_item_index, level_quiz_answers],
-                                                                 outputs=[level_selector_radio, *render_outputs])
+        # FIX: The original code was trying to navigate immediately after submitting a quiz.
+        # This is confusing for the user and was causing progress to not be saved correctly.
+        # The new logic just updates the UI to show feedback and the "Next" button,
+        # allowing the user to proceed at their own pace.
+        submit_quiz_button.click(
+            fn=submit_quiz,
+            inputs=[current_path_data, current_level_index, current_item_index, quiz_options_radio, level_quiz_answers],
+            outputs=[quiz_feedback_md, level_quiz_answers, submit_quiz_button]
+        ).then(
+            fn=render_learn_view,
+            inputs=[current_path_data, current_level_index, current_item_index, level_quiz_answers],
+            outputs=render_outputs
+        )
 
         mint_nft_button.click(fn=mint_nft_for_path, inputs=[current_path_data, user_wallet],
                               outputs=[minting_output_md])
 
-        main_tabs.select(lambda: {}, outputs=[level_quiz_answers]).then(fn=trigger_render,
-                                                                        inputs=[current_path_data, current_level_index,
-                                                                                current_item_index, level_quiz_answers],
-                                                                        outputs=[level_selector_radio, *render_outputs])
+        main_tabs.select(
+            fn=trigger_render,
+            inputs=[current_path_data, current_level_index, current_item_index, level_quiz_answers],
+            outputs=[level_selector_radio, *render_outputs]
+        )
 
     demo.queue().launch(server_name="0.0.0.0", server_port=port, share=False)
