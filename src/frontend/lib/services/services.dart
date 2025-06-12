@@ -157,6 +157,30 @@ class APIservice{
     return null;
   }
 
+  // do this when when usr clicks on a lesson, theres not need for level i
+  // learning path ID
+  static Future<dynamic> postStartUserProgress({required String walletAdd, required int pathID})async{
+    final Uri url = Uri.parse('http://1725364.xyz:5000/progress/start');
+    try{
+      final response = await http.post(
+        url,
+        headers: {
+          'Content-Type': 'application/json'
+        },
+        body: jsonEncode({
+          "user_wallet": walletAdd,
+          "path_id": pathID
+        })
+      );
+      print("POST /progress/start");
+      print(response.statusCode);
+      print(response.body);
+    } catch(e){
+      print("ERR @ START USER PROGRESS: $e");
+    }
+
+  }
+
 
 
 }

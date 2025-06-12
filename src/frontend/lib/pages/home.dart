@@ -26,10 +26,27 @@ class HomePage extends StatelessWidget {
       body: Stack(
         children: [
           RefreshIndicator(
-            edgeOffset: 100,
+            edgeOffset: dp.top + 70,
             displacement: 20,
-            onRefresh: () => Navigator.of(context).pushReplacement(PageRouteBuilder(pageBuilder: (context, a1, a2) => HomePage(),transitionDuration: Duration.zero, reverseTransitionDuration: Duration.zero)),
-            
+            color: appColors.primary,
+            elevation: 0,
+            onRefresh: () async{
+              await Future.delayed(Duration(seconds: 1));
+              
+              context.mounted?
+                Navigator.of(context)
+                  .pushReplacement(
+                    PageRouteBuilder(
+                      pageBuilder: (context, a1, a2) 
+                        => HomePage(),
+                        transitionDuration: Duration.zero,
+                        reverseTransitionDuration: Duration.zero
+                        )
+                      )
+                    :null;
+              return;
+              },
+
             child: SingleChildScrollView(
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.center,
@@ -45,11 +62,11 @@ class HomePage extends StatelessWidget {
                         // SizedBox(height: 12,),
                         FutureBuilder(
                           future: APIservice.getUserNoodls(
-                            walletAdd: Provider.of<MetaMaskProvider>(context, listen: false).walletAddress!
-                              // ??"0x718fafb76e1631f5945bf58104f3b81d9588819b",
+                            walletAdd: Provider.of<MetaMaskProvider>(context, listen: false).walletAddress
+                              ??"0x718fafb76e1631f5945bf58104f3b81d9588819b",
                               // remove this
                             // walletAdd: Provider.of<MetaMaskProvider>(context, listen: false).walletAddress!,
-                            ,limit: 2
+                            limit: 2
                           ),
                           builder: (context, snapshot) {
                             return snapshot.hasData && (snapshot.data! as List).isNotEmpty?

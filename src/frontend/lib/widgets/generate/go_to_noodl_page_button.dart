@@ -21,7 +21,8 @@ class GoToNoodlPageButton extends StatelessWidget {
             borderRadius: BorderRadius.all(Radius.circular(100)),
           
             onTap: () {
-              Navigator.of(context).pushReplacement(MaterialPageRoute(builder: (context) => UserNoodlsPage(),));
+              // Navigator.of(context).pushReplacement(MaterialPageRoute(builder: (context) => UserNoodlsPage(),));
+              Navigator.of(context).push(MaterialPageRoute(builder: (context) => UserNoodlsPage(),));
               Provider.of<GeneratePageProvider>(context, listen: false).nullGenereatingTaskID();
               },
             child: Container(

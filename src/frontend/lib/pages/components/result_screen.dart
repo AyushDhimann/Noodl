@@ -8,9 +8,8 @@ import 'package:frontend/constants/colors.dart' as appColors;
 import 'package:frontend/widgets/quiz/question_submit_button.dart';
 import 'package:provider/provider.dart';
 
-class QuizScreen extends StatelessWidget {
-  final QuizItemModel data;
-  const QuizScreen({super.key, required this.data});
+class ResultScreen extends StatelessWidget {
+  const ResultScreen({super.key});
 
   @override
   Widget build(BuildContext context) {
@@ -20,7 +19,7 @@ class QuizScreen extends StatelessWidget {
           mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            QuizQuestion(text: data.question,),
+            // QuizQuestion(text: data.question,),
             Padding(
               padding: const EdgeInsets.fromLTRB(12, 0, 12, 8),
               child: Text(
@@ -31,7 +30,7 @@ class QuizScreen extends StatelessWidget {
                 ),
               ),
             ),
-            QuizOptions(data: data,),
+            // QuizOptions(data: data,),
           ],
         ),
         Column(
@@ -42,12 +41,12 @@ class QuizScreen extends StatelessWidget {
                 IgnorePointer(
                   // ignoring: provider.selectedOption==0,
                   ignoring: false,
-                  child: QuestionSubmitButton(
-                    "Submit",
-                    currentQuizItem: data,
-                    isActive: provider.selectedOption!=0,
-                    onTap: ()=>showInfoDialog(context, data: data),
-                  ),
+                  // child: QuestionSubmitButton(
+                  //   "Submit",
+                  //   currentQuizItem: data,
+                  //   isActive: provider.selectedOption!=0,
+                  //   onTap: ()=>showInfoDialog(context, data: data),
+                  // ),
                 )
             ),
           ],
