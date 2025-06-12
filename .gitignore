@@ -7,3 +7,4 @@ EXTRA.md
 __pycache__/
 src/backend/MERGER.js
 src/backend/all.txt
+certificates/

@@ -6,3 +6,4 @@ supabase
 requests
 Pillow
 gradio
+google-genai
