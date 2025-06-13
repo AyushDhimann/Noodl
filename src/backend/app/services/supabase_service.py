@@ -409,8 +409,8 @@ def get_path_completion_status(user_wallet, path_id):
     return False
 
 
-# --- NFT Functions (NEW & UPDATED) ---
-def save_user_nft(user_wallet, path_id, token_id, contract_address):
+# --- NFT Functions ---
+def save_user_nft(user_wallet, path_id, token_id, contract_address, metadata_url):
     """Saves a record of a minted NFT for a user."""
     logger.info(f"DB: Saving NFT record for wallet {user_wallet}, path {path_id}, token {token_id}")
     user_res = get_user_by_wallet(user_wallet)
@@ -422,7 +422,8 @@ def save_user_nft(user_wallet, path_id, token_id, contract_address):
         'user_id': user_id,
         'path_id': path_id,
         'token_id': token_id,
-        'nft_contract_address': contract_address
+        'nft_contract_address': contract_address,
+        'metadata_url': metadata_url
     }).execute()
 
 
@@ -431,35 +432,25 @@ def get_nfts_by_user(wallet_address):
     logger.info(f"DB: Fetching all NFTs for wallet {wallet_address}")
     user_res = get_user_by_wallet_full(wallet_address)
     if not user_res or not user_res.data:
-        # Return empty list if user not found, as they have no NFTs
         return []
     user_id = user_res.data['id']
 
-    # Join user_nfts with learning_paths to get the title
     response = supabase_client.table('user_nfts').select(
-        'path_id, token_id, nft_contract_address, minted_at, learning_paths(title)'
+        'path_id, token_id, nft_contract_address, metadata_url, minted_at, learning_paths(title)'
     ).eq('user_id', user_id).order('minted_at', desc=True).execute()
 
     return response.data if response.data else []
 
 
-def get_nft_details_by_token_id(token_id):
-    """Retrieves all necessary details for an NFT by its token ID."""
-    logger.info(f"DB: Fetching NFT details for token_id {token_id}")
-    response = supabase_client.table('user_nfts').select(
-        'path_id, token_id, nft_contract_address, users(wallet_address, name), learning_paths(title)'
-    ).eq('token_id', token_id).maybe_single().execute()
+def get_user_and_path_for_nft(user_wallet, path_id):
+    """A helper function to get user and path info needed for NFT generation."""
+    user_res = get_user_by_wallet_full(user_wallet)
+    path_res = get_path_by_id(path_id)
 
-    if not response.data:
+    if not user_res or not user_res.data or not path_res or not path_res.data:
         return None
 
-    # Flatten the response for easier use in the routes
-    flat_data = {
-        "path_id": response.data.get('path_id'),
-        "token_id": response.data.get('token_id'),
-        "nft_contract_address": response.data.get('nft_contract_address'),
-        "user_wallet": response.data.get('users', {}).get('wallet_address'),
-        "user_name": response.data.get('users', {}).get('name'),
-        "path_title": response.data.get('learning_paths', {}).get('title')
+    return {
+        "user_name": user_res.data.get('name'),
+        "path_title": path_res.data.get('title')
     }
-    return flat_data

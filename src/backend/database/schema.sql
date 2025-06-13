@@ -213,15 +213,17 @@ BEGIN
 END;
 $$;
 
--- 14. USER NFTS TABLE (NEW)
+-- 14. USER NFTS TABLE (UPDATED)
 CREATE TABLE user_nfts (
     id BIGINT PRIMARY KEY GENERATED ALWAYS AS IDENTITY,
     user_id BIGINT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
     path_id BIGINT NOT NULL REFERENCES learning_paths(id) ON DELETE CASCADE,
     token_id BIGINT NOT NULL,
     nft_contract_address TEXT NOT NULL,
+    metadata_url TEXT, -- To store the IPFS URL
     minted_at TIMESTAMPTZ DEFAULT now(),
-    UNIQUE(user_id, path_id)
+    UNIQUE(user_id, path_id),
+    UNIQUE(token_id)
 );
 
 -- Index for fast lookup of user's NFTs

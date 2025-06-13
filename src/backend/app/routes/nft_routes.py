@@ -1,6 +1,6 @@
-from flask import Blueprint, request, jsonify, send_file
+from flask import Blueprint, request, jsonify
 from app import logger
-from app.services import supabase_service, blockchain_service, ai_service
+from app.services import supabase_service, blockchain_service, ai_service, ipfs_service
 from app.config import config
 import os
 
@@ -17,38 +17,76 @@ def complete_path_and_mint_nft_route(path_id):
         return jsonify({"error": "user_wallet is required"}), 400
 
     try:
-        # --- Step 1: Mint the NFT to get a Token ID ---
+        # --- Step 1: Generate the certificate image locally ---
+        nft_details = supabase_service.get_user_and_path_for_nft(user_wallet, path_id)
+        if not nft_details:
+            return jsonify({"error": "Could not find user or path details."}), 404
+
+        user_name = nft_details.get('user_name', user_wallet)
+        path_title = nft_details.get('path_title', 'Unknown Path')
+
+        cert_dir = os.path.abspath("certificates")
+        safe_wallet = user_wallet.replace('0x', '')[:10]
+        image_file_path = os.path.join(cert_dir, f"cert_{path_id}_{safe_wallet}.png")
+
+        if not os.path.exists(image_file_path):
+            logger.info(f"IMAGE: Certificate for path {path_id} not found. Generating...")
+            generated_path = ai_service.generate_certificate_image(path_title, user_name, image_file_path)
+            if not generated_path:
+                return jsonify({"error": "Failed to generate NFT image."}), 500
+
+        # --- Step 2: Upload the image to IPFS ---
+        image_cid = ipfs_service.upload_to_ipfs(file_path=image_file_path)
+        if not image_cid:
+            return jsonify({"error": "Failed to upload certificate image to IPFS."}), 500
+
+        image_ipfs_url = f"ipfs://{image_cid}"
+
+        # --- Step 3: Create and upload the metadata JSON to IPFS ---
+        metadata = {
+            "name": f"KODO Certificate: {path_title}",
+            "description": f"This certificate proves that {user_name} successfully completed the '{path_title}' learning path on KODO.",
+            "image": image_ipfs_url,
+            "attributes": [
+                {"trait_type": "Platform", "value": "KODO"},
+                {"trait_type": "Recipient", "value": user_name}
+            ]
+        }
+        metadata_cid = ipfs_service.upload_to_ipfs(json_data=metadata)
+        if not metadata_cid:
+            return jsonify({"error": "Failed to upload metadata to IPFS."}), 500
+
+        metadata_ipfs_url = f"ipfs://{metadata_cid}"
+
+        # --- Step 4: Mint the NFT to get a Token ID ---
         minted_token_id = blockchain_service.mint_nft_on_chain(user_wallet, path_id)
         if minted_token_id is None:
             return jsonify({"error": "Minting failed, did not receive a Token ID."}), 500
 
         logger.info(f"NFT: Mint successful for user {user_wallet}, path {path_id}. Token ID: {minted_token_id}")
 
-        # --- Step 2: Save the record to our database ---
+        # --- Step 5: Save the record to our database ---
         try:
-            supabase_service.save_user_nft(user_wallet, path_id, minted_token_id, config.NFT_CONTRACT_ADDRESS)
+            supabase_service.save_user_nft(user_wallet, path_id, minted_token_id, config.NFT_CONTRACT_ADDRESS,
+                                           metadata_ipfs_url)
             logger.info(f"DB: Saved NFT record for wallet {user_wallet}, path {path_id}, token {minted_token_id}")
-            # Mark path as complete in DB after a successful mint and DB save
             supabase_service.set_path_completed(user_wallet, path_id)
             logger.info(f"DB: Marked path {path_id} as complete for {user_wallet}.")
         except Exception as db_e:
             logger.error(f"DB: CRITICAL! Failed to save NFT record after minting. Error: {db_e}")
-            # Don't fail the whole request, but log this critical issue. The URI won't be set.
             return jsonify({"error": "Minting succeeded but failed to save record to DB."}), 500
 
-        # --- Step 3: Set the Token URI on the contract ---
-        metadata_url = f"{request.host_url.rstrip('/')}/nft/metadata/{minted_token_id}"
-        set_uri_receipt = blockchain_service.set_token_uri_on_chain(minted_token_id, metadata_url)
+        # --- Step 6: Set the Token URI on the contract ---
+        set_uri_receipt = blockchain_service.set_token_uri_on_chain(minted_token_id, metadata_ipfs_url)
         if not set_uri_receipt:
             logger.error(f"NFT: Failed to set Token URI for {minted_token_id} in second transaction.")
-            # The NFT is minted but its metadata is not pointing to our server.
-            # This is a critical but non-fatal error for the user.
             return jsonify({"error": "Minting succeeded but failed to set metadata URL."}), 500
 
         return jsonify({
             "message": "NFT minted and metadata set successfully!",
             "token_id": minted_token_id,
-            "nft_contract_address": config.NFT_CONTRACT_ADDRESS
+            "nft_contract_address": config.NFT_CONTRACT_ADDRESS,
+            "metadata_url": metadata_ipfs_url
         })
 
     except Exception as e:
@@ -61,66 +99,6 @@ def complete_path_and_mint_nft_route(path_id):
             detail = "An unknown blockchain error occurred."
         logger.error(f"NFT: Minting process failed. Detail: {detail} | Original Error: {e}")
         return jsonify({"error": "NFT minting failed.", "detail": detail}), 500
-
-
-@bp.route('/nft/metadata/<int:token_id>', methods=['GET'])
-def get_nft_metadata_route(token_id):
-    nft_details = supabase_service.get_nft_details_by_token_id(token_id)
-    if not nft_details:
-        return jsonify({"error": "NFT with this token ID not found in our records"}), 404
-
-    user_name = nft_details.get('user_name', nft_details.get('user_wallet'))
-    path_title = nft_details.get('path_title', 'Unknown Path')
-    contract_address = nft_details.get('nft_contract_address', 'Unknown Contract')
-
-    # FIX: Add the block explorer URL to the metadata response
-    block_explorer_url = f"{config.BLOCK_EXPLORER_URL.rstrip('/')}/nft/{contract_address}/{token_id}"
-
-    metadata = {
-        "name": f"KODO Certificate: {path_title}",
-        "description": f"This certificate proves that {user_name} successfully completed the '{path_title}' learning path on KODO.",
-        "image": f"{request.host_url.rstrip('/')}/nft/image/{token_id}",
-        "block_explorer_url": block_explorer_url,
-        "attributes": [
-            {"trait_type": "Platform", "value": "KODO"},
-            {"trait_type": "Recipient", "value": user_name},
-            {"trait_type": "Token ID", "value": str(token_id)},
-            {"trait_type": "Contract Address", "value": contract_address}
-        ]
-    }
-    return jsonify(metadata)
-
-
-@bp.route('/nft/image/<int:token_id>', methods=['GET'])
-def get_nft_image_route(token_id):
-    """
-    Serves a user-specific NFT image, looked up by token_id. Generates a new one if it doesn't exist.
-    """
-    nft_details = supabase_service.get_nft_details_by_token_id(token_id)
-    if not nft_details:
-        return "NFT not found", 404
-
-    path_id = nft_details['path_id']
-    user_wallet = nft_details['user_wallet']
-    user_name = nft_details.get('user_name', user_wallet)
-    path_title = nft_details.get('path_title', 'Unknown Path')
-
-    cert_dir = os.path.abspath("certificates")
-    safe_wallet = user_wallet.replace('0x', '')[:10]
-    file_path = os.path.join(cert_dir, f"cert_{path_id}_{safe_wallet}.png")
-
-    if not os.path.exists(file_path):
-        logger.info(
-            f"IMAGE: Certificate for token {token_id} (path {path_id}, user {user_wallet}) not found. Generating...")
-        generated_path = ai_service.generate_certificate_image(path_title, user_name, file_path)
-        if not generated_path:
-            return "Failed to generate NFT image.", 500
-
-    try:
-        return send_file(file_path, mimetype='image/png')
-    except FileNotFoundError:
-        logger.error(f"IMAGE: File not found at {file_path} after attempting to serve.")
-        return "Image file not found on server.", 404
 
 
 @bp.route('/nfts/<wallet_address>', methods=['GET'])

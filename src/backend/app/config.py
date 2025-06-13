@@ -11,7 +11,6 @@ class Config:
     """
     # Feature Flags
     RUN_API_SERVER = os.getenv("RUN_API_SERVER", "true").lower() == "true"
-    RUN_TESTING_UI = os.getenv("RUN_TESTING_UI", "true").lower() == "true"
     RUN_LIVE_DEMO = os.getenv("RUN_LIVE_DEMO", "true").lower() == "true"
     FEATURE_FLAG_ENABLE_BLOCKCHAIN_REGISTRATION = os.getenv("FEATURE_FLAG_ENABLE_BLOCKCHAIN_REGISTRATION",
                                                             "true").lower() == "true"
@@ -24,6 +23,9 @@ class Config:
     SUPABASE_SERVICE_KEY = os.getenv("SUPABASE_SERVICE_KEY")
     ETHEREUM_NODE_URL = os.getenv("ETHEREUM_NODE_URL")
     BLOCK_EXPLORER_URL = os.getenv("BLOCK_EXPLORER_URL")
+    PINATA_API_KEY = os.getenv("PINATA_API_KEY")
+    PINATA_API_SECRET = os.getenv("PINATA_API_SECRET")
+
 
     # Ports
     LIVE_DEMO_PORT = int(os.getenv("LIVE_DEMO_PORT", 9999))

@@ -219,7 +219,7 @@
 
 - **Complete a Path & Mint NFT**  
   **Endpoint**: `POST /paths/<path_id>/complete`  
-  **Description**: Initiates the minting of a personalized NFT certificate for a user. This is a two-step blockchain process: first, the NFT is minted to generate a unique `token_id`. Second, the metadata URI (which includes the new `token_id`) is set on the contract. The endpoint also marks the path as complete and saves a record of the NFT to the database.
+  **Description**: Initiates the full, production-ready minting process for an NFT certificate. This multi-step process involves generating an image, uploading the image and its corresponding metadata to IPFS for permanent public storage, minting the NFT on the blockchain to get a `token_id`, and finally setting the IPFS metadata URL on the smart contract.
   - **URL Parameters**:
     - `path_id` (integer): The ID of the completed path.
   - **Request Body**:
@@ -228,11 +228,19 @@
       "user_wallet": "0x..."
     }
     ```
-  - **Success Response (200)**: Returns the transaction details and token ID.
+  - **Success Response (200)**: Returns the final token ID, contract address, and the public IPFS URL for the metadata.
+    ```json
+    {
+        "message": "NFT minted and metadata set successfully!",
+        "token_id": 74418501,
+        "nft_contract_address": "0x...",
+        "metadata_url": "ipfs://bafkreihdwdcefgh45..."
+    }
+    ```
 
 - **Get All User NFTs**  
   **Endpoint**: `GET /nfts/<wallet_address>`  
-  **Description**: Retrieves a list of all NFT certificates a user has earned, including the path title and token ID.
+  **Description**: Retrieves a list of all NFT certificates a user has earned, including the path title, token ID, and the public IPFS metadata URL.
   - **URL Parameters**:
     - `wallet_address` (string): The user's public wallet address.
   - **Success Response (200)**:
@@ -240,8 +248,9 @@
     [
       {
         "path_id": 12,
-        "token_id": 74418500,
+        "token_id": 74418501,
         "nft_contract_address": "0x...",
+        "metadata_url": "ipfs://bafkreihdwdcefgh45...",
         "minted_at": "2023-10-27T10:00:00Z",
         "learning_paths": {
           "title": "⚛️ Understand the Basics of Quantum Mechanics."
@@ -249,74 +258,3 @@
       }
     ]
     ```
-
-- **Get NFT Metadata**  
-  **Endpoint**: `GET /nft/metadata/<token_id>`  
-  **Description**: Returns the ERC721 standard JSON metadata for a personalized NFT. This now includes a direct `block_explorer_url` for easy verification.
-  - **URL Parameters**:
-    - `token_id` (integer): The unique ID of the NFT.
-  - **Success Response (200)**:
-    ```json
-    {
-        "name": "KODO Certificate: The History of the Internet",
-        "description": "This certificate proves that Alice successfully completed the 'The History of the Internet' learning path on KODO.",
-        "image": "http://localhost:5000/nft/image/74418500",
-        "block_explorer_url": "https://sepolia.etherscan.io/nft/0x.../74418500",
-        "attributes": [
-            {"trait_type": "Platform", "value": "KODO"},
-            {"trait_type": "Recipient", "value": "Alice"},
-            {"trait_type": "Token ID", "value": "74418500"},
-            {"trait_type": "Contract Address", "value": "0x..."}
-        ]
-    }
-    ```
-
-- **Get NFT Image**  
-  **Endpoint**: `GET /nft/image/<token_id>`  
-  **Description**: Returns the programmatically generated, personalized certificate image for the NFT, including the user's name.
-  - **URL Parameters**:
-    - `token_id` (integer): The unique ID of the NFT.
-
----
-
-## Complete Endpoint List
-
-`POST /users` 
-
-`GET /users/<wallet_address>`
-
-`GET /users/<wallet_address>/paths` 
-
-`GET /users/<wallet_address>/paths/count`  
-
-`POST /paths/generate`
-
-`GET /paths/random-topic`
-
-`GET /paths/generate/status/<task_id>`
-
-`GET /paths`
-
-`GET /paths/<path_id>`
-
-`GET /paths/<path_id>/<wallet_address>`
-
-`DELETE /paths/<path_id>`
-
-`GET /paths/<path_id>/levels/<level_num>`
-
-`GET /search`
-
-`POST /progress/level`
-
-`GET /scores/level`
-
-`GET /scores/<wallet_address>`
-
-`POST /paths/<path_id>/complete`
-
-`GET /nfts/<wallet_address>`
-
-`GET /nft/metadata/<token_id>`
-
-`GET /nft/image/<token_id>`
