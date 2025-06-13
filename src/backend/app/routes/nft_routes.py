@@ -6,6 +6,9 @@ import os
 
 bp = Blueprint('nft_routes', __name__)
 
+# Define the Pinata gateway for constructing clickable links
+PINATA_GATEWAY_URL = "https://beige-elaborate-hummingbird-35.mypinata.cloud/ipfs"
+
 
 @bp.route('/paths/<int:path_id>/complete', methods=['POST'])
 def complete_path_and_mint_nft_route(path_id):
@@ -57,7 +60,9 @@ def complete_path_and_mint_nft_route(path_id):
                 {"trait_type": "Recipient", "value": user_name}
             ]
         }
-        metadata_cid = ipfs_service.upload_to_ipfs(json_data=metadata)
+        # FIX: Provide a name for the metadata file on Pinata
+        metadata_name = f"metadata_{path_id}_{safe_wallet}.json"
+        metadata_cid = ipfs_service.upload_to_ipfs(json_data=metadata, name=metadata_name)
         if not metadata_cid:
             return jsonify({"error": "Failed to upload metadata to IPFS."}), 500
 
@@ -88,12 +93,16 @@ def complete_path_and_mint_nft_route(path_id):
         tx_hash = set_uri_receipt.transactionHash.hex()
         explorer_url = f"{config.BLOCK_EXPLORER_URL.rstrip('/')}/tx/{tx_hash}" if config.BLOCK_EXPLORER_URL else None
 
+        # FIX: Construct the full, clickable gateway URL for the NFT metadata
+        nft_gateway_url = f"{PINATA_GATEWAY_URL}/{metadata_cid}"
+
         return jsonify({
             "message": "NFT minted and metadata set successfully!",
             "token_id": minted_token_id,
             "nft_contract_address": config.NFT_CONTRACT_ADDRESS,
             "metadata_url": metadata_ipfs_url,
-            "explorer_url": explorer_url
+            "explorer_url": explorer_url,
+            "nft_gateway_url": nft_gateway_url
         })
 
     except Exception as e:
