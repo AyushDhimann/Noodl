@@ -285,11 +285,6 @@
 				"internalType": "uint256",
 				"name": "pathId",
 				"type": "uint256"
-			},
-			{
-				"internalType": "string",
-				"name": "uri",
-				"type": "string"
 			}
 		],
 		"name": "safeMint",
@@ -362,6 +357,24 @@
 			}
 		],
 		"name": "setApprovalForAll",
+		"outputs": [],
+		"stateMutability": "nonpayable",
+		"type": "function"
+	},
+	{
+		"inputs": [
+			{
+				"internalType": "uint256",
+				"name": "tokenId",
+				"type": "uint256"
+			},
+			{
+				"internalType": "string",
+				"name": "uri",
+				"type": "string"
+			}
+		],
+		"name": "setTokenURI",
 		"outputs": [],
 		"stateMutability": "nonpayable",
 		"type": "function"

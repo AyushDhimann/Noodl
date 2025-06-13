@@ -61,13 +61,41 @@ def register_path_on_chain(path_id, content_hash, task_id=None, progress_callbac
     )
 
 
-def mint_nft_on_chain(user_wallet, path_id, metadata_url):
+def mint_nft_on_chain(user_wallet, path_id):
+    """
+    Step 1 of 2: Mints a new NFT for the user and path, returning the new token ID.
+    The token URI is set in a subsequent transaction.
+    """
+    logger.info(f"NFT Mint (1/2): Calling safeMint for user {user_wallet}, path {path_id}")
     receipt = send_tx_and_get_receipt(
-        nft_contract.functions.safeMint(Web3.to_checksum_address(user_wallet), path_id, metadata_url)
+        nft_contract.functions.safeMint(Web3.to_checksum_address(user_wallet), path_id)
     )
-    transfer_event = nft_contract.events.Transfer().process_receipt(receipt)
-    if transfer_event:
-        return transfer_event[0]['args']['tokenId']
+    # The MismatchedABI error is a warning, but we can still robustly get the tokenId
+    # by processing the event log for the Transfer event.
+    try:
+        transfer_event = nft_contract.events.Transfer().process_receipt(receipt)
+        if transfer_event:
+            token_id = transfer_event[0]['args']['tokenId']
+            logger.info(f"NFT Mint (1/2): Successfully parsed tokenId {token_id} from Transfer event.")
+            return token_id
+    except Exception as e:
+        logger.error(f"Could not parse Transfer event from receipt, even though transaction succeeded. Error: {e}", exc_info=True)
 
-    logger.warning("Could not find Transfer event in transaction logs.")
+    logger.warning("Could not find Transfer event in transaction logs. Mint may have failed silently.")
     return None
+
+
+def set_token_uri_on_chain(token_id, metadata_url):
+    """
+    Step 2 of 2: Sets the Token URI for a recently minted NFT.
+    """
+    logger.info(f"NFT Mint (2/2): Calling setTokenURI for token {token_id} with URL: {metadata_url}")
+    receipt = send_tx_and_get_receipt(
+        nft_contract.functions.setTokenURI(token_id, metadata_url)
+    )
+    if receipt.status == 1:
+        logger.info(f"NFT Mint (2/2): Successfully set token URI for token {token_id}.")
+        return receipt
+    else:
+        logger.error(f"NFT Mint (2/2): Failed to set token URI for token {token_id}.")
+        return None

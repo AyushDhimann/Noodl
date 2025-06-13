@@ -248,16 +248,17 @@ def generate_certificate_image(path_title, user_name, output_file_path):
         image_model = genai.GenerativeModel("gemini-2.0-flash-preview-image-generation")
 
         prompt = (
-            f"Create a vibrant, high-contrast 128x128 pixel digital art NFT image representing the topic: '{path_title}'. "
+            f"Create a vibrant, high-contrast 128x128 pixel digital art NFT image representing the TOPIC: '{path_title}'. "
             "The image should be richly colored with a harmonious palette, featuring bold outlines and intricate pixel details "
             "that fully use the canvas. The style should be modern pixel art with a slight 3D effect, glowing highlights, "
             "and smooth shading to make the image pop. The composition must be balanced and visually appealing, suitable for a "
             "collectible NFT series with consistent artistic style and color harmony across variations."
         )
 
+        # CORRECTED: Pass the generation_config as a dictionary.
         response = image_model.generate_content(
             contents=prompt,
-            generation_config={"response_mime_type": "image/png"}
+            generation_config={"response_modalities": ["IMAGE", "TEXT"]}
         )
 
         base_image_bytes = None
@@ -276,22 +277,13 @@ def generate_certificate_image(path_title, user_name, output_file_path):
 
     except Exception as e:
         logger.error(f"IMAGE: Failed during Gemini image generation step: {e}", exc_info=True)
-        # Create a more graceful fallback image
-        base_image = Image.new('RGB', (256, 256), color=(15, 20, 40))
+        base_image = Image.new('RGB', (128, 128), color=(10, 10, 20))
         draw = ImageDraw.Draw(base_image)
         try:
-            font_title = ImageFont.truetype("arial.ttf", 20)
-            font_body = ImageFont.truetype("arial.ttf", 14)
+            font_fallback = ImageFont.truetype("arial.ttf", 12)
         except IOError:
-            font_title = ImageFont.load_default()
-            font_body = ImageFont.load_default()
-
-        wrapper = textwrap.TextWrapper(width=25)
-        wrapped_title = '\n'.join(wrapper.wrap(text=path_title))
-
-        draw.text((128, 50), "KODO Certificate", font=font_title, fill=(255, 215, 0), anchor="ms")
-        draw.text((128, 128), wrapped_title, font=font_body, fill=(240, 240, 240), anchor="mm")
-        draw.text((128, 200), "Generation Failed", font=font_body, fill=(255, 80, 80), anchor="ms")
+            font_fallback = ImageFont.load_default()
+        draw.text((10, 10), "AI Gen\nFailed", fill=(255, 0, 0), font=font_fallback)
         logger.warning("IMAGE: Created a fallback placeholder image.")
 
     # 2. Frame the image and add text using Pillow

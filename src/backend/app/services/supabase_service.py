@@ -409,7 +409,7 @@ def get_path_completion_status(user_wallet, path_id):
     return False
 
 
-# --- NFT Functions (NEW) ---
+# --- NFT Functions (NEW & UPDATED) ---
 def save_user_nft(user_wallet, path_id, token_id, contract_address):
     """Saves a record of a minted NFT for a user."""
     logger.info(f"DB: Saving NFT record for wallet {user_wallet}, path {path_id}, token {token_id}")
@@ -441,3 +441,25 @@ def get_nfts_by_user(wallet_address):
     ).eq('user_id', user_id).order('minted_at', desc=True).execute()
 
     return response.data if response.data else []
+
+
+def get_nft_details_by_token_id(token_id):
+    """Retrieves all necessary details for an NFT by its token ID."""
+    logger.info(f"DB: Fetching NFT details for token_id {token_id}")
+    response = supabase_client.table('user_nfts').select(
+        'path_id, token_id, nft_contract_address, users(wallet_address, name), learning_paths(title)'
+    ).eq('token_id', token_id).maybe_single().execute()
+
+    if not response.data:
+        return None
+
+    # Flatten the response for easier use in the routes
+    flat_data = {
+        "path_id": response.data.get('path_id'),
+        "token_id": response.data.get('token_id'),
+        "nft_contract_address": response.data.get('nft_contract_address'),
+        "user_wallet": response.data.get('users', {}).get('wallet_address'),
+        "user_name": response.data.get('users', {}).get('name'),
+        "path_title": response.data.get('learning_paths', {}).get('title')
+    }
+    return flat_data

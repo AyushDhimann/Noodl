@@ -11,53 +11,47 @@ contract NoodlCertificate is ERC721, ERC721URIStorage, Ownable {
     using Counters for Counters.Counter;
     Counters.Counter private _tokenIdCounter;
 
-    // FIX: Store the tokenId for a given user and path. 0 means not minted.
+    uint256 private constant TOKEN_ID_OFFSET = 74418500;
+
     mapping(address => mapping(uint256 => uint256)) public userPathToTokenId;
 
     constructor(address initialOwner)
         ERC721("Noodl Certificate", "NOODL")
         Ownable(initialOwner)
     {
-        // FIX: Start token counter at 1, so we can use 0 as a "not minted" sentinel value.
-        _tokenIdCounter.increment();
         console.log("NoodlCertificate deployed! Owner:", initialOwner);
         console.log("Contract address:", address(this));
+        console.log("Token ID offset:", TOKEN_ID_OFFSET);
+        console.log("First token will have ID:", TOKEN_ID_OFFSET);
     }
 
-    function safeMint(address to, uint256 pathId, string memory uri) public onlyOwner {
+    function setTokenURI(uint256 tokenId, string memory uri) public onlyOwner {
+        console.log("Setting URI for token:", tokenId);
+        _setTokenURI(tokenId, uri);
+        console.log("URI set successfully");
+    }
+
+    function safeMint(address to, uint256 pathId) public onlyOwner {
         console.log("=== MINT START ===");
         console.log("Recipient:", to);
         console.log("Path ID:", pathId);
-        console.log("URI:", uri);
 
         uint256 existingTokenId = userPathToTokenId[to][pathId];
+        require(existingTokenId == 0, "Certificate already minted for this user/path.");
 
-        // If a token ID is already stored for this user/path, just update the metadata.
-        // This prevents errors in development if the database is reset but the chain is not.
-        if (existingTokenId != 0) {
-            console.log("Token already exists (ID: %s), updating URI.", existingTokenId);
-            _setTokenURI(existingTokenId, uri);
-            console.log("URI updated: SUCCESS");
-            console.log("=== MINT COMPLETE (URI Update) ===");
-        } else {
-            // Otherwise, mint a new token.
-            uint256 tokenId = _tokenIdCounter.current();
-            console.log("Token ID to mint:", tokenId);
+        uint256 tokenId = _tokenIdCounter.current() + TOKEN_ID_OFFSET;
+        console.log("Token ID to mint:", tokenId);
+        console.log("Counter value before increment:", _tokenIdCounter.current());
 
-            _tokenIdCounter.increment();
-            console.log("Counter after increment:", _tokenIdCounter.current());
+        _tokenIdCounter.increment();
+        console.log("Counter value after increment:", _tokenIdCounter.current());
 
-            _safeMint(to, tokenId);
-            console.log("Token minted: SUCCESS");
+        _safeMint(to, tokenId);
+        console.log("Token minted: SUCCESS");
 
-            _setTokenURI(tokenId, uri);
-            console.log("URI set: SUCCESS");
-
-            // Record the newly minted token ID for this user and path.
-            userPathToTokenId[to][pathId] = tokenId;
-            console.log("Tracking updated: SUCCESS");
-            console.log("=== MINT COMPLETE (New Mint) ===");
-        }
+        userPathToTokenId[to][pathId] = tokenId;
+        console.log("Tracking updated: SUCCESS");
+        console.log("=== MINT COMPLETE (New Mint) ===");
     }
 
     function burn(uint256 tokenId) public {
@@ -103,22 +97,26 @@ contract NoodlCertificate is ERC721, ERC721URIStorage, Ownable {
     }
 
     function getCurrentTokenId() public view returns (uint256) {
-        uint256 current = _tokenIdCounter.current();
-        console.log("Current token counter:", current);
+        uint256 current = _tokenIdCounter.current() + TOKEN_ID_OFFSET;
+        console.log("Current counter value:", _tokenIdCounter.current());
+        console.log("Current token ID (with offset):", current);
         return current;
     }
 
     function hasUserMinted(address user, uint256 pathId) public view returns (bool) {
-        bool minted = userPathToTokenId[user][pathId] != 0;
+        uint256 tokenId = userPathToTokenId[user][pathId];
+        bool minted = tokenId != 0;
         console.log("Mint check - User:", user);
         console.log("Path:", pathId);
+        console.log("Stored token ID:", tokenId);
         console.log("Has minted:", minted);
         return minted;
     }
 
     function getTotalSupply() public view returns (uint256) {
         uint256 supply = _tokenIdCounter.current();
-        console.log("Total supply:", supply);
+        console.log("Total minted (counter value):", supply);
+        console.log("Actual token IDs range from:", TOKEN_ID_OFFSET, "to:", supply > 0 ? supply + TOKEN_ID_OFFSET - 1 : 0);
         return supply;
     }
 }

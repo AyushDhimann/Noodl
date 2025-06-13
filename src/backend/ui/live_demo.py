@@ -315,6 +315,10 @@ def mint_nft_for_path(path_data, user_wallet):
     token_id = response.get('token_id')
     contract_address = response.get('nft_contract_address')
 
+    # FIX: Fetch the metadata to get the canonical block explorer URL
+    metadata_response = make_api_request("GET", f"{BACKEND_URL}/nft/metadata/{token_id}")
+    nft_link = metadata_response.get("block_explorer_url", "")
+
     success_message = f"""
     ### 🎉 NFT Minted Successfully!
 
@@ -322,6 +326,12 @@ def mint_nft_for_path(path_data, user_wallet):
 
     **Token ID:** `{token_id}`
     **NFT Contract Address:** `{contract_address}`
+
+    ---
+
+    <a href="{nft_link}" target="_blank">
+        <button>🔗 View Your NFT on the Block Explorer</button>
+    </a>
 
     ---
 

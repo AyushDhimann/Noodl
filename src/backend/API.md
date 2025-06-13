@@ -219,7 +219,7 @@
 
 - **Complete a Path & Mint NFT**  
   **Endpoint**: `POST /paths/<path_id>/complete`  
-  **Description**: Initiates the minting of a personalized NFT certificate for a user, marks the path as complete, and saves a record of the NFT to the database.
+  **Description**: Initiates the minting of a personalized NFT certificate for a user. This is a two-step blockchain process: first, the NFT is minted to generate a unique `token_id`. Second, the metadata URI (which includes the new `token_id`) is set on the contract. The endpoint also marks the path as complete and saves a record of the NFT to the database.
   - **URL Parameters**:
     - `path_id` (integer): The ID of the completed path.
   - **Request Body**:
@@ -240,7 +240,7 @@
     [
       {
         "path_id": 12,
-        "token_id": 3,
+        "token_id": 74418500,
         "nft_contract_address": "0x...",
         "minted_at": "2023-10-27T10:00:00Z",
         "learning_paths": {
@@ -250,19 +250,32 @@
     ]
     ```
 
-- **Get NFT Metadata (User-Specific)**  
-  **Endpoint**: `GET /nft/metadata/<path_id>/<user_wallet>`  
-  **Description**: Returns the ERC721 standard JSON metadata for a personalized NFT, including a user-specific name, description, and image URL.
+- **Get NFT Metadata**  
+  **Endpoint**: `GET /nft/metadata/<token_id>`  
+  **Description**: Returns the ERC721 standard JSON metadata for a personalized NFT. This now includes a direct `block_explorer_url` for easy verification.
   - **URL Parameters**:
-    - `path_id` (integer): The ID of the path corresponding to the NFT.
-    - `user_wallet` (string): The wallet address of the NFT owner.
+    - `token_id` (integer): The unique ID of the NFT.
+  - **Success Response (200)**:
+    ```json
+    {
+        "name": "KODO Certificate: The History of the Internet",
+        "description": "This certificate proves that Alice successfully completed the 'The History of the Internet' learning path on KODO.",
+        "image": "http://localhost:5000/nft/image/74418500",
+        "block_explorer_url": "https://sepolia.etherscan.io/nft/0x.../74418500",
+        "attributes": [
+            {"trait_type": "Platform", "value": "KODO"},
+            {"trait_type": "Recipient", "value": "Alice"},
+            {"trait_type": "Token ID", "value": "74418500"},
+            {"trait_type": "Contract Address", "value": "0x..."}
+        ]
+    }
+    ```
 
-- **Get NFT Image (User-Specific)**  
-  **Endpoint**: `GET /nft/image/<path_id>/<user_wallet>`  
+- **Get NFT Image**  
+  **Endpoint**: `GET /nft/image/<token_id>`  
   **Description**: Returns the programmatically generated, personalized certificate image for the NFT, including the user's name.
   - **URL Parameters**:
-    - `path_id` (integer): The ID of the path corresponding to the NFT.
-    - `user_wallet` (string): The wallet address of the NFT owner.
+    - `token_id` (integer): The unique ID of the NFT.
 
 ---
 
@@ -304,6 +317,6 @@
 
 `GET /nfts/<wallet_address>`
 
-`GET /nft/metadata/<path_id>/<user_wallet>`
+`GET /nft/metadata/<token_id>`
 
-`GET /nft/image/<path_id>/<user_wallet>`
+`GET /nft/image/<token_id>`
