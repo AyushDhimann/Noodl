@@ -6,9 +6,6 @@ import os
 
 bp = Blueprint('nft_routes', __name__)
 
-# Define the Pinata gateway for constructing clickable links
-PINATA_GATEWAY_URL = "https://beige-elaborate-hummingbird-35.mypinata.cloud/ipfs"
-
 
 @bp.route('/paths/<int:path_id>/complete', methods=['POST'])
 def complete_path_and_mint_nft_route(path_id):
@@ -60,7 +57,6 @@ def complete_path_and_mint_nft_route(path_id):
                 {"trait_type": "Recipient", "value": user_name}
             ]
         }
-        # FIX: Provide a name for the metadata file on Pinata
         metadata_name = f"metadata_{path_id}_{safe_wallet}.json"
         metadata_cid = ipfs_service.upload_to_ipfs(json_data=metadata, name=metadata_name)
         if not metadata_cid:
@@ -93,8 +89,7 @@ def complete_path_and_mint_nft_route(path_id):
         tx_hash = set_uri_receipt.transactionHash.hex()
         explorer_url = f"{config.BLOCK_EXPLORER_URL.rstrip('/')}/tx/{tx_hash}" if config.BLOCK_EXPLORER_URL else None
 
-        # FIX: Construct the full, clickable gateway URL for the NFT metadata
-        nft_gateway_url = f"{PINATA_GATEWAY_URL}/{metadata_cid}"
+        nft_gateway_url = f"{config.PINATA_GATEWAY_URL}/{metadata_cid}"
 
         return jsonify({
             "message": "NFT minted and metadata set successfully!",
@@ -122,6 +117,13 @@ def get_user_nfts_route(wallet_address):
     """Retrieves all NFTs owned by a user."""
     try:
         nfts = supabase_service.get_nfts_by_user(wallet_address)
+
+        if nfts and config.PINATA_GATEWAY_URL:
+            for nft in nfts:
+                if nft.get('metadata_url') and nft['metadata_url'].startswith('ipfs://'):
+                    cid = nft['metadata_url'].replace('ipfs://', '')
+                    nft['metadata_url'] = f"{config.PINATA_GATEWAY_URL}/{cid}"
+
         return jsonify(nfts)
     except Exception as e:
         logger.error(f"ROUTE: /nfts/<wallet> failed: {e}", exc_info=True)

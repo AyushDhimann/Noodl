@@ -25,6 +25,7 @@ class Config:
     BLOCK_EXPLORER_URL = os.getenv("BLOCK_EXPLORER_URL")
     PINATA_API_KEY = os.getenv("PINATA_API_KEY")
     PINATA_API_SECRET = os.getenv("PINATA_API_SECRET")
+    PINATA_GATEWAY_URL = os.getenv("PINATA_GATEWAY_URL")
 
 
     # Ports
