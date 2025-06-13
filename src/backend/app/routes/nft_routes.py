@@ -46,12 +46,13 @@ def complete_path_and_mint_nft_route(path_id):
             return jsonify({"error": "Failed to upload certificate image to IPFS."}), 500
 
         image_ipfs_url = f"ipfs://{image_cid}"
+        image_gateway_url = f"{config.PINATA_GATEWAY_URL}/{image_cid}"
 
         # --- Step 3: Create and upload the metadata JSON to IPFS ---
         metadata = {
             "name": f"KODO Certificate: {path_title}",
             "description": f"This certificate proves that {user_name} successfully completed the '{path_title}' learning path on KODO.",
-            "image": image_ipfs_url,
+            "image": image_gateway_url,  # Use the full gateway URL in the metadata
             "attributes": [
                 {"trait_type": "Platform", "value": "KODO"},
                 {"trait_type": "Recipient", "value": user_name}
@@ -73,8 +74,10 @@ def complete_path_and_mint_nft_route(path_id):
 
         # --- Step 5: Save the record to our database ---
         try:
-            supabase_service.save_user_nft(user_wallet, path_id, minted_token_id, config.NFT_CONTRACT_ADDRESS,
-                                           metadata_ipfs_url)
+            supabase_service.save_user_nft(
+                user_wallet, path_id, minted_token_id, config.NFT_CONTRACT_ADDRESS,
+                metadata_ipfs_url, image_gateway_url
+            )
             logger.info(f"DB: Saved NFT record for wallet {user_wallet}, path {path_id}, token {minted_token_id}")
         except Exception as db_e:
             logger.error(f"DB: CRITICAL! Failed to save NFT record after minting. Error: {db_e}")
@@ -96,6 +99,7 @@ def complete_path_and_mint_nft_route(path_id):
             "token_id": minted_token_id,
             "nft_contract_address": config.NFT_CONTRACT_ADDRESS,
             "metadata_url": metadata_ipfs_url,
+            "image_gateway_url": image_gateway_url,
             "explorer_url": explorer_url,
             "nft_gateway_url": nft_gateway_url
         })
@@ -117,13 +121,6 @@ def get_user_nfts_route(wallet_address):
     """Retrieves all NFTs owned by a user."""
     try:
         nfts = supabase_service.get_nfts_by_user(wallet_address)
-
-        if nfts and config.PINATA_GATEWAY_URL:
-            for nft in nfts:
-                if nft.get('metadata_url') and nft['metadata_url'].startswith('ipfs://'):
-                    cid = nft['metadata_url'].replace('ipfs://', '')
-                    nft['metadata_url'] = f"{config.PINATA_GATEWAY_URL}/{cid}"
-
         return jsonify(nfts)
     except Exception as e:
         logger.error(f"ROUTE: /nfts/<wallet> failed: {e}", exc_info=True)

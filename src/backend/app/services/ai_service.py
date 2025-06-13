@@ -63,19 +63,14 @@ def rephrase_topic_with_emoji(topic):
     """Asks the AI to rephrase a topic into a catchy, simple title."""
     logger.info(f"AI: Rephrasing topic into simple title: '{topic}'")
     prompt = f"""
-    You are a curriculum expert who creates clear and simple course titles. A user has provided the topic "{topic}".
-    Your task is to transform this into a simple, straightforward, and encouraging title.
+    You are a curriculum expert who creates clear, engaging, and insightful course titles. A user has provided the topic "{topic}".
+    Your task is to transform this into a simple, straightforward, and encouraging title that accurately reflects its value.
 
     **RULES:**
     1.  Prepend a single, relevant emoji to the very beginning of the new title.
     2.  The title MUST be a single, simple sentence.
     3.  The title MUST NOT contain any colons (:). Keep it clean and direct.
-
-    **Examples of good, simple titles:**
-    - User Topic: "How to bake sourdough bread" -> "🍞 Bake Perfect Sourdough Bread at Home."
-    - User Topic: "The History of Rome" -> "🏛️ Explore the Rise and Fall of the Roman Empire."
-    - User Topic: "How to fix a leaky faucet" -> "💧 Learn to Fix Your Leaky Faucet in Minutes."
-    - User Topic: "Introduction to Quantum Mechanics" -> "⚛️ Understand the Basics of Quantum Mechanics."
+    4.  The tone should be encouraging and inspiring, highlighting what the user will be able to do or understand.
 
     The output MUST be a single, valid JSON object with one key: "new_title".
     Do not include any text outside of the JSON object.
@@ -88,12 +83,12 @@ def generate_path_description(topic_title):
     """Generates an engaging, frontend-ready description for the learning path."""
     logger.info(f"AI: Generating description for topic: '{topic_title}'")
     prompt = f"""
-    You are a curriculum writer for a learning app. Your goal is to write descriptions for a course titled "{topic_title}".
-    You must use simple English, suitable for a global audience.
+    You are a curriculum writer for a learning app. Your goal is to write compelling descriptions for a course titled "{topic_title}".
+    You must use clear, intelligent English, suitable for a global audience. Your descriptions should highlight the value and key takeaways of the course.
 
     Your task is to generate two distinct descriptions:
     1. A "short_description": A very brief, one-sentence summary. It must be a maximum of 20 words.
-    2. A "long_description": A more detailed paragraph. It should give an overview of what the user will learn across the different levels of the course. It must be a maximum of 80 words.
+    2. A "long_description": A more detailed paragraph. It should give an overview of what the user will learn and why it's useful. It must be a maximum of 80 words.
 
     The output MUST be a single, valid JSON object with two keys: "short_description" and "long_description".
     Do not include any text outside of the JSON object.
@@ -106,18 +101,19 @@ def generate_learn_curriculum(topic, country=None):
     """Asks AI to generate a dynamic curriculum for a 'learn' intent."""
     logger.info(f"AI: Generating 'learn' curriculum for topic: '{topic}' with country context: {country}")
     country_context = f"The user is from {country}, so you can use local examples or spellings if relevant, but it's not a requirement." if country else ""
-    prompt = f"""You are an expert curriculum designer for a learning app. For the course titled "{topic}", create a detailed syllabus using simple English. The goal is to take a user from beginner to competent. {country_context}
+    prompt = f"""You are an expert curriculum designer. For the course titled "{topic}", create a detailed, logical syllabus. The goal is to take a user from beginner to competent, respecting their intelligence. {country_context}
 
     **RULES:**
     1.  The output MUST be a single, valid JSON object with one key: "levels".
     2.  "levels" must be an array of strings.
     3.  Each string in the array is a concise title for a learning level.
-    4.  Each title MUST start with a single, relevant emoji.
-    5.  Each title MUST NOT start with a number (e.g., "1.", "2."). The numbering is handled automatically by the frontend.
+    4.  Each title must represent a distinct and meaningful concept or step in the learning journey. Avoid breaking down concepts into trivially small pieces.
+    5.  Each title MUST start with a single, relevant emoji.
+    6.  Each title MUST NOT start with a number (e.g., "1.", "2.").
 
     **IMPORTANT:** The number of levels should be appropriate for the topic's complexity.
-    - For simple, everyday topics (e.g., 'how to brush your teeth'), use 3-4 levels.
-    - For complex, academic, or broad topics (e.g., 'The History of the Renaissance'), use 7-10 levels.
+    - For simple, everyday topics, use 3-4 levels.
+    - For complex, academic, or broad topics, use 7-10 levels.
 
     Do not include any text outside of the JSON object.
     """
@@ -129,21 +125,15 @@ def generate_help_curriculum(topic):
     """Generates a step-by-step guide for a 'help' intent."""
     logger.info(f"AI: Generating 'help' curriculum for topic: '{topic}'")
     prompt = f"""You are a helpful and clear technical writer. A user needs help with: "{topic}".
-    Your task is to break down the solution into a series of simple, actionable steps. These steps will become the titles of a short guide.
+    Your task is to break down the solution into a series of simple, logical, and actionable steps. These steps will become the titles of a short guide.
 
     **RULES:**
     1.  The output MUST be a single, valid JSON object with one key: "levels".
     2.  "levels" must be an array of strings.
-    3.  Each string is a step in the process, written in simple, encouraging language.
-    4.  Each title MUST start with a single, relevant emoji.
-    5.  Each title MUST NOT start with a number (e.g., "1.", "2.").
-
-    **Example for 'How to change a flat tire':**
-    - "🚗 Park Safely and Gather Tools"
-    - "🔧 Loosen the Lug Nuts"
-    - "⬆️ Jack Up the Car"
-    - "🔄 Replace the Tire"
-    - "⬇️ Lower the Car and Tighten"
+    3.  Each string is a step in the process, written in clear, encouraging language.
+    4.  Each title must represent a distinct and meaningful step. Do not include obvious or redundant steps.
+    5.  Each title MUST start with a single, relevant emoji.
+    6.  Each title MUST NOT start with a number (e.g., "1.", "2.").
 
     Do not include any text outside of the JSON object.
     """
@@ -156,29 +146,29 @@ def generate_learn_level_content(topic, level_title, is_final_level=False):
     logger.info(f"AI: Generating 'learn' content for level: '{level_title}' (is_final: {is_final_level})")
 
     final_level_guideline = (
-        "4. **IMPORTANT FINAL LEVEL RULE:** Since this is the final lesson of the course, you **MUST** include at least one quiz to test the user's overall understanding of the topic. This is not optional."
+        "4. **IMPORTANT FINAL LEVEL RULE:** Since this is the final lesson, you **MUST** include at least one quiz to test the user's overall understanding. This is not optional."
         if is_final_level
         else ""
     )
 
     prompt = f"""
     You are an expert educator creating a lesson for a mobile learning app. The main course is "{topic}", and this specific lesson is "{level_title}".
-    Your task is to create an interleaved learning experience optimized for a small screen.
+    Your task is to create an insightful, interleaved learning experience.
 
     The output MUST be a single, valid JSON object with one key: "items". "items" must be an array of objects. Each object must have a "type" ('slide' or 'quiz') and a "content" field.
 
     **Content Guidelines:**
-    1.  **STRICTLY Mobile First:** Keep paragraphs short (2-3 sentences). Use markdown `### Subheadings`, `**bold**`, and bullet points (`* item`) to break up text and make it easy to read on a phone.
-    2.  **Multiple Slides:** A good level should have multiple slides. Explain a concept over a minimum of 3 slides before checking for understanding. A typical level should have 5-8 items in total.
-    3.  **Flexible Quizzes:** Quizzes are great but not mandatory for every single concept. Include a quiz only when it makes sense to test a key piece of knowledge. If a concept is simple, a few clear slides are enough along with a basic quiz.
+    1.  **Mobile First & Insightful:** Keep paragraphs short (2-3 sentences). Your explanation should be intelligent and go beyond the basics. Provide context, interesting facts, or a novel perspective. Avoid simply stating the obvious. Use markdown `### Subheadings`, `**bold**`, and bullet points (`* item`).
+    2.  **Logical Flow:** A good level should have multiple slides. Explain a concept over a minimum of 3 slides before checking for understanding. A typical level should have 5-8 items in total.
+    3.  **Meaningful Quizzes:** Include a quiz only when it makes sense to test a key piece of knowledge.
     {final_level_guideline}
 
     **'slide' item format:**
-    - "content" should be a string with detailed, informative markdown in simple English.
+    - "content" should be a string with detailed, informative markdown in clear, intelligent English.
 
     **'quiz' item format:**
     - "content" should be a JSON object with four keys: "question" (string), "options" (array of 4 strings), "correctAnswerIndex" (integer 0-3), and "explanation" (string).
-    - The "explanation" should provide deeper context or a fun fact, only one of .
+    - The question must test for genuine understanding, not just simple recall. The incorrect options (distractors) should be plausible. The explanation must clarify *why* the correct answer is right and provide additional valuable context.
 
     Generate the complete, mobile-friendly lesson for "{level_title}". Do not include any text outside of the main JSON object.
     """
@@ -191,29 +181,29 @@ def generate_help_level_content(topic, step_title, is_final_level=False):
     logger.info(f"AI: Generating 'help' content for step: '{step_title}' (is_final: {is_final_level})")
 
     final_level_guideline = (
-        "4. **IMPORTANT FINAL STEP RULE:** Since this is the final step of the guide, you **MUST** include at least one quiz to confirm the user has understood the process. This is not optional."
+        "4. **IMPORTANT FINAL STEP RULE:** Since this is the final step, you **MUST** include at least one quiz to confirm the user has understood the process. This is not optional."
         if is_final_level
         else ""
     )
 
     prompt = f"""
     You are an expert guide creating a helpful, interactive lesson for a mobile app. The user's main goal is "{topic}", and this specific step is "{step_title}".
-    Your task is to create an interleaved learning experience to help the user master this step.
+    Your task is to create an clear and effective interleaved learning experience.
 
     The output MUST be a single, valid JSON object with one key: "items". "items" must be an array of objects. Each object must have a "type" ('slide' or 'quiz') and a "content" field.
 
     **Content Guidelines:**
-    1.  **STRICTLY Mobile First:** Keep paragraphs short (2-3 sentences). Use markdown `### Subheadings`, `**bold**`, and bullet points (`* item`) to make it easy to read on a phone.
-    2.  **Interleaved Content:** A good step-by-step guide should have multiple slides to explain the process clearly. A typical step should have 3-5 items in total.
-    3.  **Check for Understanding:** Quizzes are a great way to ensure the user has understood a critical part of the step. Include a quiz if it makes sense to test a key piece of knowledge.
+    1.  **Mobile First & Clear:** Keep paragraphs short (2-3 sentences). Use markdown `### Subheadings`, `**bold**`, and bullet points (`* item`) to make instructions easy to follow. Avoid jargon where possible.
+    2.  **Focused Content:** A good step-by-step guide should have multiple slides to explain the process clearly. A typical step should have 3-5 items in total.
+    3.  **Check for Understanding:** Include a quiz if it makes sense to test a key piece of knowledge or a critical safety step.
     {final_level_guideline}
 
     **'slide' item format:**
-    - "content" should be a string with a clear, concise, and easy-to-follow explanation for this single step. Use simple English.
+    - "content" should be a string with a clear, concise, and easy-to-follow explanation for this single step.
 
     **'quiz' item format:**
     - "content" should be a JSON object with four keys: "question" (string), "options" (array of 4 strings), "correctAnswerIndex" (integer 0-3), and "explanation" (string).
-    - The "explanation" should clarify why the answer is correct.
+    - The question should test a critical aspect of the step. The explanation should clarify why the answer is correct.
 
     Generate the complete, mobile-friendly lesson for "{step_title}". Do not include any text outside of the main JSON object.
     """
@@ -225,24 +215,14 @@ def generate_random_topic():
     """Asks the AI to generate a single, random, interesting topic for a learning path."""
     logger.info("AI: Generating a random topic...")
     prompt = """
-    You are a viral content creator who is an expert at brainstorming edgy, hilarious, and genuinely useful ideas for a Gen Z audience.
-    Your task is to invent a single, mind-blowing topic for a short course or a helpful guide. The tone should be modern, a little bit savage, and hyper-relevant to real-world situations.
+    You are a creative and insightful assistant tasked with generating compelling topics for educational content.
+    Your goal is to brainstorm a single topic for a short course or a helpful guide that provides genuine, real-world value to a curious adult.
 
     **RULES:**
-    1.  **BE BOLD & UNEXPECTED**: Think outside the box. What's a skill or piece of knowledge that's surprisingly useful?
-    2.  **GEN Z VIBE**: Use modern language. Topics can be funny, a bit sarcastic, or address modern life-hacks.
-    3.  **PRACTICAL & ACTIONABLE**: The topic must be a specific skill, a "how-to" guide for a modern problem, or a fascinating concept explained simply.
-    4.  **AVOID BORING STUFF**: No "History of Rome" or "How to knit a scarf". Think more "How to slide into DMs without being cringe" or "The Art of the Graceful Exit from an Awkward Conversation".
-
-    **Examples of the VIBE we're looking for:**
-    - "How to Win Any Argument Using Cold, Hard Logic (and a Little Bit of Sass)"
-    - "The Art of the Side Hustle: Turn Your Weird Hobby into Actual Money"
-    - "Adulting 101: How to Read a Rental Agreement Without Crying"
-    - "Mastering the Art of the Polite 'No' to Protect Your Energy"
-    - "How to Spot Red Flags on a First Date: A Field Guide"
-    - "The Ultimate Guide to Thrifting and Finding Hidden Gems"
-    - "How to Build a Killer Personal Website in One Weekend"
-    - "Financial Glow-Up: Budgeting for People Who Hate Spreadsheets"
+    1.  **FOCUS ON VALUE:** The topic must be practical, intellectually stimulating, or teach a useful skill. It should answer a question the user might genuinely have or introduce a fascinating concept they haven't considered.
+    2.  **AVOID TRIVIALITY:** Do not suggest topics that are common knowledge (e.g., "How to tie your shoes") or overly simplistic. Aim for a level of depth that respects the user's intelligence.
+    3.  **BE CREATIVE & DIVERSE:** Think across a wide range of categories: personal finance, professional skills, DIY projects, scientific concepts, historical deep-dives, creative hobbies, or practical life-hacks.
+    4.  **BE SPECIFIC:** Instead of a broad topic like "History," suggest something more focused and intriguing like "The History and Science of Fermentation."
 
     The output MUST be a single, valid JSON object with one key: "topic".
     Do not include any text outside of the JSON object.

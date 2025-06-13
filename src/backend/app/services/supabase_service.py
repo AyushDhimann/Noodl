@@ -433,7 +433,7 @@ def get_level_completion_status(user_wallet, path_id, level_index):
 
 
 # --- NFT Functions ---
-def save_user_nft(user_wallet, path_id, token_id, contract_address, metadata_url):
+def save_user_nft(user_wallet, path_id, token_id, contract_address, metadata_url, image_gateway_url):
     """Saves a record of a minted NFT for a user."""
     logger.info(f"DB: Saving NFT record for wallet {user_wallet}, path {path_id}, token {token_id}")
     user_res = get_user_by_wallet(user_wallet)
@@ -441,15 +441,13 @@ def save_user_nft(user_wallet, path_id, token_id, contract_address, metadata_url
         raise ValueError(f"User not found for wallet {user_wallet}")
     user_id = user_res.data['id']
 
-    # First, mark the path as complete, since minting is the final step.
-    set_path_completed(user_wallet, path_id)
-
     return supabase_client.table('user_nfts').insert({
         'user_id': user_id,
         'path_id': path_id,
         'token_id': token_id,
         'nft_contract_address': contract_address,
-        'metadata_url': metadata_url
+        'metadata_url': metadata_url,
+        'image_gateway_url': image_gateway_url
     }).execute()
 
 
@@ -462,7 +460,7 @@ def get_nfts_by_user(wallet_address):
     user_id = user_res.data['id']
 
     response = supabase_client.table('user_nfts').select(
-        'path_id, token_id, nft_contract_address, metadata_url, minted_at, learning_paths(title)'
+        'path_id, token_id, nft_contract_address, metadata_url, image_gateway_url, minted_at, learning_paths(title)'
     ).eq('user_id', user_id).order('minted_at', desc=True).execute()
 
     return response.data if response.data else []

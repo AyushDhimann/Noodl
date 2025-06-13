@@ -226,6 +226,7 @@ Endpoints for minting and retrieving NFT certificates.
       "token_id": 74418501,
       "nft_contract_address": "0x...",
       "metadata_url": "ipfs://bafkreihdwdcefgh45...",
+      "image_gateway_url": "https://beige-elaborate-hummingbird-35.mypinata.cloud/ipfs/bafybeig...",
       "explorer_url": "https://sepolia.etherscan.io/tx/0x...",
       "nft_gateway_url": "https://beige-elaborate-hummingbird-35.mypinata.cloud/ipfs/bafkreihdwdcefgh45..."
   }
@@ -236,7 +237,7 @@ Endpoints for minting and retrieving NFT certificates.
 
 ### Get All User NFTs
 - **Endpoint:** `GET /nfts/<wallet_address>`
-- **Description:** Retrieves a list of all NFT certificates a user has earned, with a full gateway URL for the metadata.
+- **Description:** Retrieves a list of all NFT certificates a user has earned, with a full gateway URL for the image.
 - **Success (200):** Returns an array of NFT objects.
   ```json
   [
@@ -244,7 +245,8 @@ Endpoints for minting and retrieving NFT certificates.
       "learning_paths": {
         "title": "🛡️ Recognize and Conquer Gaslighting."
       },
-      "metadata_url": "https://beige-elaborate-hummingbird-35.mypinata.cloud/ipfs/QmYja38cwqgZWFCKevvPZR1Q3QMmRrE6Z2Sey3VbLViuV6",
+      "metadata_url": "ipfs://QmYja38cwqgZWFCKevvPZR1Q3QMmRrE6Z2Sey3VbLViuV6",
+      "image_gateway_url": "https://beige-elaborate-hummingbird-35.mypinata.cloud/ipfs/bafybeig...",
       "minted_at": "2025-06-13T13:58:49.541875+00:00",
       "nft_contract_address": "0xEC94A5c84c850366F5E06BD6FfB9188c384d33e1",
       "path_id": 1,
@@ -252,4 +254,3 @@ Endpoints for minting and retrieving NFT certificates.
     }
   ]
   ```
-  
