@@ -17,6 +17,11 @@ def complete_path_and_mint_nft_route(path_id):
         return jsonify({"error": "user_wallet is required"}), 400
 
     try:
+        # --- Pre-check: Ensure the path is actually complete ---
+        is_complete = supabase_service.get_path_completion_status(user_wallet, path_id)
+        if not is_complete:
+            return jsonify({"error": "Path is not yet complete. Cannot mint NFT."}), 400
+
         # --- Step 1: Generate the certificate image locally ---
         nft_details = supabase_service.get_user_and_path_for_nft(user_wallet, path_id)
         if not nft_details:
@@ -70,8 +75,6 @@ def complete_path_and_mint_nft_route(path_id):
             supabase_service.save_user_nft(user_wallet, path_id, minted_token_id, config.NFT_CONTRACT_ADDRESS,
                                            metadata_ipfs_url)
             logger.info(f"DB: Saved NFT record for wallet {user_wallet}, path {path_id}, token {minted_token_id}")
-            supabase_service.set_path_completed(user_wallet, path_id)
-            logger.info(f"DB: Marked path {path_id} as complete for {user_wallet}.")
         except Exception as db_e:
             logger.error(f"DB: CRITICAL! Failed to save NFT record after minting. Error: {db_e}")
             return jsonify({"error": "Minting succeeded but failed to save record to DB."}), 500
@@ -82,11 +85,15 @@ def complete_path_and_mint_nft_route(path_id):
             logger.error(f"NFT: Failed to set Token URI for {minted_token_id} in second transaction.")
             return jsonify({"error": "Minting succeeded but failed to set metadata URL."}), 500
 
+        tx_hash = set_uri_receipt.transactionHash.hex()
+        explorer_url = f"{config.BLOCK_EXPLORER_URL.rstrip('/')}/tx/{tx_hash}" if config.BLOCK_EXPLORER_URL else None
+
         return jsonify({
             "message": "NFT minted and metadata set successfully!",
             "token_id": minted_token_id,
             "nft_contract_address": config.NFT_CONTRACT_ADDRESS,
-            "metadata_url": metadata_ipfs_url
+            "metadata_url": metadata_ipfs_url,
+            "explorer_url": explorer_url
         })
 
     except Exception as e:

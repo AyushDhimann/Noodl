@@ -57,7 +57,7 @@ def get_full_path_details(path_id):
 
 def get_full_path_details_for_user(path_id, user_wallet):
     """
-    Fetches full path details and enriches each level with the user-specific completion status.
+    Fetches full path details and enriches it with user-specific completion and minting status.
     """
     # 1. Get the generic path details
     path_res = get_full_path_details(path_id)
@@ -65,32 +65,34 @@ def get_full_path_details_for_user(path_id, user_wallet):
         return None
     path_data = path_res.data
 
-    # 2. Get user-specific completion data for all levels in this path
+    # 2. Get user ID
     user_res = get_user_by_wallet(user_wallet)
-    if not user_res or not user_res.data:
-        # If user not found, no levels are complete for them
-        user_id = None
-        level_completion_map = {}
-    else:
-        user_id = user_res.data['id']
-        # Fetch all level progress for this user and path
+    user_id = user_res.data['id'] if user_res and user_res.data else None
+
+    # 3. Get user-specific completion data for all levels in this path
+    if user_id:
         progress_res = supabase_client.rpc('get_level_completion_for_path', {
             'p_user_id': user_id,
             'p_path_id': path_id
         }).execute()
+        level_completion_map = {item['level_number']: item['is_complete'] for item in
+                                progress_res.data} if progress_res.data else {}
+    else:
+        level_completion_map = {}
 
-        level_completion_map = {
-            item['level_number']: item['is_complete'] for item in progress_res.data
-        } if progress_res.data else {}
-
-    # 3. Inject the 'is_complete' flag into each level
+    # 4. Inject the 'is_complete' flag into each level
     if 'levels' in path_data and path_data['levels']:
         for level in path_data['levels']:
             level_num = level.get('level_number')
             level['is_complete'] = level_completion_map.get(level_num, False)
 
-    # Also add overall completion status for the entire path
+    # 5. Add overall path completion and NFT minted status
     path_data['is_complete'] = get_path_completion_status(user_wallet, path_id)
+    if user_id:
+        nft_res = supabase_client.table('user_nfts').select('id', count='exact').eq('user_id', user_id).eq('path_id', path_id).execute()
+        path_data['is_minted'] = nft_res.count > 0
+    else:
+        path_data['is_minted'] = False
 
     return path_data
 
@@ -252,8 +254,8 @@ def _create_progress_record(user_id, path_id):
 
 def upsert_level_progress(user_wallet, path_id, level_index, correct_answers, total_questions):
     """
-    Handles starting a path if it doesn't exist and updating the score for a specific level.
-    A level is marked as complete as soon as any progress is submitted for it.
+    Handles starting a path if it doesn't exist, updating the score for a specific level,
+    and automatically marking the entire path as complete if all levels are done.
     """
     # 1. Get User ID
     user_res = get_user_by_wallet(user_wallet)
@@ -275,13 +277,17 @@ def upsert_level_progress(user_wallet, path_id, level_index, correct_answers, to
     # 3. Upsert Level Score and mark as complete
     logger.info(
         f"DB: Upserting level progress for progress_id {progress_id}, level {level_index} with score {correct_answers}/{total_questions} and marking as complete.")
-    return supabase_client.table('level_progress').upsert({
+    supabase_client.table('level_progress').upsert({
         'progress_id': progress_id,
         'level_number': level_index,
         'correct_answers': correct_answers,
         'total_questions': total_questions,
         'is_complete': True
     }, on_conflict='progress_id, level_number').execute()
+
+    # 4. Check if this completes the whole path
+    logger.info(f"DB: Checking if path is now complete for progress_id {progress_id}")
+    supabase_client.rpc('check_and_complete_path', {'p_progress_id': progress_id}).execute()
 
 
 def get_level_score(user_wallet, path_id, level_index):
@@ -409,6 +415,23 @@ def get_path_completion_status(user_wallet, path_id):
     return False
 
 
+def get_level_completion_status(user_wallet, path_id, level_index):
+    """Checks if a specific level is marked as complete for a user."""
+    logger.info(f"DB: Getting level completion for wallet {user_wallet}, path {path_id}, level {level_index}.")
+    user_res = get_user_by_wallet(user_wallet)
+    if not user_res or not user_res.data:
+        return False  # User not found, so not complete
+    user_id = user_res.data['id']
+
+    res = supabase_client.rpc('get_single_level_completion', {
+        'p_user_id': user_id,
+        'p_path_id': path_id,
+        'p_level_number': level_index
+    }).execute()
+
+    return res.data
+
+
 # --- NFT Functions ---
 def save_user_nft(user_wallet, path_id, token_id, contract_address, metadata_url):
     """Saves a record of a minted NFT for a user."""
@@ -417,6 +440,9 @@ def save_user_nft(user_wallet, path_id, token_id, contract_address, metadata_url
     if not user_res or not user_res.data:
         raise ValueError(f"User not found for wallet {user_wallet}")
     user_id = user_res.data['id']
+
+    # First, mark the path as complete, since minting is the final step.
+    set_path_completed(user_wallet, path_id)
 
     return supabase_client.table('user_nfts').insert({
         'user_id': user_id,

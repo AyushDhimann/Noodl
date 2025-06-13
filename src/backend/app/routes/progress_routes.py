@@ -2,18 +2,15 @@ from flask import Blueprint, request, jsonify
 from app import logger
 from app.services import supabase_service
 
-bp = Blueprint('progress_routes', __name__)
+bp = Blueprint('progress_routes', __name__, url_prefix='/progress')
 
 
-# This route is for submitting data, so it correctly only accepts POST requests.
-# It expects a JSON body with a 'Content-Type: application/json' header.
-# Manually sending data as URL parameters will result in a 415 Unsupported Media Type error.
-# Accessing this URL with a GET request (e.g., in a browser) will result in a 405 Method Not Allowed error.
-@bp.route('/progress/level', methods=['POST'])
+@bp.route('/level', methods=['POST'])
 def upsert_level_progress_route():
     """
     Receives progress for a specific level. If the user has not started this path,
     it creates a new progress record before saving the level score.
+    It also automatically checks if the entire path is now complete.
     """
     data = request.get_json()
     if not data:
@@ -41,6 +38,28 @@ def upsert_level_progress_route():
     except Exception as e:
         logger.error(f"ROUTE: /progress/level failed: {e}", exc_info=True)
         return jsonify({"error": "Failed to update level progress."}), 500
+
+
+@bp.route('/path/<int:path_id>/<wallet_address>/completed', methods=['GET'])
+def get_path_completion_route(path_id, wallet_address):
+    """Checks if a user has completed a specific learning path."""
+    try:
+        is_completed = supabase_service.get_path_completion_status(wallet_address, path_id)
+        return jsonify({"is_complete": is_completed})
+    except Exception as e:
+        logger.error(f"ROUTE: /progress/path/completed failed: {e}", exc_info=True)
+        return jsonify({"error": "Failed to get path completion status."}), 500
+
+
+@bp.route('/level/<int:path_id>/<int:level_index>/<wallet_address>/completed', methods=['GET'])
+def get_level_completion_route(path_id, level_index, wallet_address):
+    """Checks if a user has completed a specific level of a path."""
+    try:
+        is_completed = supabase_service.get_level_completion_status(wallet_address, path_id, level_index)
+        return jsonify({"is_complete": is_completed})
+    except Exception as e:
+        logger.error(f"ROUTE: /progress/level/completed failed: {e}", exc_info=True)
+        return jsonify({"error": "Failed to get level completion status."}), 500
 
 
 @bp.route('/scores/level', methods=['GET'])

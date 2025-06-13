@@ -151,9 +151,16 @@ def generate_help_curriculum(topic):
     return json.loads(cleaned_response)['levels']
 
 
-def generate_learn_level_content(topic, level_title):
+def generate_learn_level_content(topic, level_title, is_final_level=False):
     """Generates rich, interleaved content for a single 'learn' level."""
-    logger.info(f"AI: Generating 'learn' content for level: '{level_title}'")
+    logger.info(f"AI: Generating 'learn' content for level: '{level_title}' (is_final: {is_final_level})")
+
+    final_level_guideline = (
+        "4. **IMPORTANT FINAL LEVEL RULE:** Since this is the final lesson of the course, you **MUST** include at least one quiz to test the user's overall understanding of the topic. This is not optional."
+        if is_final_level
+        else ""
+    )
+
     prompt = f"""
     You are an expert educator creating a lesson for a mobile learning app. The main course is "{topic}", and this specific lesson is "{level_title}".
     Your task is to create an interleaved learning experience optimized for a small screen.
@@ -164,6 +171,7 @@ def generate_learn_level_content(topic, level_title):
     1.  **STRICTLY Mobile First:** Keep paragraphs short (2-3 sentences). Use markdown `### Subheadings`, `**bold**`, and bullet points (`* item`) to break up text and make it easy to read on a phone.
     2.  **Multiple Slides:** A good level should have multiple slides. Explain a concept over a minimum of 3 slides before checking for understanding. A typical level should have 5-8 items in total.
     3.  **Flexible Quizzes:** Quizzes are great but not mandatory for every single concept. Include a quiz only when it makes sense to test a key piece of knowledge. If a concept is simple, a few clear slides are enough along with a basic quiz.
+    {final_level_guideline}
 
     **'slide' item format:**
     - "content" should be a string with detailed, informative markdown in simple English.
@@ -178,9 +186,16 @@ def generate_learn_level_content(topic, level_title):
     return json.loads(cleaned_response)['items']
 
 
-def generate_help_level_content(topic, step_title):
+def generate_help_level_content(topic, step_title, is_final_level=False):
     """Generates rich, interleaved content for a single 'help' step."""
-    logger.info(f"AI: Generating 'help' content for step: '{step_title}'")
+    logger.info(f"AI: Generating 'help' content for step: '{step_title}' (is_final: {is_final_level})")
+
+    final_level_guideline = (
+        "4. **IMPORTANT FINAL STEP RULE:** Since this is the final step of the guide, you **MUST** include at least one quiz to confirm the user has understood the process. This is not optional."
+        if is_final_level
+        else ""
+    )
+
     prompt = f"""
     You are an expert guide creating a helpful, interactive lesson for a mobile app. The user's main goal is "{topic}", and this specific step is "{step_title}".
     Your task is to create an interleaved learning experience to help the user master this step.
@@ -191,6 +206,7 @@ def generate_help_level_content(topic, step_title):
     1.  **STRICTLY Mobile First:** Keep paragraphs short (2-3 sentences). Use markdown `### Subheadings`, `**bold**`, and bullet points (`* item`) to make it easy to read on a phone.
     2.  **Interleaved Content:** A good step-by-step guide should have multiple slides to explain the process clearly. A typical step should have 3-5 items in total.
     3.  **Check for Understanding:** Quizzes are a great way to ensure the user has understood a critical part of the step. Include a quiz if it makes sense to test a key piece of knowledge.
+    {final_level_guideline}
 
     **'slide' item format:**
     - "content" should be a string with a clear, concise, and easy-to-follow explanation for this single step. Use simple English.
