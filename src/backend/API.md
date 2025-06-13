@@ -26,7 +26,7 @@ Endpoints for managing user profiles and their created content.
 
 ### Get User Profile
 - **Endpoint:** `GET /users/<wallet_address>`
-- **Description:** Retrieves the complete profile for a single user, including their wallet address, name, and country.
+- **Description:** Retrieves the complete public profile for a single user, including their wallet address, name, and country. This endpoint requires no authentication.
 - **Success (200):** Returns the user object.
 - **Error (404):** If the user is not found.
 
@@ -72,7 +72,8 @@ Endpoints for generating, retrieving, and managing learning paths and their cont
     "message": "Path generation started.",
     "task_id": "a1b2c3d4-e5f6-7890-1234-567890abcdef"
   }
-  ```- **Error (409):** If a path with a highly similar title already exists.
+  ```
+- **Error (409):** If a path with a highly similar title already exists.
 
 ---
 
@@ -225,7 +226,8 @@ Endpoints for minting and retrieving NFT certificates.
       "token_id": 74418501,
       "nft_contract_address": "0x...",
       "metadata_url": "ipfs://bafkreihdwdcefgh45...",
-      "explorer_url": "https://sepolia.etherscan.io/tx/0x..."
+      "explorer_url": "https://sepolia.etherscan.io/tx/0x...",
+      "nft_gateway_url": "https://beige-elaborate-hummingbird-35.mypinata.cloud/ipfs/bafkreihdwdcefgh45..."
   }
   ```
 - **Error (400):** If the path is not yet complete.
@@ -234,5 +236,20 @@ Endpoints for minting and retrieving NFT certificates.
 
 ### Get All User NFTs
 - **Endpoint:** `GET /nfts/<wallet_address>`
-- **Description:** Retrieves a list of all NFT certificates a user has earned.
+- **Description:** Retrieves a list of all NFT certificates a user has earned, with a full gateway URL for the metadata.
 - **Success (200):** Returns an array of NFT objects.
+  ```json
+  [
+    {
+      "learning_paths": {
+        "title": "🛡️ Recognize and Conquer Gaslighting."
+      },
+      "metadata_url": "https://beige-elaborate-hummingbird-35.mypinata.cloud/ipfs/QmYja38cwqgZWFCKevvPZR1Q3QMmRrE6Z2Sey3VbLViuV6",
+      "minted_at": "2025-06-13T13:58:49.541875+00:00",
+      "nft_contract_address": "0xEC94A5c84c850366F5E06BD6FfB9188c384d33e1",
+      "path_id": 1,
+      "token_id": 74418507
+    }
+  ]
+  ```
+  
