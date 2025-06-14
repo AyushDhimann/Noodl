@@ -74,10 +74,7 @@ def check_if_nft_already_minted(user_wallet, path_id):
         return has_minted
     except Exception as e:
         logger.error(f"CHAIN CHECK: Failed to query hasUserMinted function: {e}", exc_info=True)
-        # If the check itself fails, we cannot be certain.
-        # Returning False allows the minting attempt to proceed,
-        # where the contract's own logic will prevent double minting if it's truly already minted.
-        # This specifically addresses the "false message" when the check is the problem.
+                                                          
         return False
 
 def mint_nft_on_chain(user_wallet, path_id):

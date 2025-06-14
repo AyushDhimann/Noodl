@@ -7,7 +7,7 @@ class Config:
     """
     Manages all configuration for the application, loaded from environment variables.
     """
-                   
+
     RUN_API_SERVER = os.getenv("RUN_API_SERVER", "true").lower() == "true"
     RUN_LIVE_DEMO = os.getenv("RUN_LIVE_DEMO", "true").lower() == "true"
     FEATURE_FLAG_ENABLE_BLOCKCHAIN_REGISTRATION = os.getenv("FEATURE_FLAG_ENABLE_BLOCKCHAIN_REGISTRATION",
@@ -26,8 +26,9 @@ class Config:
 
     LIVE_DEMO_PORT = int(os.getenv("LIVE_DEMO_PORT", 9999))
 
-    GEMINI_MODEL_TEXT = os.getenv("GEMINI_MODEL_TEXT", "gemini-1.5-flash-latest")
+    GEMINI_MODEL_TEXT = os.getenv("GEMINI_MODEL_TEXT", "gemini-2.0-flash")
     GEMINI_MODEL_EMBEDDING = os.getenv("GEMINI_MODEL_EMBEDDING", "models/text-embedding-004")
+    GEMINI_MODEL_VISION = os.getenv("GEMINI_MODEL_VISION", "gemini-2.0-flash-preview-image-generation")
 
     GENERATION_TEMPERATURE = float(os.getenv("GENERATION_TEMPERATURE", 1.5))
 
@@ -40,6 +41,6 @@ class Config:
     SIMILARITY_THRESHOLD = float(os.getenv("SIMILARITY_THRESHOLD", 0.85))
     MAX_CONCURRENT_LEVEL_GENERATORS = int(os.getenv("MAX_CONCURRENT_LEVEL_GENERATORS", 3))
 
-    SECRET_KEY = os.getenv("FLASK_SECRET_KEY", "a_very_secret_noodl_key_for_dev")
+    SECRET_KEY = os.getenv("FLASK_SECRET_KEY", "b7359d34c833f6dd3f302e28b8ec2d237dd3fd5543717fd7ce9f2ecaf66ae6be")
 
 config = Config()

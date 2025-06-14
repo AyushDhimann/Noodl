@@ -1,17 +1,13 @@
 import json
-import base64
 import time
 import os
-import textwrap
 from PIL import Image, ImageDraw, ImageFont
 from app import text_model, logger
 from app.config import config
 import google.generativeai as genai
-from google.generativeai.types import GenerationConfig
 import io
 
 def _call_gemini_with_retry(prompt, retries=3, delay=5):
-    """A wrapper to call the Gemini API with retry logic."""
     for attempt in range(retries):
         try:
             response = text_model.generate_content(prompt)
@@ -30,7 +26,6 @@ def _call_gemini_with_retry(prompt, retries=3, delay=5):
     raise Exception("AI: Generation failed after all retries.")
 
 def classify_topic_intent(topic):
-    """Classifies the user's topic as either 'learn' or 'help'."""
     logger.info(f"AI: Classifying intent for topic: '{topic}'")
     prompt = f"""
     You are an intelligent assistant that categorizes user requests into one of two types: 'learn' or 'help'.
@@ -50,13 +45,11 @@ def classify_topic_intent(topic):
     return json.loads(cleaned_response)['intent']
 
 def get_embedding(text):
-    """Generates a vector embedding for a given text."""
     logger.info(f"AI: Generating embedding for text: '{text[:30]}...'")
     result = genai.embed_content(model=config.GEMINI_MODEL_EMBEDDING, content=text)
     return result['embedding']
 
 def rephrase_topic_with_emoji(topic):
-    """Asks the AI to rephrase a topic into a catchy, simple title."""
     logger.info(f"AI: Rephrasing topic into simple title: '{topic}'")
     prompt = f"""
     You are a curriculum expert who creates clear, engaging, and insightful course titles. A user has provided the topic "{topic}".
@@ -75,7 +68,6 @@ def rephrase_topic_with_emoji(topic):
     return json.loads(cleaned_response)['new_title']
 
 def generate_path_description(topic_title):
-    """Generates an engaging, frontend-ready description for the learning path."""
     logger.info(f"AI: Generating description for topic: '{topic_title}'")
     prompt = f"""
     You are a curriculum writer for a learning app. Your goal is to write compelling descriptions for a course titled "{topic_title}".
@@ -92,10 +84,9 @@ def generate_path_description(topic_title):
     return json.loads(cleaned_response)
 
 def generate_learn_curriculum(topic, country=None):
-    """Asks AI to generate a dynamic curriculum for a 'learn' intent."""
     logger.info(f"AI: Generating 'learn' curriculum for topic: '{topic}' with country context: {country}")
     country_context = f"The user is from {country}, so you can use local examples or spellings if relevant, but it's not a requirement." if country else ""
-                                                                      
+
     prompt = f"""You are an expert curriculum designer. For the course titled "{topic}", create a detailed, logical syllabus. The goal is to take a user from beginner to competent, respecting their intelligence. {country_context}
 
     **RULES:**
@@ -116,9 +107,8 @@ def generate_learn_curriculum(topic, country=None):
     return json.loads(cleaned_response)['levels']
 
 def generate_help_curriculum(topic):
-    """Generates a step-by-step guide for a 'help' intent."""
     logger.info(f"AI: Generating 'help' curriculum for topic: '{topic}'")
-                                                                      
+
     prompt = f"""You are a helpful and clear technical writer. A user needs help with: "{topic}".
     Your task is to break down the solution into a series of simple, logical, and actionable steps. These steps will become the titles of a short guide.
 
@@ -138,7 +128,6 @@ def generate_help_curriculum(topic):
     return json.loads(cleaned_response)['levels']
 
 def generate_learn_level_content(topic, level_title, is_final_level=False):
-    """Generates rich, interleaved content for a single 'learn' level."""
     logger.info(f"AI: Generating 'learn' content for level: '{level_title}' (is_final: {is_final_level})")
 
     final_level_guideline = (
@@ -178,7 +167,6 @@ def generate_learn_level_content(topic, level_title, is_final_level=False):
     return json.loads(cleaned_response)['items']
 
 def generate_help_level_content(topic, step_title, is_final_level=False):
-    """Generates rich, interleaved content for a single 'help' step."""
     logger.info(f"AI: Generating 'help' content for step: '{step_title}' (is_final: {is_final_level})")
 
     final_level_guideline = (
@@ -217,7 +205,6 @@ def generate_help_level_content(topic, step_title, is_final_level=False):
     return json.loads(cleaned_response)['items']
 
 def generate_random_topic():
-    """Asks the AI to generate a single, random, interesting topic for a learning path."""
     logger.info("AI: Generating a random topic...")
     prompt = """
     You are a creative and insightful assistant tasked with generating compelling topics for educational content.
@@ -236,16 +223,11 @@ def generate_random_topic():
     return json.loads(cleaned_response)['topic']
 
 def generate_certificate_image(path_title, user_name, output_file_path):
-    """
-    Generates a base image using the Gemini API based on the path title,
-    then frames it and adds the user's name and issuer name.
-    """
-    logger.info(f"IMAGE: Starting AI NFT image generation for topic: {path_title}")
-
+    logger.info(
+        f"IMAGE: Starting AI NFT image generation for topic: '{path_title}', user: '{user_name}', output: '{output_file_path}'")
     base_image = None
     try:
-        image_model = genai.GenerativeModel("gemini-2.0-flash-preview-image-generation")
-
+        image_model = genai.GenerativeModel(config.GEMINI_MODEL_VISION)                                         
         prompt = (
             "You are a master artist who creates symbolic, abstract emblems for digital certificates. Your task is to generate a 128x128 pixel art icon that is a deep, metaphorical representation of a learning topic.\n\n"
             f"**TOPIC:** '{path_title}'\n\n"
@@ -261,23 +243,21 @@ def generate_certificate_image(path_title, user_name, output_file_path):
         )
 
         response = image_model.generate_content(prompt)
-
         base_image_bytes = None
         if response.candidates and response.candidates[0].content.parts:
             for part in response.candidates[0].content.parts:
                 if part.inline_data and part.inline_data.data:
                     base_image_bytes = part.inline_data.data
                     break
-
         if not base_image_bytes:
-            logger.error(f"AI model did not return image data. Full response: {response}")
-            raise ValueError("AI model did not return image data.")
-
-        logger.info("IMAGE: AI base image generated successfully.")
+            logger.error(
+                f"IMAGE: AI model '{config.GEMINI_MODEL_VISION}' did not return image data. Full response: {response}")
+            raise ValueError(f"AI model '{config.GEMINI_MODEL_VISION}' did not return image data.")
+        logger.info(f"IMAGE: AI base image generated successfully using '{config.GEMINI_MODEL_VISION}'.")
         base_image = Image.open(io.BytesIO(base_image_bytes))
-
     except Exception as e:
-        logger.error(f"IMAGE: Failed during Gemini image generation step: {e}", exc_info=True)
+        logger.error(f"IMAGE: Failed during Gemini image generation step using '{config.GEMINI_MODEL_VISION}': {e}",
+                     exc_info=True)
         base_image = Image.new('RGB', (128, 128), color=(10, 10, 20))
         draw = ImageDraw.Draw(base_image)
         try:
@@ -285,7 +265,16 @@ def generate_certificate_image(path_title, user_name, output_file_path):
         except IOError:
             font_fallback = ImageFont.load_default()
         draw.text((10, 10), "AI Gen\nFailed", fill=(255, 0, 0), font=font_fallback)
-        logger.warning("IMAGE: Created a fallback placeholder image.")
+        logger.warning(
+            f"IMAGE: Created a fallback placeholder image and saved to '{output_file_path}' due to AI generation failure.")
+                                                                    
+        try:
+            os.makedirs(os.path.dirname(output_file_path), exist_ok=True)
+            base_image.save(output_file_path)                                      
+            logger.info(f"IMAGE: Fallback 128x128 image saved to {output_file_path}")
+        except Exception as save_e:
+            logger.error(f"IMAGE: Failed to save fallback 128x128 image: {save_e}", exc_info=True)
+            return None                                             
 
     try:
         W, H = 512, 512
@@ -303,12 +292,11 @@ def generate_certificate_image(path_title, user_name, output_file_path):
             outline=FRAME_COLOR,
             width=5
         )
-
         inner_area_size = W - 2 * (FRAME_THICKNESS + 5)
         inner_offset = FRAME_THICKNESS + 5
 
-        base_image = base_image.resize((inner_area_size, inner_area_size), Image.Resampling.NEAREST)
-        final_image.paste(base_image, (inner_offset, inner_offset))
+        resized_base_image = base_image.resize((inner_area_size, inner_area_size), Image.Resampling.NEAREST)
+        final_image.paste(resized_base_image, (inner_offset, inner_offset))
 
         try:
             font_issuer = ImageFont.truetype("arial.ttf", 18)
@@ -338,7 +326,7 @@ def generate_certificate_image(path_title, user_name, output_file_path):
         final_image.save(output_file_path)
         logger.info(f"IMAGE: Successfully framed and saved certificate to {output_file_path}")
         return output_file_path
-
     except Exception as e:
         logger.error(f"IMAGE: Failed during Pillow framing step: {e}", exc_info=True)
+                                                                                                                 
         return None
