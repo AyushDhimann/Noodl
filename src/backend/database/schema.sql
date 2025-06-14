@@ -283,7 +283,7 @@ BEGIN
 END;
 $$ LANGUAGE plpgsql;
 
--- 17. FUNCTION TO GET ALL ENROLLED PATHS WITH PROGRESS (CORRECTED)
+-- 17. FUNCTION TO GET ALL ENROLLED PATHS WITH PROGRESS (CORRECTED AND AMBIGUITY FIXED)
 CREATE OR REPLACE FUNCTION get_user_enrolled_paths_with_progress(p_user_id bigint)
 RETURNS TABLE (
     id bigint,
@@ -304,7 +304,7 @@ BEGIN
     lp.short_description,
     lp.total_levels,
     lp.created_at,
-    up.is_complete,
+    up.is_complete, -- This refers to user_progress.is_complete
     COALESCE(progress_agg.completed_count, 0) AS completed_levels
   FROM
     user_progress up
@@ -312,14 +312,14 @@ BEGIN
     learning_paths lp ON up.path_id = lp.id
   LEFT JOIN (
     SELECT
-      progress_id,
+      lp_sub.progress_id,
       count(*) AS completed_count
     FROM
-      level_progress
+      level_progress lp_sub -- Explicitly alias level_progress
     WHERE
-      is_complete = true
+      lp_sub.is_complete = true -- Qualify with the alias
     GROUP BY
-      progress_id
+      lp_sub.progress_id
   ) AS progress_agg ON up.id = progress_agg.progress_id
   WHERE
     up.user_id = p_user_id
