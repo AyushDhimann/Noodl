@@ -88,6 +88,7 @@ class GenerateNoodlPage extends StatelessWidget {
                                     List<dynamic> listStatus= snapshot.data['progress'];
                                     int len = listStatus.length;
                                     if(listStatus[len-1]['data']!=null){
+                                      
                                       return Column(
                                         mainAxisSize: MainAxisSize.min,
                                         children: [

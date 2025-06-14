@@ -49,7 +49,7 @@ class _QuizPageState extends State<QuizPage> {
                 children: [
                   QuizAppBar(
                     title: widget.shortData.levelTitle,
-                    showQuit: provider.totalQuestions != provider.progress,
+                    showQuit: provider.totalItemsInLesson > provider.progress,
                   ),
                   SizedBox(
                     width: size.width,
@@ -58,12 +58,12 @@ class _QuizPageState extends State<QuizPage> {
                       future: _futureLevelData,
                       builder: (context, snapshot) {
                         if (snapshot.connectionState == ConnectionState.done && snapshot.hasData) {
-                          final totalQuestions = snapshot.data!.totalQuestionsInLevel + snapshot.data!.totalSlidesInLevel;
+                          final totalItemsInLevel = snapshot.data!.totalQuestionsInLevel + snapshot.data!.totalSlidesInLevel;
 
                           // Only call once
-                          if (provider.totalQuestions == 0) {
+                          if (provider.totalItemsInLesson == 0) {
                             WidgetsBinding.instance.addPostFrameCallback((_) {
-                              provider.setTotalQuestions(totalQuestions);
+                              provider.setTotalQuestions(totalItemsInLevel);
                             });
                           }
 
@@ -73,7 +73,7 @@ class _QuizPageState extends State<QuizPage> {
                               SizedBox(
                                 height: 2,
                                 child: LinearProgressIndicator(
-                                  value: provider.progress / totalQuestions,
+                                  value: provider.progress / totalItemsInLevel,
                                   color: appColors.accent,
                                 ),
                               ),

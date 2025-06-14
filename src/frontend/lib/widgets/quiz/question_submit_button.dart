@@ -6,8 +6,7 @@ class QuestionSubmitButton extends StatelessWidget {
   final String text;
   final VoidCallback? onTap;
   final bool isActive;
-  final QuizItemModel currentQuizItem;
-  const QuestionSubmitButton(this.text, {super.key, this.onTap, required this.isActive, required this.currentQuizItem,});
+  const QuestionSubmitButton(this.text, {super.key, this.onTap, required this.isActive,});
 
   @override
   Widget build(BuildContext context) {

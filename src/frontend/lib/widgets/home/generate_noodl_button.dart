@@ -3,8 +3,8 @@ import 'package:flutter/material.dart';
 import 'package:frontend/constants/colors.dart' as appColors;
 import 'package:frontend/pages/generate.dart';
 
-class GenerateNoodlButton extends StatelessWidget {
-  const GenerateNoodlButton({super.key});
+class GenerateNoodlWidget extends StatelessWidget {
+  const GenerateNoodlWidget({super.key});
 
   @override
   Widget build(BuildContext context) {

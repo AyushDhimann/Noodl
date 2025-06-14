@@ -3,10 +3,12 @@ import 'package:flutter/material.dart';
 import 'package:frontend/constants/colors.dart' as appColors;
 import 'package:frontend/models/noodl_model.dart';
 import 'package:frontend/pages/login.dart';
+import 'package:frontend/pages/search.dart';
 import 'package:frontend/pages/user_noodls.dart';
 import 'package:frontend/providers/metamask_provider.dart';
 import 'package:frontend/services/services.dart';
 import 'package:frontend/widgets/common/topbar.dart';
+import 'package:frontend/widgets/home/bottom_options_dialog.dart';
 import 'package:frontend/widgets/home/empty_your_noodls.dart';
 import 'package:frontend/widgets/home/generate_noodl_button.dart';
 import 'package:frontend/widgets/home/heading_widget.dart';
@@ -47,127 +49,96 @@ class HomePage extends StatelessWidget {
               return;
               },
 
-            child: SingleChildScrollView(
-              physics: AlwaysScrollableScrollPhysics(),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.center,
-                children: [
-                  SizedBox(height: dp.top + 60,),
-                  SizedBox(height: 12,),
-                  Padding(
-                    padding: const EdgeInsets.symmetric(horizontal: 12),
-                    child: Column(
-                      mainAxisSize: MainAxisSize.min,
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        // SizedBox(height: 12,),
-                        FutureBuilder(
-                          future: APIservice.getUserNoodls(
-                            walletAdd: Provider.of<MetaMaskProvider>(context, listen: false).walletAddress
-                              ??"0x718fafb76e1631f5945bf58104f3b81d9588819b",
-                              // remove this
-                            // walletAdd: Provider.of<MetaMaskProvider>(context, listen: false).walletAddress!,
-                            limit: 2
-                          ),
-                          builder: (context, snapshot) {
-                            return snapshot.hasData && (snapshot.data! as List).isNotEmpty?
-                              Column(
-                                mainAxisSize: MainAxisSize.min,
-                                crossAxisAlignment: CrossAxisAlignment.start,
-                                children: [
-                                  Row(
-                                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                                    crossAxisAlignment: CrossAxisAlignment.start,
-                                    children: [
-                                      HeadingWidget(
-                                        heading: 'Your Noodls',
-                                        subHeading: 'Your learning paths appear here.'
-                                      ),
-                                      ViewAllNoodlsButton(
-                                        onTap: () => Navigator.of(context).push(MaterialPageRoute(builder: (context) => UserNoodlsPage(),)),
-                                      )
-                                    ],
-                                  ),
-                                  ...snapshot.data.map((e)=>NoodlButton(data: e)),
-                                  // ShowAllNoodlsButton()
-                                ],
-                              ) : Column(
-                                mainAxisSize: MainAxisSize.min,
-                                crossAxisAlignment: CrossAxisAlignment.start,
-                                children: [
-                                  HeadingWidget(
-                                    heading: 'Your Noodls',
-                                    subHeading: 'Your learning paths appear here.'
-                                  ),
-                                  EmptyYourNoodls(),
-                                ],
-                              );
-                          },
+            child: ListView(
+              padding: EdgeInsets.zero,
+              // crossAxisAlignment: CrosAxisAlignment.center,
+              children: [
+                SizedBox(height: dp.top + 60,),
+                SizedBox(height: 12,),
+                Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 12),
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      // SizedBox(height: 12,),
+                      FutureBuilder(
+                        future: APIservice.getUserNoodls(
+                          walletAdd: Provider.of<MetaMaskProvider>(context, listen: false).walletAddress!,
+                            // ??"0x718fafb76e1631f5945bf58104f3b81d9588819b",
+                            // remove this
+                          // walletAdd: Provider.of<MetaMaskProvider>(context, listen: false).walletAddress!,
+                          limit: 2
                         ),
-                        
-                        // SizedBox(height: 12,),
-                        GenerateNoodlButton(),
-                        HeadingWidget(
-                          heading: 'Community Noodls',
-                          subHeading: 'Community Noodls refer to popular learning paths previously generated by other users.'
-                        ),
-                        FutureBuilder(
-                          future: APIservice.getCommunityNoodls(),
-                          builder: (context, snapshot) {
-                            return snapshot.hasData?
-                              Column(
-                                mainAxisSize: MainAxisSize.min,
-                                children: [
-                                  ...snapshot.data.map((e)=>NoodlButton(data: e)),
-                                  SizedBox(height: 12,),
-                                  Consumer<MetaMaskProvider>(
-                                    builder: (context, provider, child) => 
-                                    ViewAllNoodlsButton(
-                                      text: "Logout",
-                                      onTap: () {
-                                        provider.disconnect();
-                                        // Navigator.of(context).pushReplacement(MaterialPageRoute(builder: (context) => LoginPage(),));
-                                      },
+                        builder: (context, snapshot) {
+                          return snapshot.hasData && (snapshot.data! as List).isNotEmpty?
+                            Column(
+                              mainAxisSize: MainAxisSize.min,
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Row(
+                                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    HeadingWidget(
+                                      heading: 'Your Noodls',
+                                      subHeading: 'Your learning paths appear here.'
                                     ),
-                                  ),
-                                  SizedBox(height: 12,),
-                                ],
-                              ) : CupertinoActivityIndicator();
-                          },
-                        )
-                        // NoodlButton(
-                        //   data: NoodlModel(createdAt: "createdAt", description: description, id: 1, title: title, totalLevels: 1),
-                        //   title: '🚗 Driving License in India',
-                        //   description: "A user-generated learning path about Driving License in India.",
-                        // ),
-                        // NoodlButton(
-                        //   title: '🥮 How to bake a chocolate chip cake without oven?',
-                        //   description: "A user-generated learning path about how to bake a chocolate chip cake without oven?.",
-                        // ),
-                        // NoodlButton(
-                        //   title: '🏁 Things to consider before going to n\u00fcrburgring track.',
-                        //   description: "A user-generated learning path about Things to consider before going to n\u00fcrburgring track..",
-                        // ),
-                        // NoodlButton(
-                        //   title: '🌱 How is Photosynthesis done?',
-                        //   description: "A user-generated learning path about How is Photosynthesis done?.",
-                        // ),
-                        // NoodlButton(
-                        //   title: '🏎️ Things to consider before going to nordschleife track.',
-                        //   description: "A user-generated learning path about Things to consider before going to nordschleife track..",
-                        // ),
-                      ],
-                    ),
+                                    ViewAllNoodlsButton(
+                                      onTap: () => Navigator.of(context).push(MaterialPageRoute(builder: (context) => UserNoodlsPage(),)),
+                                    )
+                                  ],
+                                ),
+                                ...snapshot.data.map((e)=>NoodlButton(data: e)),
+                                // ShowAllNoodlsButton()
+                              ],
+                            ) : Column(
+                              mainAxisSize: MainAxisSize.min,
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                HeadingWidget(
+                                  heading: 'Your Noodls',
+                                  subHeading: 'Your learning paths appear here.'
+                                ),
+                                EmptyYourNoodls(),
+                              ],
+                            );
+                        },
+                      ),
+                      
+                      // SizedBox(height: 12,),
+                      GenerateNoodlWidget(),
+                      HeadingWidget(
+                        heading: 'Community Noodls',
+                        subHeading: 'Community Noodls refer to popular learning paths previously generated by other users.'
+                      ),
+                      FutureBuilder(
+                        future: APIservice.getCommunityNoodls(),
+                        builder: (context, snapshot) {
+                          return snapshot.hasData?
+                            Column(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                ...snapshot.data.map((e)=>NoodlButton(data: e)),
+                                SizedBox(height: 12,),
+                                SizedBox(height: 12,),
+                              ],
+                            ) : CupertinoActivityIndicator();
+                        },
+                      )
+                    ],
                   ),
-                ],
-              ),
+                ),
+              ],
             ),
           ),
           Topbar(
             rightIcon: CupertinoIcons.line_horizontal_3,
             rightOnTap: () {
-              
+              showBottomOptionsDialog(context: context);
             },
+            searchIcon: CupertinoIcons.search,
+            searchOnTap: () => Navigator.of(context).push(MaterialPageRoute(builder: (context) => SearchPage(),)),
           )
         ],
       ),

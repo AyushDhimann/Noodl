@@ -1,3 +1,5 @@
+import 'dart:ffi';
+
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 import 'package:frontend/constants/colors.dart' as appColors;
@@ -45,7 +47,7 @@ class NoodleGeneratorWidget extends StatelessWidget {
             ),
             SizedBox(height: 5,),
             Text(
-              'Enter a topic or skill you wish to learn—for example, ‘Introduction to Web3’ or ‘Machine Learning with Python’. Please avoid inappropriate content to ensure a meaningful learning experience.',
+              'Enter a topic or skill you wish to learn—for example, ‘Introduction to Web3’ or ‘Machine Learning with Python’. Please avoid inappropriate content to ensure a meaningful learning experience.\nNot sure what to search? Tap "I’m Feeling Lucky" and we’ll pick a topic for you!',
               style: TextStyle(
                 fontFamily: 'NSansL',
                 color: appColors.white.withOpacity(0.8),
@@ -53,29 +55,62 @@ class NoodleGeneratorWidget extends StatelessWidget {
               ),
             ),
             SizedBox(height: 12,),
-            GeneratorTextfeild(textEditingController: generatePageprovider.generatorTextEditingController,),
+            Stack(
+              alignment: Alignment.center,
+              children: [
+                GeneratorTextfeild(textEditingController: generatePageprovider.generatorTextEditingController,),
+                generatePageprovider.isRandomTopicLoading?
+                Container(
+                  padding: EdgeInsets.all(5),
+                  decoration: BoxDecoration(
+                    color: appColors.grey,
+                    borderRadius: BorderRadius.all(Radius.circular(100))
+                  ),
+                  child: CupertinoActivityIndicator(
+                    color: appColors.white,
+                  )):SizedBox.shrink(),
+              ],
+            ),
             SizedBox(height: 12,),
-            GenerateButton(
-              onTap: () async{
-                FocusScope.of(context).unfocus();
-                generatePageprovider.initialLoadingTrue();
-                dynamic response = await APIservice.generateNoodle(
-                  prompt: generatePageprovider.generatorTextEditingController.text,
-                  walletAdd: metaMaskProvider.walletAddress
-                  ??"0x718fafb76e1631f5945bf58104f3b81d9588819b",
-                  // user_wallet_id: "0x718fafb76e1631f5945bf58104f3b81d9588819b"
-                );
-                generatePageprovider.initialLoadingFalse();
-                response['message'] != 'E'?
-                  generatePageprovider.setGeneratingTaskID(response['task_id'])
-                    :null;
-                print(generatePageprovider.generatingTaskID);
-                
-              },
-              // onTap: () {
-              //   print(metaMaskProvider.walletAddress!);
-              //   print(generatePageprovider.generatorTextEditingController.text);
-              // },
+            SingleChildScrollView(
+              child: Row(
+                mainAxisAlignment: MainAxisAlignment.end,
+                children: [
+                  GenerateButton(
+                    altStyling: true,
+                    text: 'I\'m feeling lucky',
+                    onTap: () async{
+                      generatePageprovider.setRandomTopicLoadingTrue();
+                      String? topic = await APIservice.fetchRandomTopic();
+                      generatePageprovider.setATopicInGenerationFeild(topic!);
+                      generatePageprovider.setRandomTopicLoadingFalse();
+                    },
+                  ),
+                  SizedBox(width: 8,),
+                  GenerateButton(
+                    onTap: () async{
+                      FocusScope.of(context).unfocus();
+                      generatePageprovider.initialLoadingTrue();
+                      dynamic response = await APIservice.generateNoodle(
+                        prompt: generatePageprovider.generatorTextEditingController.text,
+                        walletAdd: metaMaskProvider.walletAddress!
+                        // ??"0x718fafb76e1631f5945bf58104f3b81d9588819b",
+                        // user_wallet_id: "0x718fafb76e1631f5945bf58104f3b81d9588819b"
+                      );
+                      generatePageprovider.initialLoadingFalse();
+                      response['message'] != 'E'?
+                        generatePageprovider.setGeneratingTaskID(response['task_id'])
+                          :null;
+                      print(generatePageprovider.generatingTaskID);
+                      
+                    },
+                    // onTap: () {
+                    //   print(metaMaskProvider.walletAddress!);
+                    //   print(generatePageprovider.generatorTextEditingController.text);
+                    // },
+                  ),
+                ],
+              ),
             )
           ],
         ),

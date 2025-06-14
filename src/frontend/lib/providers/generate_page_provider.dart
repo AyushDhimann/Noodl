@@ -55,4 +55,20 @@ class GeneratePageProvider extends ChangeNotifier{
 
   TextEditingController generatorTextEditingController = TextEditingController();
 
+  setATopicInGenerationFeild(String topic){
+    generatorTextEditingController.text = topic;
+    notifyListeners();
+  }
+
+  bool isRandomTopicLoading = false;
+
+  void setRandomTopicLoadingTrue(){
+    isRandomTopicLoading = true;
+    notifyListeners();
+  }
+  void setRandomTopicLoadingFalse(){
+    isRandomTopicLoading = false;
+    notifyListeners();
+  }
+
 }

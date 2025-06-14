@@ -8,8 +8,10 @@ class Topbar extends StatelessWidget {
   final VoidCallback? leftOnTap;
   final IconData? rightIcon;
   final VoidCallback? rightOnTap;
+  final IconData? searchIcon;
+  final VoidCallback? searchOnTap;
 
-  const Topbar({super.key, this.leftIcon, this.leftOnTap, this.rightIcon, this.rightOnTap});
+  const Topbar({super.key, this.leftIcon, this.leftOnTap, this.rightIcon, this.rightOnTap, this.searchIcon, this.searchOnTap});
 
   @override
   Widget build(BuildContext context) {
@@ -32,9 +34,19 @@ class Topbar extends StatelessWidget {
               onTap: leftOnTap,
             ),
 
-          TopbarButton(
-            icon: rightIcon,
-            onTap: rightOnTap,
+          Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              TopbarButton(
+                icon: searchIcon,
+                onTap: searchOnTap,
+              ),
+              SizedBox(width: 8,),
+              TopbarButton(
+                icon: rightIcon,
+                onTap: rightOnTap,
+              ),
+            ],
           )
         ],
       ),
