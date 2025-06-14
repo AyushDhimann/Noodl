@@ -318,26 +318,28 @@ def get_level_score(user_wallet, path_id, level_index):
 
 def get_user_scores(user_id):
     """
-    Aggregates scores for a user across all their learning paths.
+    Aggregates scores for a user across all their learning paths they have started.
     """
-    res = supabase_client.table('level_progress').select(
-        'correct_answers, total_questions, user_progress(path_id, learning_paths(title))'
-    ).eq('user_progress.user_id', user_id).execute()
+    # FIX: Query starts from user_progress to include all started paths, even those
+    # without quiz scores yet.
+    res = supabase_client.table('user_progress').select(
+        'path_id, learning_paths(title), level_progress(correct_answers, total_questions)'
+    ).eq('user_id', user_id).execute()
 
     if not res.data:
         return []
 
     path_scores = {}
-    for record in res.data:
-        if not record.get('user_progress') or not record['user_progress'].get('path_id'):
+    # The structure of res.data will be a list of user_progress records.
+    for progress_record in res.data:
+        path_id = progress_record.get('path_id')
+        if not path_id:
             continue
 
-        progress_data = record['user_progress']
-        path_id = progress_data['path_id']
-
-        path_info = progress_data.get('learning_paths') or {}
+        path_info = progress_record.get('learning_paths') or {}
         path_title = path_info.get('title', f'Deleted Path ({path_id})')
 
+        # Initialize the dict for this path
         if path_id not in path_scores:
             path_scores[path_id] = {
                 "path_id": path_id,
@@ -346,9 +348,13 @@ def get_user_scores(user_id):
                 "total_questions_answered": 0
             }
 
-        path_scores[path_id]["correct_answers"] += record.get('correct_answers', 0)
-        path_scores[path_id]["total_questions_answered"] += record.get('total_questions', 0)
+        # Aggregate scores from nested level_progress records for this path
+        level_progress_list = progress_record.get('level_progress', [])
+        for level_score in level_progress_list:
+            path_scores[path_id]["correct_answers"] += level_score.get('correct_answers', 0)
+            path_scores[path_id]["total_questions_answered"] += level_score.get('total_questions', 0)
 
+    # The rest of the function for calculating percentage is the same.
     final_scores = []
     for path_id, scores in path_scores.items():
         total = scores['total_questions_answered']
@@ -430,8 +436,6 @@ def get_level_completion_status(user_wallet, path_id, level_index):
     }).execute()
 
     return res.data
-
-
 # --- NFT Functions ---
 def save_user_nft(user_wallet, path_id, token_id, contract_address, metadata_url, image_gateway_url):
     """Saves a record of a minted NFT for a user."""
