@@ -9,105 +9,133 @@ import 'package:frontend/widgets/common/topbar.dart';
 import 'package:frontend/widgets/levels_page/level_widget.dart';
 import 'package:frontend/widgets/quiz/results_page_button.dart';
 
-class LevelsPage extends StatelessWidget {
+class LevelsPage extends StatefulWidget {
   final NoodlModel noodlModel;
   const LevelsPage({super.key, required this.noodlModel});
 
   @override
+  State<LevelsPage> createState() => _LevelsPageState();
+}
+
+class _LevelsPageState extends State<LevelsPage> {
+  late Future<CoreNoodleDataModel?> _futureNoodlData;
+
+  @override
+  void initState() {
+    super.initState();
+    _futureNoodlData = _fetchNoodlData();
+  }
+
+  Future<CoreNoodleDataModel?> _fetchNoodlData() async {
+    return await APIservice.fetchLevelsFromNoodl(pathID: widget.noodlModel.id);
+  }
+
+  Future<void> _refresh() async {
+    setState(() {
+      _futureNoodlData = _fetchNoodlData();
+    });
+  }
+
+  @override
   Widget build(BuildContext context) {
     EdgeInsets dp = MediaQuery.of(context).padding;
-    Size size = MediaQuery.of(context).size;
+
     return Scaffold(
       backgroundColor: appColors.bgColor,
       body: Stack(
         children: [
           Padding(
-            padding: EdgeInsetsGeometry.symmetric(horizontal: 12),
-            child: SingleChildScrollView(
-              physics: BouncingScrollPhysics(),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.center,
-                children: [
-                  SizedBox(height: dp.top + 60 + 12),
-                  Text(
-                    noodlModel.title,
-                    style: TextStyle(
-                      fontFamily: 'NSansB',
-                      fontSize: 22,
-                      color: appColors.white,
+            padding: const EdgeInsets.symmetric(horizontal: 12),
+            child: RefreshIndicator(
+              edgeOffset: dp.top + 70,
+              displacement: 20,
+              color: appColors.primary,
+              elevation: 0,
+              onRefresh: _refresh,
+              child: SingleChildScrollView(
+                physics: const AlwaysScrollableScrollPhysics(),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.center,
+                  children: [
+                    SizedBox(height: dp.top + 60 + 12),
+                    Text(
+                      widget.noodlModel.title,
+                      style: TextStyle(
+                        fontFamily: 'NSansB',
+                        fontSize: 22,
+                        color: appColors.white,
+                      ),
                     ),
-                  ),
-                  // SizedBox(height: 5,),
-                  // Align(
-                  //   alignment: Alignment.centerLeft,
-                  //   child: Text(
-                  //     '#${noodlModel.id}',
-                  //     style: TextStyle(
-                  //       color: appColors.primary.withOpacity(1),
-                  //       fontFamily: 'NSansB',
-                  //       fontSize: 16
-                  //     ),
-                  //   ),
-                  // ),
-                  SizedBox(height: 5),
-                  noodlModel.isComplete != null && noodlModel.isComplete!
-                      ? Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          mainAxisSize: MainAxisSize.min,
-                          children: [
-                            Text(
-                              "😌Already done with this Noodl! Wanna flex? Check your NFT on the NFTs page below.",
-                              style: TextStyle(
-                                color: appColors.white.withOpacity(0.75),
-                                fontFamily: 'NSansL',
-                                fontSize: 14,
-                              ),
-                            ),
-                            ResultsPageButton(
-                              text: 'To My NFT Stash',
-                              onTap: () => Navigator.of(context).push(
-                                MaterialPageRoute(
-                                  builder: (context) => NftPage(),
+                    SizedBox(height: 5),
+                    widget.noodlModel.isComplete != null &&
+                            widget.noodlModel.isComplete!
+                        ? Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              Text(
+                                "😌Already done with this Noodl! Wanna flex? Check your NFT on the NFTs page below.",
+                                style: TextStyle(
+                                  color: appColors.white.withOpacity(0.75),
+                                  fontFamily: 'NSansL',
+                                  fontSize: 14,
                                 ),
                               ),
-                            ),
-                          ],
-                        )
-                      : FutureBuilder(
-                          future: APIservice.fetchLevelsFromNoodl(
-                            pathID: noodlModel.id,
+                              ResultsPageButton(
+                                text: 'To My NFT Stash',
+                                onTap: () => Navigator.of(context).push(
+                                  MaterialPageRoute(
+                                    builder: (context) => const NftPage(),
+                                  ),
+                                ),
+                              ),
+                            ],
+                          )
+                        : FutureBuilder<CoreNoodleDataModel?>(
+                            future: _futureNoodlData,
+                            builder: (context, snapshot) {
+                              if (snapshot.connectionState ==
+                                  ConnectionState.waiting) {
+                                return const Padding(
+                                  padding: EdgeInsets.only(top: 24),
+                                  child: CupertinoActivityIndicator(),
+                                );
+                              }
+
+                              if (!snapshot.hasData || snapshot.data == null) {
+                                return const Padding(
+                                  padding: EdgeInsets.only(top: 24),
+                                  child: Text(
+                                    "Something went wrong. Please try again.",
+                                    style: TextStyle(color: Colors.white),
+                                  ),
+                                );
+                              }
+
+                              final noodlData = snapshot.data!;
+                              return Column(
+                                mainAxisSize: MainAxisSize.min,
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Text(
+                                    noodlData.longDescription,
+                                    style: TextStyle(
+                                      color: appColors.white.withOpacity(0.75),
+                                      fontFamily: 'NSansL',
+                                      fontSize: 14,
+                                    ),
+                                  ),
+                                  const SizedBox(height: 12),
+                                  ...noodlData.levels.map(
+                                    (levelModel) =>
+                                        LevelWidget(data: levelModel),
+                                  ),
+                                ],
+                              );
+                            },
                           ),
-                          builder: (context, snapshot) {
-                            return snapshot.hasData
-                                ? Column(
-                                    mainAxisSize: MainAxisSize.min,
-                                    crossAxisAlignment:
-                                        CrossAxisAlignment.start,
-                                    children: [
-                                      Text(
-                                        snapshot.data!.longDescription,
-                                        style: TextStyle(
-                                          color: appColors.white.withOpacity(
-                                            0.75,
-                                          ),
-                                          fontFamily: 'NSansL',
-                                          fontSize: 14,
-                                        ),
-                                      ),
-                                      SizedBox(height: 12),
-                                      ...snapshot.data!.levels.map(
-                                        (levelModel) =>
-                                            LevelWidget(data: levelModel),
-                                      ),
-                                    ],
-                                  )
-                                : Padding(
-                                    padding: const EdgeInsets.only(top: 24),
-                                    child: CupertinoActivityIndicator(),
-                                  );
-                          },
-                        ),
-                ],
+                  ],
+                ),
               ),
             ),
           ),

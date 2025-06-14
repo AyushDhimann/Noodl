@@ -4,6 +4,7 @@ import 'package:frontend/providers/metamask_provider.dart';
 import 'package:frontend/services/services.dart';
 import 'package:frontend/widgets/common/topbar.dart';
 import 'package:frontend/constants/colors.dart' as appColors;
+import 'package:frontend/widgets/home/empty_your_noodls.dart';
 import 'package:frontend/widgets/nft_page/nft_display_widget.dart';
 import 'package:provider/provider.dart';
 
@@ -69,14 +70,16 @@ class NftPage extends StatelessWidget {
                         builder: (context, snapshot) {
                           if(snapshot.hasData){
                             print(snapshot.data!);
-                            return Column(
+                            return snapshot.data!.isEmpty? EmptyYourNoodls(text: 'You haven’t earned any NFTs yet. Finish a Noodl to get started!',):
+                            Column(
                               mainAxisSize: MainAxisSize.min,
                               children: [
-                                ...snapshot.data!.map((e) => NftDisplayWidget(data: e),)
+                                ...snapshot.data!.map((e) => NftDisplayWidget(data: e),),
+                                SizedBox(height: dp.bottom,)
                               ],
                             );
                           }
-                          return CupertinoActivityIndicator();
+                          return Center(child: CupertinoActivityIndicator());
                         },
                       ),
                     ],

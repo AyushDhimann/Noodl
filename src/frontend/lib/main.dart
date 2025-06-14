@@ -6,6 +6,7 @@ import 'package:frontend/pages/login.dart';
 import 'package:frontend/pages/onboarding_page.dart';
 import 'package:frontend/pages/quiz.dart';
 import 'package:frontend/providers/generate_page_provider.dart';
+import 'package:frontend/providers/login_page_provider.dart';
 import 'package:frontend/providers/metamask_provider.dart';
 import 'package:frontend/providers/search_page_provider.dart';
 import 'package:frontend/providers/quiz_page_provider.dart';
@@ -28,21 +29,25 @@ class MyApp extends StatelessWidget {
     SystemChrome.setSystemUIOverlayStyle(
       const SystemUiOverlayStyle(statusBarColor: Colors.transparent),
     );
+
     return MultiProvider(
       providers: [
         ChangeNotifierProvider(create: (_) => QuizPageProvider()),
         ChangeNotifierProvider(create: (_) => GeneratePageProvider()),
         ChangeNotifierProvider(create: (_) => MetaMaskProvider()),
         ChangeNotifierProvider(create: (_) => SearchPageProvider()),
+        ChangeNotifierProvider(create: (_) => LoginPageProvider()),
       ],
       child: MaterialApp(
         debugShowCheckedModeBanner: false,
         theme: ThemeData.dark(useMaterial3: true),
         home: Consumer<MetaMaskProvider>(
           builder: (context, provider, _) {
-            if (provider.isConnected) {
-              return FutureBuilder<dynamic>(
-                future: APIservice.fetchUserNameCountry(walletAdd: provider.walletAddress!),
+            if (provider.isConnected && provider.walletAddress != null) {
+              return FutureBuilder(
+                future: APIservice.fetchUserNameCountry(
+                  walletAdd: provider.walletAddress!,
+                ),
                 builder: (context, snapshot) {
                   if (snapshot.connectionState == ConnectionState.waiting) {
                     return Scaffold(
@@ -61,6 +66,7 @@ class MyApp extends StatelessWidget {
             }
           },
         ),
+        // home: OnboardingPage(),
       ),
     );
   }

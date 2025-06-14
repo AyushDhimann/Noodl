@@ -146,6 +146,7 @@ class MetaMaskProvider extends ChangeNotifier {
 
     _session = null;
     _account = null;
+    notifyListeners();
     _isConnected = false;
     _isConnecting = false;
     _onboardingComplete = false;

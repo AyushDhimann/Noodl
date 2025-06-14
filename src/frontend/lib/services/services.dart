@@ -3,6 +3,7 @@
 import 'dart:convert';
 import 'dart:math';
 
+import 'package:frontend/constants/env.dart';
 import 'package:frontend/models/core_level_model.dart';
 import 'package:frontend/models/full_level_content_model.dart';
 import 'package:frontend/models/noodl_model.dart';
@@ -13,7 +14,7 @@ import 'package:http/http.dart' as http;
 class APIservice {
   static Future<dynamic> getLevel(int learningPathID, int level) async {
     Uri url = Uri.parse(
-      'http://1725364.xyz:5000/paths/$learningPathID/levels/$level',
+      '$baseURL/paths/$learningPathID/levels/$level',
     );
 
     final response = await http.get(url);
@@ -26,7 +27,7 @@ class APIservice {
     required String prompt,
     required String walletAdd,
   }) async {
-    Uri url = Uri.parse('http://1725364.xyz:5000/paths/generate');
+    Uri url = Uri.parse('$baseURL/paths/generate');
     try {
       final response = await http.post(
         url,
@@ -47,7 +48,7 @@ class APIservice {
     required String taskID,
   }) async {
     Uri url = Uri.parse(
-      'http://1725364.xyz:5000/paths/generate/status/$taskID',
+      '$baseURL/paths/generate/status/$taskID',
     );
     final response = await http.get(url);
     // print("progress");
@@ -57,7 +58,7 @@ class APIservice {
   }
 
   static Future<dynamic> getCommunityNoodls() async {
-    Uri url = Uri.parse('http://1725364.xyz:5000/paths');
+    Uri url = Uri.parse('$baseURL/paths');
     List<NoodlModel> results = [];
     try {
       final response = await http.get(url);
@@ -85,7 +86,7 @@ class APIservice {
     required String walletAdd,
     int limit = -1,
   }) async {
-    Uri url = Uri.parse('http://1725364.xyz:5000/users/$walletAdd/paths');
+    Uri url = Uri.parse('$baseURL/users/$walletAdd/paths');
     List<NoodlModel> results = [];
     try {
       final response = await http.get(url);
@@ -113,7 +114,7 @@ class APIservice {
   static Future<CoreNoodleDataModel?> fetchLevelsFromNoodl({
     required int pathID,
   }) async {
-    Uri url = Uri.parse('http://1725364.xyz:5000/paths/$pathID');
+    Uri url = Uri.parse('$baseURL/paths/$pathID');
     try {
       final response = await http.get(url);
 
@@ -135,7 +136,7 @@ class APIservice {
     required int levelID,
   }) async {
     final Uri url = Uri.parse(
-      'http://1725364.xyz:5000/paths/$pathID/levels/$levelID',
+      '$baseURL/paths/$pathID/levels/$levelID',
     );
     try {
       final response = await http.get(url);
@@ -156,7 +157,7 @@ class APIservice {
   static Future<dynamic> fetchUserNameCountry({
     required String walletAdd,
   }) async {
-    final Uri url = Uri.parse('http://1725364.xyz:5000/users/$walletAdd');
+    final Uri url = Uri.parse('$baseURL/users/$walletAdd');
     try {
       final response = await http.get(url);
       if (response.statusCode == 200 || response.statusCode == 404) {
@@ -180,7 +181,7 @@ class APIservice {
     required int correctAnswers,
     required int totalQuestions,
   }) async {
-    final Uri url = Uri.parse('http://1725364.xyz:5000/progress/level');
+    final Uri url = Uri.parse('$baseURL/progress/level');
     try {
       final response = await http.post(
         url,
@@ -209,7 +210,7 @@ class APIservice {
     required int pathID,
     required String walletAdd,
   }) async {
-    final Uri url = Uri.parse('http://1725364.xyz:5000/paths/$pathID/complete');
+    final Uri url = Uri.parse('$baseURL/paths/$pathID/complete');
     try {
       final response = await http.post(
         url,
@@ -230,7 +231,7 @@ class APIservice {
   static Future<List<UserNftModel>> fetchUserNFTs({
     required String walletAdd,
   }) async {
-    final Uri url = Uri.parse('http://1725364.xyz:5000/nfts/$walletAdd');
+    final Uri url = Uri.parse('$baseURL/nfts/$walletAdd');
     List<UserNftModel> results = [];
     try {
       final response = await http.get(url);
@@ -263,11 +264,31 @@ class APIservice {
     required int pathID,
   }) async {
     final Uri url = Uri.parse(
-      'http://1725364.xyz:5000/progress/path/$pathID/$walletAdd/completed',
+      '$baseURL/progress/path/$pathID/$walletAdd/completed',
     );
     try {
       final response = await http.get(url);
       if (response.statusCode == 200) {
+        return jsonDecode(response.body)['is_complete'];
+      }
+    } catch (e) {
+      print('ERR @ isNoodlComp: $e');
+    }
+    return false;
+  }
+
+  static Future<bool> isLevelComplete({
+    required String walletAdd,
+    required int pathID,
+    required int levelIndex,
+  }) async {
+    final Uri url = Uri.parse(
+      '$baseURL/progress/level/$pathID/$levelIndex/$walletAdd/completed',
+    );
+    try {
+      final response = await http.get(url);
+      if (response.statusCode == 200) {
+        print('$pathID $levelIndex complete?: ${jsonDecode(response.body)['is_complete']}');
         return jsonDecode(response.body)['is_complete'];
       }
     } catch (e) {
@@ -282,7 +303,7 @@ class APIservice {
     if (query.length < 2) return [];
 
     final uri = Uri.parse(
-      'http://1725364.xyz:5000/search?q=${Uri.encodeComponent(query)}',
+      '$baseURL/search?q=${Uri.encodeComponent(query)}',
     );
     final res = await http.get(uri);
 
@@ -298,7 +319,7 @@ class APIservice {
   static Future<String?> fetchRandomTopic() async {
     try {
       final response = await http.get(
-        Uri.parse('http://1725364.xyz:5000/paths/random-topic'),
+        Uri.parse('$baseURL/paths/random-topic'),
         headers: {'Content-Type': 'application/json'},
       );
 

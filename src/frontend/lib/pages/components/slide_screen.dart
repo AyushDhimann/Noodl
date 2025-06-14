@@ -52,17 +52,31 @@ class SlideScreen extends StatelessWidget {
               data: data.content,
               padding: EdgeInsets.zero,
               styleSheet: MarkdownStyleSheet(
+                h2: TextStyle(
+                  fontFamily: 'NSansB',
+                  fontSize: 22,
+                  color: appColors.white
+                ),
+                h1: TextStyle(
+                  fontFamily: 'NSansB',
+                  fontSize: 22,
+                  color: appColors.white
+                ),
                 h3: TextStyle(
                   fontFamily: 'NSansB',
-                  fontSize: 22
+                  fontSize: 22,
+                  color: appColors.white
                 ),
                 p: TextStyle(
                   fontFamily: 'NSansL',
                   fontSize: 16,
+                  color: appColors.white,
+                  backgroundColor: appColors.black
                 ),
                 strong: TextStyle(
                   fontFamily: 'NSansB',
                   fontSize: 16,
+                  color: appColors.white
                 ),
                 code: TextStyle(
                   fontFamily: 'MonolisaRI',

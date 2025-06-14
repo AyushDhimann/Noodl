@@ -121,7 +121,7 @@ class NftDisplayWidget extends StatelessWidget {
                 Row(
                   children: [
                     SelectableText(
-                      '${data.tokenID}',
+                      data.tokenID.toString(),
                       maxLines: 1,
                       style: TextStyle(
                         color: appColors.white.withOpacity(0.7),
@@ -133,7 +133,7 @@ class NftDisplayWidget extends StatelessWidget {
                     SizedBox(width: 5,),
                     GestureDetector(
                       onTap: () {
-                        
+                        copyToCliboard(context: context, copyThis: data.tokenID.toString());
                       },
                       child: Icon(
                         CupertinoIcons.square_fill_on_square_fill,

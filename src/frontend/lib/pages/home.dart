@@ -32,29 +32,27 @@ class HomePage extends StatelessWidget {
             displacement: 20,
             color: appColors.primary,
             elevation: 0,
-            onRefresh: () async{
+            onRefresh: () async {
               await Future.delayed(Duration(seconds: 1));
-              
-              context.mounted?
-                Navigator.of(context)
-                  .pushReplacement(
-                    PageRouteBuilder(
-                      pageBuilder: (context, a1, a2) 
-                        => HomePage(),
+
+              context.mounted
+                  ? Navigator.of(context).pushReplacement(
+                      PageRouteBuilder(
+                        pageBuilder: (context, a1, a2) => HomePage(),
                         transitionDuration: Duration.zero,
-                        reverseTransitionDuration: Duration.zero
-                        )
-                      )
-                    :null;
+                        reverseTransitionDuration: Duration.zero,
+                      ),
+                    )
+                  : null;
               return;
-              },
+            },
 
             child: ListView(
               padding: EdgeInsets.zero,
               // crossAxisAlignment: CrosAxisAlignment.center,
               children: [
-                SizedBox(height: dp.top + 60,),
-                SizedBox(height: 12,),
+                SizedBox(height: dp.top + 60),
+                SizedBox(height: 12),
                 Padding(
                   padding: const EdgeInsets.symmetric(horizontal: 12),
                   child: Column(
@@ -64,68 +62,89 @@ class HomePage extends StatelessWidget {
                       // SizedBox(height: 12,),
                       FutureBuilder(
                         future: APIservice.getUserNoodls(
-                          walletAdd: Provider.of<MetaMaskProvider>(context, listen: false).walletAddress!,
-                            // ??"0x718fafb76e1631f5945bf58104f3b81d9588819b",
-                            // remove this
+                          walletAdd: Provider.of<MetaMaskProvider>(
+                            context,
+                            listen: false,
+                          ).walletAddress!,
+                          // ??"0x718fafb76e1631f5945bf58104f3b81d9588819b",
+                          // remove this
                           // walletAdd: Provider.of<MetaMaskProvider>(context, listen: false).walletAddress!,
-                          limit: 2
+                          limit: 2,
                         ),
                         builder: (context, snapshot) {
-                          return snapshot.hasData && (snapshot.data! as List).isNotEmpty?
-                            Column(
-                              mainAxisSize: MainAxisSize.min,
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                Row(
-                                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                          return snapshot.hasData &&
+                                  (snapshot.data! as List).isNotEmpty
+                              ? Column(
+                                  mainAxisSize: MainAxisSize.min,
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    Row(
+                                      mainAxisAlignment:
+                                          MainAxisAlignment.spaceBetween,
+                                      crossAxisAlignment:
+                                          CrossAxisAlignment.start,
+                                      children: [
+                                        HeadingWidget(
+                                          heading: 'Your Noodls',
+                                          subHeading:
+                                              'Your learning paths appear here.',
+                                        ),
+                                        ViewAllNoodlsButton(
+                                          onTap: () =>
+                                              Navigator.of(context).push(
+                                                MaterialPageRoute(
+                                                  builder: (context) =>
+                                                      UserNoodlsPage(),
+                                                ),
+                                              ),
+                                        ),
+                                      ],
+                                    ),
+                                    ...snapshot.data.map(
+                                      (e) => NoodlButton(data: e),
+                                    ),
+                                    // ShowAllNoodlsButton()
+                                  ],
+                                )
+                              : Column(
+                                  mainAxisSize: MainAxisSize.min,
                                   crossAxisAlignment: CrossAxisAlignment.start,
                                   children: [
                                     HeadingWidget(
                                       heading: 'Your Noodls',
-                                      subHeading: 'Your learning paths appear here.'
+                                      subHeading:
+                                          'Your learning paths appear here.',
                                     ),
-                                    ViewAllNoodlsButton(
-                                      onTap: () => Navigator.of(context).push(MaterialPageRoute(builder: (context) => UserNoodlsPage(),)),
-                                    )
+                                    EmptyYourNoodls(),
                                   ],
-                                ),
-                                ...snapshot.data.map((e)=>NoodlButton(data: e)),
-                                // ShowAllNoodlsButton()
-                              ],
-                            ) : Column(
-                              mainAxisSize: MainAxisSize.min,
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                HeadingWidget(
-                                  heading: 'Your Noodls',
-                                  subHeading: 'Your learning paths appear here.'
-                                ),
-                                EmptyYourNoodls(),
-                              ],
-                            );
+                                );
                         },
                       ),
-                      
+
                       // SizedBox(height: 12,),
                       GenerateNoodlWidget(),
                       HeadingWidget(
                         heading: 'Community Noodls',
-                        subHeading: 'Community Noodls refer to popular learning paths previously generated by other users.'
+                        subHeading:
+                            'Community Noodls refer to popular learning paths previously generated by other users.',
                       ),
                       FutureBuilder(
                         future: APIservice.getCommunityNoodls(),
                         builder: (context, snapshot) {
-                          return snapshot.hasData?
-                            Column(
-                              mainAxisSize: MainAxisSize.min,
-                              children: [
-                                ...snapshot.data.map((e)=>NoodlButton(data: e)),
-                                SizedBox(height: 12,),
-                                SizedBox(height: 12,),
-                              ],
-                            ) : CupertinoActivityIndicator();
+                          return snapshot.hasData
+                              ? Column(
+                                  mainAxisSize: MainAxisSize.min,
+                                  children: [
+                                    ...snapshot.data.map(
+                                      (e) => NoodlButton(data: e),
+                                    ),
+                                    SizedBox(height: 12),
+                                    SizedBox(height: 12),
+                                  ],
+                                )
+                              : Center(child: CupertinoActivityIndicator());
                         },
-                      )
+                      ),
                     ],
                   ),
                 ),
@@ -138,8 +157,10 @@ class HomePage extends StatelessWidget {
               showBottomOptionsDialog(context: context);
             },
             searchIcon: CupertinoIcons.search,
-            searchOnTap: () => Navigator.of(context).push(MaterialPageRoute(builder: (context) => SearchPage(),)),
-          )
+            searchOnTap: () => Navigator.of(
+              context,
+            ).push(MaterialPageRoute(builder: (context) => SearchPage())),
+          ),
         ],
       ),
     );

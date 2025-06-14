@@ -13,6 +13,7 @@ import 'package:frontend/pages/quiz.dart';
 import 'package:frontend/providers/metamask_provider.dart';
 import 'package:frontend/providers/quiz_page_provider.dart';
 import 'package:frontend/services/services.dart';
+import 'package:frontend/widgets/generate/starting_generation.dart';
 import 'package:frontend/widgets/levels_page/level_widget.dart';
 import 'package:frontend/widgets/quiz/info_dialog.dart';
 import 'package:frontend/widgets/quiz/quiz_options.dart';
@@ -36,7 +37,7 @@ class _ResultScreenState extends State<ResultScreen> {
   void initState() {
     super.initState();
 
-    WidgetsBinding.instance.addPostFrameCallback((_) async{
+    WidgetsBinding.instance.addPostFrameCallback((_) async {
       final quizProvider = Provider.of<QuizPageProvider>(
         context,
         listen: false,
@@ -56,8 +57,7 @@ class _ResultScreenState extends State<ResultScreen> {
 
       //  bool isNoodlComplete = await APIservice.isNoodlComplete(walletAdd: metaMaskProvider.walletAddress??'0x718fafb76e1631f5945bf58104f3b81d9588819b', pathID: widget.shortData.pathId);
     });
-
-}
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -104,6 +104,7 @@ class _ResultScreenState extends State<ResultScreen> {
                             alignment: Alignment.topRight,
                             children: [
                               LevelWidget(
+                                alwaysFullOpacity: true,
                                 nullOnTap: true,
                                 data: MiniLevelModel(
                                   createdAt: 'NA',
@@ -139,74 +140,123 @@ class _ResultScreenState extends State<ResultScreen> {
 
                           isLastLevel
                               ? Column(
-                                crossAxisAlignment: CrossAxisAlignment.start,
-                                children: [                                  FutureBuilder(
-                                    future: APIservice.mintNFT(
-                                      pathID: widget.shortData.pathId,
-                                      walletAdd: Provider.of<MetaMaskProvider>(context).walletAddress!
-                                      ),
-                                      builder: (context, snapshot) => snapshot.hasData?Text(
-                                      'Your NFT badge of honor is ready to be claimed.',
-                                      style: TextStyle(
-                                        fontFamily: 'NSansL',
-                                        color: appColors.white.withOpacity(0.75),
-                                        fontSize: 14,
-                                      ),
-                                    ):Padding(
-                                      padding: const EdgeInsets.only(top: 12),
-                                      child: CupertinoActivityIndicator(),
-                                    ),
-                                  ),
-                                  ResultsPageButton(
-                                    text: 'My NFTs',
-                                    onTap: (){
-                                      provider.zeroScore();
-                                      provider.setNoSelectedOption();
-                                      provider.setProgressBarZero();
-                                      provider.zeroScore();
-                                  
-                                      Navigator.of(context).pushReplacement(
-                                      MaterialPageRoute(builder: (context) => NftPage(),)
-                                    );}
-                                  ),
-                                ],
-                              )
-                              : Column(
-                                  mainAxisSize: MainAxisSize.min,
+                                  crossAxisAlignment: CrossAxisAlignment.start,
                                   children: [
-                                    widget.shortData.levelNumber ==
-                                    snapshot.data!.totalLevels?SizedBox.shrink():
+                                    FutureBuilder(
+                                      future: APIservice.mintNFT(
+                                        pathID: widget.shortData.pathId,
+                                        walletAdd:
+                                            Provider.of<MetaMaskProvider>(
+                                              context,
+                                            ).walletAddress!,
+                                      ),
+                                      builder: (context, snapshot) =>
+                                          snapshot.hasData
+                                          ? Column(
+                                              mainAxisSize: MainAxisSize.min,
+                                              crossAxisAlignment:
+                                                  CrossAxisAlignment.start,
+                                              children: [
+                                                Text(
+                                                  'Your NFT badge of honor is ready to be claimed.',
+                                                  style: TextStyle(
+                                                    fontFamily: 'NSansL',
+                                                    color: appColors.white
+                                                        .withOpacity(0.75),
+                                                    fontSize: 14,
+                                                  ),
+                                                ),
+                                                ResultsPageButton(
+                                                  text: 'My NFTs',
+                                                  onTap: () {
+                                                    provider.zeroScore();
+                                                    provider
+                                                        .setNoSelectedOption();
+                                                    provider
+                                                        .setProgressBarZero();
+                                                    provider.zeroScore();
+                                                    provider
+                                                        .zeroQuestionCount();
+
+                                                    Navigator.of(
+                                                      context,
+                                                    ).pushReplacement(
+                                                      MaterialPageRoute(
+                                                        builder: (context) =>
+                                                            NftPage(),
+                                                      ),
+                                                    );
+                                                  },
+                                                ),
+                                              ],
+                                            )
+                                          : Padding(
+                                            padding: const EdgeInsets.only(top: 12),
+                                            child: LoadingStartingGenerationWidget(),
+                                          ),
+                                    ),
                                     ResultsPageButton(
-                                      text:
-                                          'Lesson ${widget.shortData.levelNumber + 1}',
+                                      text: 'Home',
                                       onTap: () {
-                                        // add api endpoint to push score
                                         provider.zeroScore();
                                         provider.setNoSelectedOption();
                                         provider.setProgressBarZero();
                                         provider.zeroScore();
+                                        provider.zeroQuestionCount();
 
-                                        Navigator.of(context).pushReplacement(
-                                          MaterialPageRoute(
-                                            builder: (context) => QuizPage(
-                                              shortData:
-                                                  (snapshot.data!.levels)[widget
-                                                          .shortData
-                                                          .levelNumber +
-                                                      1 -
-                                                      1],
+                                        Navigator.of(context)
+                                          ..pop()
+                                          ..pushReplacement(
+                                            MaterialPageRoute(
+                                              builder: (context) => HomePage(),
                                             ),
-                                          ),
-                                        );
+                                          );
                                       },
                                     ),
+                                  ],
+                                )
+                              : Column(
+                                  mainAxisSize: MainAxisSize.min,
+                                  children: [
+                                    widget.shortData.levelNumber ==
+                                            snapshot.data!.totalLevels
+                                        ? SizedBox.shrink()
+                                        : ResultsPageButton(
+                                            text:
+                                                'Lesson ${widget.shortData.levelNumber + 1}',
+                                            onTap: () {
+                                              // add api endpoint to push score
+                                              provider.zeroScore();
+                                              provider.setNoSelectedOption();
+                                              provider.setProgressBarZero();
+                                              provider.zeroQuestionCount();
+
+                                              // provider.zeroQuestionCount();
+
+                                              Navigator.of(
+                                                context,
+                                              ).pushReplacement(
+                                                MaterialPageRoute(
+                                                  builder: (context) => QuizPage(
+                                                    shortData:
+                                                        (snapshot
+                                                            .data!
+                                                            .levels)[widget
+                                                                .shortData
+                                                                .levelNumber +
+                                                            1 -
+                                                            1],
+                                                  ),
+                                                ),
+                                              );
+                                            },
+                                          ),
                                     ResultsPageButton(
                                       text: 'All Lessons',
                                       onTap: () {
                                         provider.zeroScore();
                                         provider.setNoSelectedOption();
                                         provider.setProgressBarZero();
-                                        provider.zeroScore();
                                         Navigator.of(context).pop();
                                       },
                                     ),
@@ -217,7 +267,7 @@ class _ResultScreenState extends State<ResultScreen> {
                                         provider.zeroScore();
                                         provider.setNoSelectedOption();
                                         provider.setProgressBarZero();
-                                        provider.zeroScore();
+                                        provider.zeroQuestionCount();
                                         Navigator.of(context)
                                           ..pop()
                                           ..pushReplacement(

@@ -3,7 +3,8 @@ import 'package:frontend/constants/colors.dart' as appColors;
 
 class SearchTextfeild extends StatelessWidget {
   final TextEditingController? textEditingController;
-  const SearchTextfeild({super.key, this.textEditingController});
+  final String? hintText;
+  const SearchTextfeild({super.key, this.textEditingController, this.hintText});
 
   @override
   Widget build(BuildContext context) {
@@ -24,7 +25,7 @@ class SearchTextfeild extends StatelessWidget {
           ),
           decoration: InputDecoration(
           border: InputBorder.none,
-          hintText: "Type a topic like 'Law in India'",
+          hintText: hintText??"Type a topic like 'Law in India'",
           hintStyle: TextStyle(
             color: appColors.white.withOpacity(0.1),
             fontFamily: 'NSansL'

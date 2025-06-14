@@ -42,8 +42,15 @@ class _OnboardingPageState extends State<OnboardingPage> {
         });
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: const Text('Failed to save profile. Please try again.'),
-            backgroundColor: appColors.red,
+            content: Text(
+              'Failed to save profile. Please try again.',
+              style: TextStyle(
+                fontSize: 14, 
+                fontFamily: 'NSansM',
+                color: appColors.white
+              ),
+            ),
+            backgroundColor: appColors.grey,
           ),
         );
       }
@@ -63,66 +70,119 @@ class _OnboardingPageState extends State<OnboardingPage> {
   @override
   Widget build(BuildContext context) {
     Size size = MediaQuery.of(context).size;
+    EdgeInsets dp = MediaQuery.of(context).padding;
 
-    return Scaffold(
-      backgroundColor: appColors.bgColor,
-      body: Center(
-        child: SingleChildScrollView(
-          padding: const EdgeInsets.symmetric(horizontal: 24),
+    return GestureDetector(
+      onTap: () => FocusScope.of(context).unfocus(),
+      child: Scaffold(
+        backgroundColor: appColors.bgColor,
+        body: SingleChildScrollView(
+          padding: const EdgeInsets.symmetric(horizontal: 12),
           child: Form(
             key: _formKey,
             child: Column(
               mainAxisAlignment: MainAxisAlignment.center,
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
+                SizedBox(height: dp.top+12,),
                 Text(
-                  '👋 One last step...',
+                  'One More Thing...',
                   style: TextStyle(
-                      fontFamily: 'NSansB', fontSize: 28, color: appColors.white),
+                    fontFamily: 'NSansB',
+                    fontSize: 22,
+                    color: appColors.white,
+                  ),
                 ),
-                const SizedBox(height: 8),
+                SizedBox(height: 12,),
+                Container(
+                  width: size.width-24,
+                  height: (size.width-24)*0.5583,
+                  decoration: BoxDecoration(
+                    borderRadius: BorderRadius.all(Radius.circular(12.5)),
+                    image: DecorationImage(
+                      image: AssetImage('assets/images/one_more_thing.gif')
+                    )
+                  ),
+                ),
+                const SizedBox(height: 12),
                 Text(
                   'Please tell us a bit about yourself to complete your profile.',
                   style: TextStyle(
-                      fontFamily: 'NSansL', fontSize: 18, color: appColors.white.withOpacity(0.8)),
-                ),
-                const SizedBox(height: 40),
-                TextFormField(
-                  controller: _nameController,
-                  style: TextStyle(color: appColors.white, fontFamily: 'NSansM'),
-                  decoration: _inputDecoration('Your Name'),
-                  validator: (value) =>
-                  value == null || value.isEmpty ? 'Please enter your name' : null,
-                ),
-                const SizedBox(height: 20),
-                TextFormField(
-                  controller: _countryController,
-                  style: TextStyle(color: appColors.white, fontFamily: 'NSansM'),
-                  decoration: _inputDecoration('Your Country'),
-                  validator: (value) =>
-                  value == null || value.isEmpty ? 'Please enter your country' : null,
-                ),
-                const SizedBox(height: 40),
-                _isLoading
-                    ? Center(child: CircularProgressIndicator(color: appColors.primary))
-                    : Material(
-                  borderRadius: const BorderRadius.all(Radius.circular(12.5)),
-                  color: appColors.primary,
-                  child: InkWell(
-                    onTap: _submit,
-                    borderRadius: const BorderRadius.all(Radius.circular(12.5)),
-                    child: Container(
-                      height: 50,
-                      width: size.width - 48,
-                      alignment: Alignment.center,
-                      child: Text(
-                        'Complete Profile & Continue',
-                        style: TextStyle(
-                            color: appColors.black, fontSize: 16, fontFamily: 'NSansB'),
-                      ),
-                    ),
+                    fontFamily: 'NSansL',
+                    fontSize: 16,
+                    color: appColors.white.withOpacity(0.8),
                   ),
                 ),
+                const SizedBox(height: 12),
+                Container(
+                  padding: EdgeInsets.symmetric(horizontal: 12),
+                  decoration: BoxDecoration(
+                    color: appColors.white.withOpacity(0.08),
+                    borderRadius: BorderRadius.all(Radius.circular(10)),
+                  ),
+                  child: TextFormField(
+                    controller: _nameController,
+                    style: TextStyle(
+                      color: appColors.white,
+                      fontFamily: 'NSansM',
+                    ),
+                    decoration: _inputDecoration('Your Name'),
+                    validator: (value) => value == null || value.isEmpty
+                        ? 'Please enter your name'
+                        : null,
+                  ),
+                ),
+                const SizedBox(height: 12),
+                Container(
+                  padding: EdgeInsets.symmetric(horizontal: 12),
+                  decoration: BoxDecoration(
+                    color: appColors.white.withOpacity(0.08),
+                    borderRadius: BorderRadius.all(Radius.circular(10)),
+                  ),
+                  child: TextFormField(
+                    controller: _countryController,
+                    style: TextStyle(
+                      color: appColors.white,
+                      fontFamily: 'NSansM',
+                    ),
+                    decoration: _inputDecoration('Your Country'),
+                    validator: (value) => value == null || value.isEmpty
+                        ? 'Please enter your country'
+                        : null,
+                  ),
+                ),
+                const SizedBox(height: 24),
+                _isLoading
+                    ? Center(
+                        child: CircularProgressIndicator(
+                          color: appColors.primary,
+                        ),
+                      )
+                    : Material(
+                        borderRadius: const BorderRadius.all(
+                          Radius.circular(100),
+                        ),
+                        color: appColors.primary,
+                        child: InkWell(
+                          onTap: _submit,
+                          borderRadius: const BorderRadius.all(
+                            Radius.circular(100),
+                          ),
+                          child: Container(
+                            height: 50,
+                            width: size.width - 24,
+                            alignment: Alignment.center,
+                            child: Text(
+                              'Complete Profile & Continue',
+                              style: TextStyle(
+                                color: appColors.black,
+                                fontSize: 16,
+                                fontFamily: 'NSansM',
+                              ),
+                            ),
+                          ),
+                        ),
+                      ),
               ],
             ),
           ),
@@ -133,17 +193,12 @@ class _OnboardingPageState extends State<OnboardingPage> {
 
   InputDecoration _inputDecoration(String label) {
     return InputDecoration(
-      labelText: label,
-      labelStyle: TextStyle(color: appColors.white.withOpacity(0.5)),
-      filled: true,
-      fillColor: appColors.grey,
-      border: OutlineInputBorder(
-        borderRadius: BorderRadius.circular(12.5),
-        borderSide: BorderSide.none,
-      ),
-      focusedBorder: OutlineInputBorder(
-        borderRadius: BorderRadius.circular(12.5),
-        borderSide: BorderSide(color: appColors.primary, width: 2),
+      border: InputBorder.none,
+
+      hintText: label,
+      hintStyle: TextStyle(
+        color: appColors.white.withOpacity(0.25),
+        fontFamily: 'NSansL',
       ),
     );
   }

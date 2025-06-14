@@ -32,7 +32,6 @@ class LogsDisplay extends StatelessWidget {
           mainAxisSize: MainAxisSize.min,
           children: [
             Container(
-              // color,
               height: 30,
               padding: EdgeInsets.symmetric(horizontal: 12),
               decoration: BoxDecoration(

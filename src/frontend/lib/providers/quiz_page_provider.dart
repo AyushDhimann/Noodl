@@ -59,6 +59,7 @@ class QuizPageProvider extends ChangeNotifier{
   PageController quizQuesContoller = PageController();
 
   void goToNextQues(){
+    if(quizQuesContoller.hasClients){
     quizQuesContoller.nextPage(
       duration: const Duration(milliseconds: 500),
       curve: Curves.linearToEaseOut
@@ -66,6 +67,7 @@ class QuizPageProvider extends ChangeNotifier{
     progress += 1;
     selectedOption = 0;
     notifyListeners();
+    }
   }
 
 }
