@@ -12,10 +12,11 @@ class LogsDisplay extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     Size size = MediaQuery.of(context).size;
+    EdgeInsets dp = MediaQuery.of(context).padding;
     return Consumer<GeneratePageProvider>(
       builder: (context, provider, child) => 
       Container(
-        // margin: EdgeInsets.all(12),
+        margin: EdgeInsets.only(bottom: 12+dp.bottom),
         // padding: EdgeInsets.all(8),
         height: 250,
         width: size.width-24,

@@ -43,6 +43,7 @@ dependencies:
   markdown_widget: ^2.3.2+8
   flutter_markdown: ^0.7.7+1
   marquee: ^2.3.0
+  http: ^1.4.0
 
 
 dev_dependencies:
@@ -104,6 +105,9 @@ flutter:
   - family: MonolisaLI
     fonts:
       - asset: assets/fonts/Monolisa/MonoLisa-LightItalic.ttf
+  - family: MonolisaR
+    fonts:
+      - asset: assets/fonts/Monolisa/MonoLisa-Regular.ttf
   # fonts:
   #   - family: Schyler
   #     fonts:

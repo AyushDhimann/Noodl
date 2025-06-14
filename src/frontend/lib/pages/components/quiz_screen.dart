@@ -16,42 +16,51 @@ class QuizScreen extends StatelessWidget {
   Widget build(BuildContext context) {
     return Stack(
       children: [
-        Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            QuizQuestion(text: data.question,),
-            Padding(
-              padding: const EdgeInsets.fromLTRB(12, 0, 12, 8),
-              child: Text(
-                'Select one',
-                style: TextStyle(
-                  fontFamily: 'NSansM',
-                  color: appColors.white.withOpacity(0.5)
+        SingleChildScrollView(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              QuizQuestion(text: data.question),
+              Padding(
+                padding: const EdgeInsets.fromLTRB(12, 0, 12, 8),
+                child: Text(
+                  'Select one',
+                  style: TextStyle(
+                    fontFamily: 'NSansM',
+                    color: appColors.white.withOpacity(0.5),
+                  ),
                 ),
               ),
-            ),
-            QuizOptions(data: data,),
-          ],
+              QuizOptions(data: data),
+              // bottom padding + whatver the heigh of the sbimti buttn is
+              SizedBox(height: 200,)
+            ],
+          ),
         ),
         Column(
           mainAxisAlignment: MainAxisAlignment.end,
           children: [
             Consumer<QuizPageProvider>(
-              builder: (ccontext, provider, child) => 
-                IgnorePointer(
-                  // ignoring: provider.selectedOption==0,
-                  ignoring: false,
-                  child: QuestionSubmitButton(
-                    "Submit",
-                    currentQuizItem: data,
-                    isActive: provider.selectedOption!=0,
-                    onTap: ()=>showInfoDialog(context, data: data),
-                  ),
-                )
+              builder: (ccontext, provider, child) => IgnorePointer(
+                // ignoring: provider.selectedOption==0,
+                ignoring: false,
+                child: QuestionSubmitButton(
+                  "Submit",
+                  // currentQuizItem: data,
+                  isActive: provider.selectedOption != 0,
+                  onTap: () {
+                    provider.increaseQuestionCount();
+                    provider.selectedOption - 1 == data.correctAnswerIndex
+                        ? provider.increaseScore()
+                        : null;
+                    showInfoDialog(context, data: data);
+                  },
+                ),
+              ),
             ),
           ],
-        )
+        ),
       ],
     );
   }

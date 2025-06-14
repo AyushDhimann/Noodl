@@ -1,5 +1,3 @@
-
-
 import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
@@ -8,7 +6,6 @@ import 'package:url_launcher/url_launcher_string.dart';
 import 'package:walletconnect_flutter_v2/walletconnect_flutter_v2.dart';
 
 class MetaMaskProvider extends ChangeNotifier {
-  // --- STATE --- //
   Web3App? _web3app;
   SessionData? _session;
   String? _account;
@@ -16,20 +13,27 @@ class MetaMaskProvider extends ChangeNotifier {
   bool _onboardingComplete = false;
   bool _isConnecting = false;
 
-  // --- GETTERS --- //
+  // Getters
   String? get walletAddress => _account;
   bool get isConnected => _isConnected;
   bool get isOnboardingComplete => _onboardingComplete;
   bool get isConnecting => _isConnecting;
 
-  // --- CONSTRUCTOR --- //
   MetaMaskProvider() {
     _init();
   }
 
-  // --- INITIALIZATION --- //
   Future<void> _init() async {
     final prefs = await SharedPreferences.getInstance();
+
+    final savedAddress = prefs.getString('wallet_address');
+    if (savedAddress != null && savedAddress.isNotEmpty) {
+      _account = savedAddress;
+      _isConnected = true;
+      _onboardingComplete =
+          prefs.getBool('onboardingComplete_$savedAddress') ?? false;
+      notifyListeners();
+    }
 
     _web3app = await Web3App.createInstance(
       projectId: '3b68b1320c7b316633e1aed418ef13f8',
@@ -37,11 +41,10 @@ class MetaMaskProvider extends ChangeNotifier {
         name: 'Noodl',
         description: 'Learn anything and everything the smart way.',
         url: 'https://noodl.app',
-        icons: ['https://upload.wikimedia.org/wikipedia/commons/thumb/3/36/MetaMask_Fox.svg/2048px-MetaMask_Fox.svg.png'],
-        redirect: Redirect(
-            native: 'noodlapp://',
-            universal: 'https://noodl.app'
-        ),
+        icons: [
+          'https://upload.wikimedia.org/wikipedia/commons/thumb/3/36/MetaMask_Fox.svg/2048px-MetaMask_Fox.svg.png'
+        ],
+        redirect: Redirect(native: 'noodlapp://', universal: 'https://noodl.app'),
       ),
     );
 
@@ -55,13 +58,14 @@ class MetaMaskProvider extends ChangeNotifier {
           _session!.namespaces.values.first.accounts.first,
         );
         _isConnected = true;
-        _onboardingComplete = prefs.getBool('onboardingComplete_${_account}') ?? false;
+        _onboardingComplete =
+            prefs.getBool('onboardingComplete_$_account') ?? false;
+        await prefs.setString('wallet_address', _account!);
         notifyListeners();
       }
     }
   }
 
-  // --- WALLETCONNECT EVENT HANDLERS --- //
   void _onSessionConnect(SessionConnect? args) async {
     _isConnecting = false;
     if (args != null) {
@@ -71,9 +75,9 @@ class MetaMaskProvider extends ChangeNotifier {
         _session!.namespaces.values.first.accounts.first,
       );
       _isConnected = true;
-      _onboardingComplete = prefs.getBool('onboardingComplete_${_account}') ?? false;
-      notifyListeners();
-    } else {
+      _onboardingComplete =
+          prefs.getBool('onboardingComplete_$_account') ?? false;
+      await prefs.setString('wallet_address', _account!);
       notifyListeners();
     }
   }
@@ -82,13 +86,13 @@ class MetaMaskProvider extends ChangeNotifier {
     _clearSession();
   }
 
-  // --- PUBLIC METHODS --- //
   Future<void> connect() async {
     if (_web3app == null) return;
     _isConnecting = true;
     notifyListeners();
+
     try {
-      final ConnectResponse response = await _web3app!.connect(
+      final response = await _web3app!.connect(
         requiredNamespaces: {
           'eip155': const RequiredNamespace(
             chains: ['eip155:1'],
@@ -99,26 +103,65 @@ class MetaMaskProvider extends ChangeNotifier {
       );
       await launchUrlString(response.uri.toString(), mode: LaunchMode.externalApplication);
     } catch (e) {
-      debugPrint('Error connecting: $e');
+      debugPrint('WalletConnect Error: $e');
       _isConnecting = false;
       notifyListeners();
     }
   }
 
-  // ‼️ UPDATED TO RETURN A BOOLEAN AND FIX THE ENDPOINT/PAYLOAD ‼️
-  Future<bool> completeOnboarding(String name, String country) async {
-    if (_account == null || _session == null) return false;
+  /// Manual login without WalletConnect
+  Future<void> loginWithAddress(String walletAddress) async {
+    final prefs = await SharedPreferences.getInstance();
+    _account = walletAddress;
+    _isConnected = true;
+    _onboardingComplete =
+        prefs.getBool('onboardingComplete_$walletAddress') ?? false;
+    await prefs.setString('wallet_address', walletAddress);
+    notifyListeners();
+  }
 
-    // FIX 1: Use the correct endpoint URL. For local development with an
-    // Android emulator, '10.0.2.2' points to the host machine's localhost.
-    // For iOS simulator, you would use 'localhost' or '127.0.0.1'.
+  /// Logout for both WalletConnect + manual login
+  Future<void> logout() async {
+    final prefs = await SharedPreferences.getInstance();
+
+    // Disconnect WalletConnect session if exists
+    if (_session != null && _web3app != null) {
+      try {
+        await _web3app!.disconnectSession(
+          topic: _session!.topic,
+          reason: const WalletConnectError(
+            code: 1,
+            message: 'User disconnected',
+          ),
+        );
+      } catch (e) {
+        debugPrint('Disconnect error (safe to ignore if manual login): $e');
+      }
+    }
+
+    if (_account != null) {
+      await prefs.remove('wallet_address');
+      await prefs.remove('onboardingComplete_$_account');
+    }
+
+    _session = null;
+    _account = null;
+    _isConnected = false;
+    _isConnecting = false;
+    _onboardingComplete = false;
+    notifyListeners();
+  }
+
+  /// Onboarding API call
+  Future<bool> completeOnboarding(String name, String country) async {
+    if (_account == null) return false;
+
     final url = Uri.parse('http://1725364.xyz:5000/users');
 
     try {
       final response = await http.post(
         url,
         headers: {'Content-Type': 'application/json'},
-        // FIX 2: Send only the data the backend expects: wallet_address, name, country.
         body: json.encode({
           'wallet_address': _account,
           'name': name,
@@ -126,41 +169,29 @@ class MetaMaskProvider extends ChangeNotifier {
         }),
       );
 
-      // Check for a successful response from the server (201 Created)
       if (response.statusCode == 201) {
         final prefs = await SharedPreferences.getInstance();
-        await prefs.setBool('onboardingComplete_${_account!}', true);
+        await prefs.setBool('onboardingComplete_$_account', true);
         _onboardingComplete = true;
         notifyListeners();
-        return true; // <-- Return true on success
+        return true;
       } else {
-        // Log the server error if the status code is not what we expect
         debugPrint('Server error: ${response.statusCode} - ${response.body}');
-        return false; // <-- Return false on server error
+        return false;
       }
     } catch (e) {
-      // Catch network errors (e.g., no internet, server down)
-      debugPrint('Failed to send onboarding data: $e');
-      return false; // <-- Return false on network error
+      debugPrint('Onboarding error: $e');
+      return false;
     }
   }
 
-  Future<void> disconnect() async {
-    if (_session != null) {
-      await _web3app!.disconnectSession(
-        topic: _session!.topic,
-        reason: const WalletConnectError(code: 1, message: 'User disconnected'),
-      );
-      _clearSession();
-    }
-  }
-
-  // --- PRIVATE HELPERS --- //
-  void _clearSession() async {
+  Future<void> _clearSession() async {
     final prefs = await SharedPreferences.getInstance();
     if (_account != null) {
-      await prefs.remove('onboardingComplete_${_account!}');
+      await prefs.remove('wallet_address');
+      await prefs.remove('onboardingComplete_$_account');
     }
+
     _session = null;
     _account = null;
     _isConnected = false;
@@ -176,4 +207,3 @@ class MetaMaskProvider extends ChangeNotifier {
     super.dispose();
   }
 }
-

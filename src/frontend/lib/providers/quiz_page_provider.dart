@@ -2,28 +2,39 @@ import 'package:flutter/material.dart';
 
 class QuizPageProvider extends ChangeNotifier{
 
-  int totalQuestions = 0;
+  int totalItemsInLesson = 0;
 
   void setTotalQuestions(int number){
-    totalQuestions = number;
+    totalItemsInLesson = number;
     notifyListeners();
   }
 
-  int quizScore = 0;
+  int correctAnswers = 0;
 
   void increaseScore(){
-    quizScore += 1;
-    print('Score + 1 | Total = $quizScore');
+    correctAnswers += 1;
+    print('Score + 1 | Total = $correctAnswers');
     notifyListeners();
   }
 
   void zeroScore(){
-    quizScore = 0;
+    correctAnswers = 0;
     print('Score Reset');
 
     notifyListeners();
   }
 
+  int questionCount = 0;
+
+  void increaseQuestionCount(){
+    questionCount += 1;
+    notifyListeners();
+  }
+
+  void zeroQuestionCount(){
+    questionCount = 0;
+    notifyListeners();
+  }
 
   int selectedOption=0;
 

@@ -59,7 +59,14 @@ class SlideScreen extends StatelessWidget {
                 p: TextStyle(
                   fontFamily: 'NSansL',
                   fontSize: 16,
-
+                ),
+                strong: TextStyle(
+                  fontFamily: 'NSansB',
+                  fontSize: 16,
+                ),
+                code: TextStyle(
+                  fontFamily: 'MonolisaRI',
+                  fontSize: 16,
                 ),
                 
               ),
