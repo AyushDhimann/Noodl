@@ -221,6 +221,7 @@ CREATE TABLE user_nfts (
     token_id BIGINT NOT NULL,
     nft_contract_address TEXT NOT NULL,
     metadata_url TEXT, -- To store the IPFS URL
+    image_gateway_url TEXT,
     minted_at TIMESTAMPTZ DEFAULT now(),
     UNIQUE(user_id, path_id),
     UNIQUE(token_id)
@@ -281,3 +282,48 @@ BEGIN
     RETURN COALESCE(v_is_complete, false);
 END;
 $$ LANGUAGE plpgsql;
+
+-- 17. FUNCTION TO GET ALL ENROLLED PATHS WITH PROGRESS (CORRECTED)
+CREATE OR REPLACE FUNCTION get_user_enrolled_paths_with_progress(p_user_id bigint)
+RETURNS TABLE (
+    id bigint,
+    title text,
+    short_description text,
+    total_levels int,
+    created_at timestamptz,
+    is_complete boolean,
+    completed_levels bigint
+)
+LANGUAGE plpgsql
+AS $$
+BEGIN
+  RETURN QUERY
+  SELECT
+    lp.id,
+    lp.title,
+    lp.short_description,
+    lp.total_levels,
+    lp.created_at,
+    up.is_complete,
+    COALESCE(progress_agg.completed_count, 0) AS completed_levels
+  FROM
+    user_progress up
+  JOIN
+    learning_paths lp ON up.path_id = lp.id
+  LEFT JOIN (
+    SELECT
+      progress_id,
+      count(*) AS completed_count
+    FROM
+      level_progress
+    WHERE
+      is_complete = true
+    GROUP BY
+      progress_id
+  ) AS progress_agg ON up.id = progress_agg.progress_id
+  WHERE
+    up.user_id = p_user_id
+  ORDER BY
+    up.started_at DESC;
+END;
+$$;
