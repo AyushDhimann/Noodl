@@ -8,7 +8,7 @@ A **Web3-enabled learning app** that gamifies your journey through knowledge. Lo
 
 - 🔐 **Web3 Login via MetaMask**
   - WalletConnect v2 integration
-  - Works on Android (14 or lower), iOS, and Web
+  - Works on Android (14 or lower) and iOS
 - 🧱 **Manual Wallet Address Login**
   - Legacy login option for Android 15+ where MetaMask is unsupported
 - 📱 **Gamified Learning Experience**
