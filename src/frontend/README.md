@@ -16,7 +16,7 @@ A **Web3-enabled learning app** that gamifies your journey through knowledge. Lo
 - 📦 **Session Persistence**
   - Persists wallet session using `SharedPreferences`
 - 🎨 **Custom Theming**
-  - Uses custom fonts (`NSansB`, `NSansM`, `NSansL`)
+  - Uses custom fonts
   - Rich UI with animated elements, gradients, and SVG branding
 
 ---
