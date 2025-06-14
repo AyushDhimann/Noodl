@@ -6,6 +6,7 @@ import os
 
 bp = Blueprint('nft_routes', __name__)
 
+
 @bp.route('/paths/<int:path_id>/complete', methods=['POST'])
 def complete_path_and_mint_nft_route(path_id):
     if not config.FEATURE_FLAG_ENABLE_NFT_MINTING:
@@ -78,7 +79,7 @@ def complete_path_and_mint_nft_route(path_id):
         metadata = {
             "name": f"KODO Certificate: {path_title}",
             "description": f"This certificate proves that {user_name} successfully completed the '{path_title}' learning path on KODO.",
-            "image": image_gateway_url,                                                     
+            "image": image_gateway_url,
             "attributes": [
                 {"trait_type": "Platform", "value": "KODO"},
                 {"trait_type": "Recipient", "value": user_name}
@@ -108,17 +109,22 @@ def complete_path_and_mint_nft_route(path_id):
             logger.info(f"DB: Saved NFT record for wallet {user_wallet}, path {path_id}, token {minted_token_id}")
         except Exception as db_e:
             logger.error(f"DB: CRITICAL! Failed to save NFT record after minting. Error: {db_e}")
-            return jsonify({"error": "Minting succeeded but failed to save record to DB."}), 500
+            # Consider how to handle this: the NFT is minted but not recorded.
+            # For now, returning an error indicating this state.
+            return jsonify({"error": "Minting succeeded but failed to save record to DB. Please contact support.",
+                            "details": str(db_e)}), 500
 
         set_uri_receipt = blockchain_service.set_token_uri_on_chain(minted_token_id, metadata_ipfs_url)
         if not set_uri_receipt:
             logger.error(f"NFT: Failed to set Token URI for {minted_token_id} in second transaction.")
-            return jsonify({"error": "Minting succeeded but failed to set metadata URL."}), 500
+            # NFT is minted and saved in DB, but URI is not set on chain. This is also a partial failure.
+            return jsonify(
+                {"error": "Minting succeeded and DB record saved, but failed to set metadata URL on blockchain."}), 500
 
         tx_hash = set_uri_receipt.transactionHash.hex()
         explorer_url = f"{config.BLOCK_EXPLORER_URL.rstrip('/')}/tx/{tx_hash}" if config.BLOCK_EXPLORER_URL else None
 
-        nft_gateway_url = f"{config.PINATA_GATEWAY_URL}/{metadata_cid}"
+        nft_gateway_url = f"{config.PINATA_GATEWAY_URL}/{metadata_cid}"  # Gateway for the metadata JSON
 
         return jsonify({
             "message": "NFT minted and metadata set successfully!",
@@ -136,12 +142,13 @@ def complete_path_and_mint_nft_route(path_id):
             detail = "Certificate already minted for this user/path."
         elif 'insufficient funds' in error_message:
             detail = "The server's wallet has insufficient funds to pay for gas."
-        elif 'already known' in error_message:                                      
+        elif 'already known' in error_message:
             detail = "Blockchain transaction for minting failed (likely a nonce issue or duplicate transaction). Please try again in a moment."
         else:
-            detail = "An unknown blockchain error occurred."
+            detail = "An unknown blockchain error occurred during the minting process."
         logger.error(f"NFT: Minting process failed. Detail: {detail} | Original Error: {e}", exc_info=True)
         return jsonify({"error": "NFT minting failed.", "detail": detail}), 500
+
 
 @bp.route('/nfts/<wallet_address>', methods=['GET'])
 def get_user_nfts_route(wallet_address):

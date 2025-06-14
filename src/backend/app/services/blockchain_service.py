@@ -74,7 +74,6 @@ def check_if_nft_already_minted(user_wallet, path_id):
         return has_minted
     except Exception as e:
         logger.error(f"CHAIN CHECK: Failed to query hasUserMinted function: {e}", exc_info=True)
-                                                          
         return False
 
 def mint_nft_on_chain(user_wallet, path_id):

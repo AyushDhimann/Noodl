@@ -7,7 +7,7 @@ from PIL import Image, ImageDraw, ImageFont
 from app import text_model, logger
 from app.config import config
 import google.generativeai as genai
-from google.generativeai.types import GenerationConfig
+from google.generativeai.types import GenerationConfig, Part
 import io
 
 
@@ -246,7 +246,7 @@ def generate_certificate_image(path_title, user_name, output_file_path):
 
     try:
         image_model = genai.GenerativeModel(config.GEMINI_MODEL_VISION)
-        prompt = (
+        prompt_for_image_generation = (
             "You are a master artist who creates symbolic, abstract emblems for digital certificates. Your task is to generate a 128x128 pixel art icon that is a deep, metaphorical representation of a learning topic.\n\n"
             f"**TOPIC:** '{path_title}'\n\n"
             "**ARTISTIC INSTRUCTIONS:**\n"
@@ -257,29 +257,54 @@ def generate_certificate_image(path_title, user_name, output_file_path):
             "5.  **STRICT NEGATIVE CONSTRAINTS:**\n"
             "    - **ABSOLUTELY NO text, letters, or numbers.**\n"
             "    - **DO NOT generate literal, real-world objects** like cars, houses, or people unless the topic is specifically about them. Focus on symbolism.\n"
-            "    - The result must be the image data only."
+            "    - The result must be the image data only. If you also generate text, that's fine, but the primary output I need is the image."
         )
-        logger.info(f"IMAGE_GEN_SERVICE: Sending prompt to Gemini model.")
-        response = image_model.generate_content(prompt)
+        logger.info(f"IMAGE_GEN_SERVICE: Sending prompt to Gemini model: {prompt_for_image_generation}")
+        response = image_model.generate_content(prompt_for_image_generation)
         logger.info(f"IMAGE_GEN_SERVICE: Received response from Gemini model.")
 
         base_image_bytes = None
-        if response.candidates and response.candidates[0].content.parts:
-            logger.info(f"IMAGE_GEN_SERVICE: Processing {len(response.candidates[0].content.parts)} parts in response.")
-            for i, part in enumerate(response.candidates[0].content.parts):
-                if part.inline_data and part.inline_data.data:
-                    logger.info(f"IMAGE_GEN_SERVICE: Found inline_data in part {i}.")
-                    base_image_bytes = part.inline_data.data
-                    break
+        if response.parts:
+            logger.info(f"IMAGE_GEN_SERVICE: Processing {len(response.parts)} parts in response.")
+            for i, part in enumerate(response.parts):
+                if part.inline_data:
+                    logger.info(
+                        f"IMAGE_GEN_SERVICE: Found inline_data in part {i}. Mime-type: {part.inline_data.mime_type}")
+                    if "image" in part.inline_data.mime_type:
+                        base_image_bytes = part.inline_data.data
+                        logger.info(f"IMAGE_GEN_SERVICE: Extracted image bytes from part {i}.")
+                        break
+                elif part.text:
+                    logger.info(f"IMAGE_GEN_SERVICE: Found text part {i}: '{part.text[:100]}...'")
                 else:
-                    logger.info(f"IMAGE_GEN_SERVICE: No inline_data in part {i}.")
+                    logger.info(f"IMAGE_GEN_SERVICE: Part {i} has no inline_data or text.")
         else:
-            logger.warning(f"IMAGE_GEN_SERVICE: No candidates or parts in Gemini response: {response}")
+            logger.warning(f"IMAGE_GEN_SERVICE: No direct parts in response. Checking candidates.")
+            if response.candidates and response.candidates[0].content.parts:
+                logger.info(
+                    f"IMAGE_GEN_SERVICE: Processing {len(response.candidates[0].content.parts)} parts in candidate 0.")
+                for i, part in enumerate(response.candidates[0].content.parts):
+                    if part.inline_data:
+                        logger.info(
+                            f"IMAGE_GEN_SERVICE: Found inline_data in candidate part {i}. Mime-type: {part.inline_data.mime_type}")
+                        if "image" in part.inline_data.mime_type:
+                            base_image_bytes = part.inline_data.data
+                            logger.info(f"IMAGE_GEN_SERVICE: Extracted image bytes from candidate part {i}.")
+                            break
+                    elif part.text:
+                        logger.info(f"IMAGE_GEN_SERVICE: Found text in candidate part {i}: '{part.text[:100]}...'")
+                    else:
+                        logger.info(f"IMAGE_GEN_SERVICE: Candidate part {i} has no inline_data or text.")
+            else:
+                logger.warning(f"IMAGE_GEN_SERVICE: No candidates or parts in Gemini response: {response}")
 
         if not base_image_bytes:
             logger.error(
-                f"IMAGE_GEN_SERVICE: AI model '{config.GEMINI_MODEL_VISION}' did not return image data bytes. Full response: {response}")
-            raise ValueError(f"AI model '{config.GEMINI_MODEL_VISION}' did not return image data bytes.")
+                f"IMAGE_GEN_SERVICE: AI model '{config.GEMINI_MODEL_VISION}' did not return usable image data bytes. Full response: {response}")
+            if response.prompt_feedback and response.prompt_feedback.block_reason:
+                logger.error(
+                    f"IMAGE_GEN_SERVICE: Prompt feedback block reason: {response.prompt_feedback.block_reason_message}")
+            raise ValueError(f"AI model '{config.GEMINI_MODEL_VISION}' did not return usable image data bytes.")
 
         logger.info(
             f"IMAGE_GEN_SERVICE: AI base image bytes received successfully using '{config.GEMINI_MODEL_VISION}'.")
@@ -291,12 +316,11 @@ def generate_certificate_image(path_title, user_name, output_file_path):
         logger.error(
             f"IMAGE_GEN_SERVICE: EXCEPTION during Gemini image generation step using '{config.GEMINI_MODEL_VISION}': {e}",
             exc_info=True)
-        # Fallback image creation will happen outside this try-except block if base_image is still None
 
     if not ai_generated_successfully or base_image is None:
         logger.warning(
             f"IMAGE_GEN_SERVICE: AI image generation failed or base_image is None. Proceeding to create fallback image.")
-        base_image = Image.new('RGB', (128, 128), color=(10, 10, 20))  # Ensure base_image is a PIL image
+        base_image = Image.new('RGB', (128, 128), color=(10, 10, 20))
         draw = ImageDraw.Draw(base_image)
         try:
             font_fallback = ImageFont.truetype("arial.ttf", 12)
@@ -306,19 +330,15 @@ def generate_certificate_image(path_title, user_name, output_file_path):
             logger.warning("IMAGE_GEN_SERVICE: arial.ttf not found, using default font for fallback text.")
         draw.text((10, 10), "AI Gen\nFailed", fill=(255, 0, 0), font=font_fallback)
         logger.info(f"IMAGE_GEN_SERVICE: Fallback 128x128 placeholder image created in memory.")
-        # The fallback image (128x128) will be saved during the framing step if framing is successful,
-        # or if framing fails, we might save it directly.
 
-    # Ensure output directory exists
     try:
         os.makedirs(os.path.dirname(output_file_path), exist_ok=True)
         logger.info(f"IMAGE_GEN_SERVICE: Ensured directory exists: {os.path.dirname(output_file_path)}")
     except Exception as dir_e:
         logger.error(f"IMAGE_GEN_SERVICE: Could not create directory {os.path.dirname(output_file_path)}: {dir_e}",
                      exc_info=True)
-        return None  # Cannot save any image if directory creation fails
+        return None
 
-    # Proceed with framing if base_image is available (either AI-generated or fallback)
     try:
         logger.info(
             f"IMAGE_GEN_SERVICE: Starting framing process for image. Current base_image size: {base_image.size if base_image else 'None'}")
@@ -383,7 +403,7 @@ def generate_certificate_image(path_title, user_name, output_file_path):
                 base_image.save(output_file_path)
                 logger.info(
                     f"IMAGE_GEN_SERVICE: Successfully saved 128x128 base image to '{output_file_path}' after framing failure.")
-                return output_file_path  # Return path to the 128x128 image
+                return output_file_path
             except Exception as save_base_e:
                 logger.error(
                     f"IMAGE_GEN_SERVICE: Failed to save 128x128 base image after framing failure: {save_base_e}",
