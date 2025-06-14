@@ -52,90 +52,88 @@ class _LevelsPageState extends State<LevelsPage> {
               color: appColors.primary,
               elevation: 0,
               onRefresh: _refresh,
-              child: SingleChildScrollView(
-                physics: const AlwaysScrollableScrollPhysics(),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.center,
-                  children: [
-                    SizedBox(height: dp.top + 60 + 12),
-                    Text(
-                      widget.noodlModel.title,
-                      style: TextStyle(
-                        fontFamily: 'NSansB',
-                        fontSize: 22,
-                        color: appColors.white,
-                      ),
+              child: ListView(
+                // crossAxisAlignment: CrossAxisAlignment.center,
+                padding: EdgeInsets.zero,
+                children: [
+                  SizedBox(height: dp.top + 60 + 12),
+                  Text(
+                    widget.noodlModel.title,
+                    style: TextStyle(
+                      fontFamily: 'NSansB',
+                      fontSize: 22,
+                      color: appColors.white,
                     ),
-                    SizedBox(height: 5),
-                    widget.noodlModel.isComplete != null &&
-                            widget.noodlModel.isComplete!
-                        ? Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            mainAxisSize: MainAxisSize.min,
-                            children: [
-                              Text(
-                                "😌Already done with this Noodl! Wanna flex? Check your NFT on the NFTs page below.",
-                                style: TextStyle(
-                                  color: appColors.white.withOpacity(0.75),
-                                  fontFamily: 'NSansL',
-                                  fontSize: 14,
+                  ),
+                  SizedBox(height: 5),
+                  widget.noodlModel.isComplete != null &&
+                          widget.noodlModel.isComplete!
+                      ? Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            Text(
+                              "😌Already done with this Noodl! Wanna flex? Check your NFT on the NFTs page below.",
+                              style: TextStyle(
+                                color: appColors.white.withOpacity(0.75),
+                                fontFamily: 'NSansL',
+                                fontSize: 14,
+                              ),
+                            ),
+                            ResultsPageButton(
+                              text: 'To My NFT Stash',
+                              onTap: () => Navigator.of(context).push(
+                                MaterialPageRoute(
+                                  builder: (context) => const NftPage(),
                                 ),
                               ),
-                              ResultsPageButton(
-                                text: 'To My NFT Stash',
-                                onTap: () => Navigator.of(context).push(
-                                  MaterialPageRoute(
-                                    builder: (context) => const NftPage(),
-                                  ),
-                                ),
-                              ),
-                            ],
-                          )
-                        : FutureBuilder<CoreNoodleDataModel?>(
-                            future: _futureNoodlData,
-                            builder: (context, snapshot) {
-                              if (snapshot.connectionState ==
-                                  ConnectionState.waiting) {
-                                return const Padding(
-                                  padding: EdgeInsets.only(top: 24),
-                                  child: CupertinoActivityIndicator(),
-                                );
-                              }
-
-                              if (!snapshot.hasData || snapshot.data == null) {
-                                return const Padding(
-                                  padding: EdgeInsets.only(top: 24),
-                                  child: Text(
-                                    "Something went wrong. Please try again.",
-                                    style: TextStyle(color: Colors.white),
-                                  ),
-                                );
-                              }
-
-                              final noodlData = snapshot.data!;
-                              return Column(
-                                mainAxisSize: MainAxisSize.min,
-                                crossAxisAlignment: CrossAxisAlignment.start,
-                                children: [
-                                  Text(
-                                    noodlData.longDescription,
-                                    style: TextStyle(
-                                      color: appColors.white.withOpacity(0.75),
-                                      fontFamily: 'NSansL',
-                                      fontSize: 14,
-                                    ),
-                                  ),
-                                  const SizedBox(height: 12),
-                                  ...noodlData.levels.map(
-                                    (levelModel) =>
-                                        LevelWidget(data: levelModel),
-                                  ),
-                                ],
+                            ),
+                          ],
+                        )
+                      : FutureBuilder<CoreNoodleDataModel?>(
+                          future: _futureNoodlData,
+                          builder: (context, snapshot) {
+                            if (snapshot.connectionState ==
+                                ConnectionState.waiting) {
+                              return const Padding(
+                                padding: EdgeInsets.only(top: 24),
+                                child: CupertinoActivityIndicator(),
                               );
-                            },
-                          ),
-                  ],
-                ),
+                            }
+              
+                            if (!snapshot.hasData || snapshot.data == null) {
+                              return const Padding(
+                                padding: EdgeInsets.only(top: 24),
+                                child: Text(
+                                  "Something went wrong. Please try again.",
+                                  style: TextStyle(color: Colors.white),
+                                ),
+                              );
+                            }
+              
+                            final noodlData = snapshot.data!;
+                            return Column(
+                              mainAxisSize: MainAxisSize.min,
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Text(
+                                  noodlData.longDescription,
+                                  style: TextStyle(
+                                    color: appColors.white.withOpacity(0.75),
+                                    fontFamily: 'NSansL',
+                                    fontSize: 14,
+                                  ),
+                                ),
+                                const SizedBox(height: 12),
+                                ...noodlData.levels.map(
+                                  (levelModel) =>
+                                      LevelWidget(data: levelModel),
+                                ),
+                              ],
+                            );
+                          },
+                        ),
+                ],
               ),
             ),
           ),
