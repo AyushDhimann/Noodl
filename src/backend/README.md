@@ -33,7 +33,7 @@ The core philosophy is to leverage cutting-edge AI to create high-quality, struc
 ### 🚀 Robust Backend Architecture
 - **Asynchronous Task Handling**: Long-running processes like AI content generation are handled in background threads, providing an immediate response to the user and allowing them to poll for status updates.
 - **Persistent Task Logging**: Generation progress is logged to a database, ensuring that status updates can be retrieved even if the server restarts.
-- **Atomic & Resilient Operations**: The system is designed to be atomic and resilient. If any part of the multi-step generation process fails, it aims to gracefully recover or roll back changes.
+- **Atomic & Resilient Operations**: The system is designed to be atomic and resilient. If any part of the multi-step generation process fails, it aims to gracefully recover or roll back changes, including cleaning up partially created database entries.
 - **Secure & Modular Routes**: The API is organized into logical, secure blueprints (Users, Paths, Progress, NFTs, Search) for clarity and maintainability.
 
 ### 💻 Developer Experience
@@ -108,7 +108,7 @@ Follow these steps to get the Noodl backend up and running on your local machine
 
 ### 3. Environment Configuration
 Create a `.env` file in the root of your backend project by copying `.env.example`. Fill in all required values.
-
+**Crucial**: Ensure your `SUPABASE_URL` and `SUPABASE_SERVICE_KEY` in the `.env` file match the *actual* Supabase project you are using (e.g., `https://hffmreieoqtcukvyesqc.supabase.co` from your logs, not a placeholder).
 
 ### 4. Database Setup
 1.  In your Supabase project dashboard, navigate to **Database** > **Extensions**.
@@ -142,3 +142,62 @@ python main.py
 ```
 - The **Flask API server** will be available at `http://localhost:5000` (if `RUN_API_SERVER=true`).
 - The **Gradio Live Demo UI** will be available at `http://localhost:9999` (or your `LIVE_DEMO_PORT` if `RUN_LIVE_DEMO=true`).
+
+---
+
+## 🧪 API Endpoints
+For a detailed list of all available API endpoints, including request/response formats and examples, refer to the `API.md` file in this directory. It provides comprehensive documentation on how to interact with the backend services.
+
+---
+
+## 🔄 Restart Guide (After a Long Break or for a Clean Slate)
+
+If you're returning to the project after a while, or if you want to ensure a completely fresh start (especially regarding on-chain data and local caches), follow these steps:
+
+1.  **Clean Local Caches:**
+    *   **Delete `certificates` folder:** This folder stores locally generated NFT images before they are uploaded to IPFS. Deleting it ensures fresh images are generated if needed.
+        ```bash
+        # In your project's root directory (where main.py is)
+        rm -rf certificates  # macOS/Linux
+        # rmdir /s /q certificates # Windows
+        ```
+    *   Recreate the folder:
+        ```bash
+        mkdir certificates
+        ```
+2.  **Reset Supabase Database (Optional, for a full data reset):**
+    *   The most thorough way is to drop all tables and re-run the `database/schema.sql` script.
+    *   Alternatively, you can delete all rows from the tables:
+        ```sql
+        DELETE FROM user_nfts;
+        DELETE FROM level_progress;
+        DELETE FROM user_progress;
+        DELETE FROM content_items;
+        DELETE FROM levels;
+        DELETE FROM learning_paths;
+        DELETE FROM users;
+        DELETE FROM task_progress_logs;
+        ```
+    *   Then, re-run the `database/schema.sql` script from your Supabase SQL Editor to ensure all functions and tables are correctly set up.
+3.  **Redeploy Smart Contracts (Recommended for a full on-chain reset):**
+    *   Follow the steps in **Section 5. Smart Contract Deployment** again. This will give you new contract addresses.
+    *   **Crucially, update your `.env` file** with the new `PATH_REGISTRY_CONTRACT_ADDRESS` and `NFT_CONTRACT_ADDRESS`.
+    *   This is important because the old contracts will still exist on the blockchain with their old state. Redeploying gives you a clean slate.
+4.  **Update Environment Variables:**
+    *   Ensure all keys in your `.env` file (`GEMINI_API_KEY`, `SUPABASE_SERVICE_KEY`, `PINATA_API_KEY`, etc.) are still valid and active.
+5.  **Rebuild Virtual Environment (Optional, if Python dependencies seem problematic):**
+    ```bash
+    # Deactivate if active
+    # deactivate 
+    rm -rf .venv # macOS/Linux
+    # rmdir /s /q .venv # Windows
+    python -m venv .venv
+    # Activate: .venv\Scripts\activate (Windows) or source .venv/bin/activate (macOS/Linux)
+    pip install -r requirements.txt
+    ```
+6.  **Start the Application:**
+    ```bash
+    python main.py
+    ```
+
+By following these steps, you can ensure a clean environment, which is especially helpful if you've made significant changes or if the application state (database, blockchain) has become inconsistent during development.

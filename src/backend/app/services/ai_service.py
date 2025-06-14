@@ -383,7 +383,7 @@ def generate_certificate_image(path_title, user_name, output_file_path):
             font_issuer = ImageFont.load_default()
 
         issued_to_text = f"Issued to: {user_name}"
-        issuer_text = "Issuer: KODO"
+        issuer_text = "Issuer: Noodl."
 
         draw.text(
             (FRAME_THICKNESS + 10, H - FRAME_THICKNESS + 5),
