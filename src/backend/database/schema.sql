@@ -283,47 +283,86 @@ BEGIN
 END;
 $$ LANGUAGE plpgsql;
 
--- 17. FUNCTION TO GET ALL ENROLLED PATHS WITH PROGRESS (CORRECTED AND AMBIGUITY FIXED)
-CREATE OR REPLACE FUNCTION get_user_enrolled_paths_with_progress(p_user_id bigint)
+-- 17. FUNCTION TO GET ALL USER ASSOCIATED PATHS (ENROLLED OR CREATED)
+CREATE OR REPLACE FUNCTION get_user_associated_paths(p_wallet_address TEXT)
 RETURNS TABLE (
-    id bigint,
+    id bigint, -- This will be the learning_paths.id
     title text,
     short_description text,
     total_levels int,
-    created_at timestamptz,
+    created_at timestamptz, -- This will be learning_paths.created_at
     is_complete boolean,
     completed_levels bigint
 )
 LANGUAGE plpgsql
 AS $$
+DECLARE
+    v_user_id bigint;
 BEGIN
-  RETURN QUERY
-  SELECT
-    lp.id,
-    lp.title,
-    lp.short_description,
-    lp.total_levels,
-    lp.created_at,
-    up.is_complete, -- This refers to user_progress.is_complete
-    COALESCE(progress_agg.completed_count, 0) AS completed_levels
-  FROM
-    user_progress up
-  JOIN
-    learning_paths lp ON up.path_id = lp.id
-  LEFT JOIN (
+    SELECT u.id INTO v_user_id FROM users u WHERE u.wallet_address = LOWER(p_wallet_address);
+
+    RETURN QUERY
+    WITH enrolled_paths_cte AS (
+        SELECT
+            lp_enrolled.id AS path_id,
+            lp_enrolled.title AS path_title,
+            lp_enrolled.short_description AS path_short_description,
+            lp_enrolled.total_levels AS path_total_levels,
+            lp_enrolled.created_at AS path_created_at,
+            up.is_complete AS progress_is_complete,
+            COALESCE(progress_agg.completed_count, 0) AS progress_completed_levels,
+            up.started_at AS effective_date
+        FROM
+            user_progress up
+        JOIN
+            learning_paths lp_enrolled ON up.path_id = lp_enrolled.id
+        LEFT JOIN (
+            SELECT
+                lp_sub.progress_id,
+                COUNT(*) AS completed_count
+            FROM
+                level_progress lp_sub
+            WHERE
+                lp_sub.is_complete = true
+            GROUP BY
+                lp_sub.progress_id
+        ) AS progress_agg ON up.id = progress_agg.progress_id
+        WHERE
+            up.user_id = v_user_id
+    ),
+    created_paths_cte AS (
+        SELECT
+            lp_created.id AS path_id,
+            lp_created.title AS path_title,
+            lp_created.short_description AS path_short_description,
+            lp_created.total_levels AS path_total_levels,
+            lp_created.created_at AS path_created_at,
+            FALSE AS progress_is_complete, -- Default for created but not started
+            0 AS progress_completed_levels, -- Default for created but not started
+            lp_created.created_at AS effective_date
+        FROM
+            learning_paths lp_created
+        WHERE
+            lp_created.creator_wallet = LOWER(p_wallet_address)
+            AND NOT EXISTS (SELECT 1 FROM enrolled_paths_cte ep WHERE ep.path_id = lp_created.id)
+    )
     SELECT
-      lp_sub.progress_id,
-      count(*) AS completed_count
-    FROM
-      level_progress lp_sub -- Explicitly alias level_progress
-    WHERE
-      lp_sub.is_complete = true -- Qualify with the alias
-    GROUP BY
-      lp_sub.progress_id
-  ) AS progress_agg ON up.id = progress_agg.progress_id
-  WHERE
-    up.user_id = p_user_id
-  ORDER BY
-    up.started_at DESC;
+        cte.path_id,
+        cte.path_title,
+        cte.path_short_description,
+        cte.path_total_levels,
+        cte.path_created_at,
+        cte.progress_is_complete,
+        cte.progress_completed_levels
+    FROM (
+        SELECT path_id, path_title, path_short_description, path_total_levels, path_created_at, progress_is_complete, progress_completed_levels, effective_date FROM enrolled_paths_cte
+        UNION ALL
+        SELECT path_id, path_title, path_short_description, path_total_levels, path_created_at, progress_is_complete, progress_completed_levels, effective_date FROM created_paths_cte
+    ) AS cte
+    ORDER BY
+        cte.effective_date DESC;
 END;
 $$;
+
+-- Remove old RPC function if it exists and is no longer needed
+DROP FUNCTION IF EXISTS get_user_enrolled_paths_with_progress(bigint);

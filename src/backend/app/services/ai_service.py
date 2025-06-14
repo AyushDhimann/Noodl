@@ -108,8 +108,8 @@ def generate_learn_curriculum(topic, country=None):
     6.  Each title MUST NOT start with a number (e.g., "1.", "2.").
 
     **IMPORTANT:** The number of levels should be appropriate for the topic's complexity.
-    - For simple, everyday topics, use 3-4 levels.
-    - For complex, academic, or broad topics, use 5-8 levels.
+    - For simple, everyday topics, use 4-6 levels.
+    - For complex, academic, or broad topics, use as many levels needed.
 
     Do not include any text outside of the JSON object.
     """
@@ -127,7 +127,7 @@ def generate_help_curriculum(topic):
     1.  The output MUST be a single, valid JSON object with one key: "levels".
     2.  "levels" must be an array of strings.
     3.  Each string is a step in the process, written in clear, encouraging language.
-    4.  Each title must represent a distinct and meaningful step. Do not include obvious or redundant steps.
+    4.  Each title must represent a distinct and meaningful step. Do not include obvious or redundant steps. Do have details.
     5.  Each title MUST start with a single, relevant emoji.
     6.  Each title MUST NOT start with a number (e.g., "1.", "2.").
 
@@ -161,8 +161,7 @@ def generate_learn_level_content(topic, level_title, is_final_level=False):
         - Use `*italic text*` for nuance or definitions.
         - Use bulleted lists (`* Item 1`) for non-sequential points.
         - Use numbered lists (`1. Step 1`) for sequential steps.
-        - Use blockquotes (`> A notable quote or important takeaway.`) to highlight critical information.
-    2.  **Insightful & Mobile-First:** Keep paragraphs short (2-4 sentences). Go beyond basic facts and provide context, analogies, or interesting perspectives.
+    2.  **Insightful & Mobile-First:** Keep paragraphs short (4-5 sentences). Go beyond basic facts and provide context, analogies, or interesting perspectives.
     3.  **Logical Flow:** A good level should have multiple slides. Explain a concept over a minimum of 3 slides before checking for understanding. A typical level should have 5-8 items in total.
     {final_level_guideline}
 
@@ -200,7 +199,6 @@ def generate_help_level_content(topic, step_title, is_final_level=False):
         - Use `**bold text**` for emphasis and key actions.
         - Use numbered lists (`1. Step 1`) for sequential actions.
         - Use bulleted lists (`* A point to remember`) for tips or notes.
-        - Use blockquotes (`> Important safety warning or key insight.`) to highlight critical information.
     2.  **Clear & Focused:** Keep paragraphs short (2-3 sentences). Avoid jargon. Focus on the action for the current step.
     3.  **Check for Understanding:** Include a quiz if it makes sense to test a key piece of knowledge or a critical safety step.
     {final_level_guideline}

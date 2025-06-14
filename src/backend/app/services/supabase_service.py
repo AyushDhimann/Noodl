@@ -20,15 +20,15 @@ def get_paths_by_creator(wallet_address):
     return supabase_client.table('learning_paths').select("id, title, short_description, total_levels, created_at").eq(
         'creator_wallet', wallet_address.lower()).order('created_at', desc=True).execute()
 
-def get_enrolled_paths_by_user(user_id):
+def get_associated_paths_by_wallet(wallet_address):
     """
-    Fetches all paths a user has started, including progress details like
-    completion status and the number of completed levels, by calling a specific RPC.
+    Fetches all paths a user is associated with (enrolled in or created by them),
+    ordered by most recent activity (start date or creation date).
+    Includes progress details for enrolled paths.
     """
-    logger.info(f"DB: Fetching all enrolled paths for user_id: {user_id}")
-
-    return supabase_client.rpc('get_user_enrolled_paths_with_progress', {
-        'p_user_id': user_id
+    logger.info(f"DB: Fetching all associated (enrolled or created) paths for wallet: {wallet_address.lower()}")
+    return supabase_client.rpc('get_user_associated_paths', {
+        'p_wallet_address': wallet_address.lower()
     }).execute()
 
 def get_path_count_by_creator(wallet_address):

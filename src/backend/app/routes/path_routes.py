@@ -9,6 +9,7 @@ from app.config import config
 
 bp = Blueprint('path_routes', __name__, url_prefix='/paths')
 
+
 def update_progress(task_id, status, data=None):
     """Updates the progress log for a given task in the database."""
     log_entry = {"status": status}
@@ -17,11 +18,12 @@ def update_progress(task_id, status, data=None):
     supabase_service.update_task_log(task_id, log_entry)
     logger.info(f"TASK [{task_id}]: {status}")
 
+
 def generation_worker(task_id, original_topic, new_title, creator_wallet, country=None):
     """The actual long-running task that generates the path sequentially."""
     new_path_id = None
     try:
-                                            
+
         update_progress(task_id, "🤔 Analyzing your request...")
         intent = ai_service.classify_topic_intent(original_topic)
         update_progress(task_id, f"Request analyzed. Intent: **{intent.upper()}**")
@@ -29,7 +31,7 @@ def generation_worker(task_id, original_topic, new_title, creator_wallet, countr
         update_progress(task_id, "✅ Designing your curriculum...")
         if intent == 'learn':
             curriculum_titles = ai_service.generate_learn_curriculum(new_title, country)
-        else:                    
+        else:
             curriculum_titles = ai_service.generate_help_curriculum(new_title)
         total_levels = len(curriculum_titles)
         update_progress(task_id, f"Curriculum designed with {total_levels} lessons.")
@@ -48,7 +50,13 @@ def generation_worker(task_id, original_topic, new_title, creator_wallet, countr
             intent_type=intent,
             embedding=ai_service.get_embedding(new_title) if config.FEATURE_FLAG_ENABLE_DUPLICATE_CHECK else None
         )
-        new_path_id = path_res.data[0]['id']
+
+        if path_res and path_res.data and len(path_res.data) > 0 and 'id' in path_res.data[0]:
+            new_path_id = path_res.data[0]['id']
+            logger.info(f"TASK [{task_id}]: Path outline saved. New path ID: {new_path_id}")
+        else:
+            logger.error(f"TASK [{task_id}]: Failed to create learning path or retrieve its ID. Response: {path_res}")
+            raise Exception("Failed to create learning path in database or retrieve its ID.")
 
         update_progress(task_id, f"🧠 Generating content for {total_levels} lessons...")
         all_content_for_hash = []
@@ -60,31 +68,39 @@ def generation_worker(task_id, original_topic, new_title, creator_wallet, countr
 
                 level_res = supabase_service.create_level(new_path_id, level_number, level_title)
 
-                if level_res.data:
+                if level_res and level_res.data and len(level_res.data) > 0 and 'id' in level_res.data[0]:
                     new_level_id = level_res.data[0]['id']
                 else:
-                    logger.warning(f"TASK [{task_id}]: Level {level_number} already existed. Fetching its ID.")
-                    level_res = supabase_service.get_level(new_path_id, level_number)
-                    if not level_res.data:
-                        raise Exception(f"Could not create or find level {level_number} for path {new_path_id}.")
-                    new_level_id = level_res.data['id']
+                    logger.warning(
+                        f"TASK [{task_id}]: Failed to create level {level_number} or retrieve its ID. Response: {level_res}. Attempting to fetch if it already exists.")
+                    # This case might occur if the insert succeeded but didn't return data, or if there was a race/retry.
+                    # Let's try to fetch it. If it doesn't exist, then it's a hard failure for this level.
+                    existing_level_res = supabase_service.get_level(new_path_id, level_number)
+                    if existing_level_res and existing_level_res.data and 'id' in existing_level_res.data:
+                        new_level_id = existing_level_res.data['id']
+                        logger.info(
+                            f"TASK [{task_id}]: Fetched existing level ID {new_level_id} for level {level_number}.")
+                    else:
+                        raise Exception(
+                            f"Could not create or find level {level_number} for path {new_path_id} after initial create attempt. Create response: {level_res}, Get response: {existing_level_res}")
 
                 if intent == 'learn':
                     interleaved_items = ai_service.generate_learn_level_content(new_title, level_title, is_final_level)
-                else:                    
+                else:
                     interleaved_items = ai_service.generate_help_level_content(new_title, level_title, is_final_level)
 
                 all_content_for_hash.append({"level": level_title, "items": interleaved_items})
 
                 items_to_insert = [
-                    {"level_id": new_level_id, "item_index": j, "item_type": item['type'], "content": item['content']} for
+                    {"level_id": new_level_id, "item_index": j, "item_type": item['type'], "content": item['content']}
+                    for
                     j, item in enumerate(interleaved_items)]
                 supabase_service.create_content_items(items_to_insert)
             except Exception as level_e:
-                error_msg = f"  - ❌ Failed to generate content for level {i+1} ('{level_title}'). Error: {level_e}"
+                error_msg = f"  - ❌ Failed to generate content for level {i + 1} ('{level_title}'). Error: {level_e}"
                 logger.error(f"TASK [{task_id}]: {error_msg}", exc_info=True)
                 update_progress(task_id, error_msg)
-                                                                
+
                 continue
 
         update_progress(task_id, "✅ All lesson content has been generated and saved.")
@@ -121,15 +137,35 @@ def generation_worker(task_id, original_topic, new_title, creator_wallet, countr
 
         if new_path_id:
             logger.warning(
-                f"TASK [{task_id}]: An error occurred. Cleaning up partially generated path ID: {new_path_id}")
-            update_progress(task_id, f"🧹 An error occurred. Cleaning up incomplete path...")
+                f"TASK [{task_id}]: An error occurred during path generation. Attempting to cleanup partially generated path ID: {new_path_id}")
+            update_progress(task_id, f"🧹 An error occurred. Cleaning up incomplete path ID: {new_path_id}...")
             try:
-                supabase_service.delete_path_by_id(new_path_id)
-                logger.info(f"TASK [{task_id}]: Cleanup successful for path ID: {new_path_id}")
-                update_progress(task_id, f"Cleanup complete.")
+                logger.info(f"TASK [{task_id}]: Calling supabase_service.delete_path_by_id({new_path_id}) for cleanup.")
+                delete_response = supabase_service.delete_path_by_id(new_path_id)
+                logger.info(f"TASK [{task_id}]: Response from delete_path_by_id: {delete_response}")
+
+                if delete_response and hasattr(delete_response, 'error') and delete_response.error:
+                    logger.error(
+                        f"TASK [{task_id}]: Cleanup FAILED for path ID {new_path_id}. Supabase delete error: {delete_response.error}")
+                    update_progress(task_id,
+                                    f"CRITICAL! Path cleanup failed for ID {new_path_id} (Supabase error). Please notify an admin.")
+                elif delete_response and hasattr(delete_response, 'data') and not delete_response.data:
+                    logger.warning(
+                        f"TASK [{task_id}]: Cleanup for path ID {new_path_id} reported no data deleted. It might have already been deleted or never fully created.")
+                    update_progress(task_id, f"Cleanup for path ID {new_path_id} reported no data deleted.")
+                else:
+                    logger.info(f"TASK [{task_id}]: Cleanup successful for path ID: {new_path_id}.")
+                    update_progress(task_id, f"Cleanup complete for path ID: {new_path_id}.")
             except Exception as cleanup_e:
-                logger.error(f"TASK [{task_id}]: CRITICAL! Cleanup FAILED for path ID {new_path_id}: {cleanup_e}")
-                update_progress(task_id, f"CRITICAL! Path cleanup failed. Please notify an admin.")
+                logger.error(
+                    f"TASK [{task_id}]: CRITICAL! Exception during cleanup attempt for path ID {new_path_id}: {cleanup_e}",
+                    exc_info=True)
+                update_progress(task_id,
+                                f"CRITICAL! Path cleanup failed for ID {new_path_id} (Exception). Please notify an admin.")
+        else:
+            logger.info(
+                f"TASK [{task_id}]: Path generation failed before path ID was assigned. No DB cleanup needed for learning_paths table.")
+
 
 @bp.route('/generate', methods=['POST'])
 def generate_new_path_route():
@@ -177,6 +213,7 @@ def generate_new_path_route():
         logger.error(f"GENERATE ROUTE: Failed during pre-generation step: {e}", exc_info=True)
         return jsonify({"error": "Failed to start generation process. Check server logs."}), 500
 
+
 @bp.route('/random-topic', methods=['GET'])
 def get_random_topic_route():
     try:
@@ -185,6 +222,7 @@ def get_random_topic_route():
     except Exception as e:
         logger.error(f"RANDOM TOPIC ROUTE: Failed: {e}", exc_info=True)
         return jsonify({"error": "Failed to generate a random topic."}), 500
+
 
 @bp.route('/generate/status/<task_id>', methods=['GET'])
 def get_generation_status(task_id):
@@ -197,6 +235,7 @@ def get_generation_status(task_id):
         logger.error(f"STATUS ROUTE: Failed for task {task_id}: {e}", exc_info=True)
         return jsonify({"error": "Failed to retrieve task status."}), 500
 
+
 @bp.route('', methods=['GET'])
 def get_all_paths_route():
     logger.info("ROUTE: /paths GET")
@@ -206,6 +245,7 @@ def get_all_paths_route():
     except Exception as e:
         logger.error(f"ROUTE: /paths GET failed: {e}", exc_info=True)
         return jsonify({"error": "Failed to fetch paths."}), 500
+
 
 @bp.route('/<int:path_id>', methods=['GET'])
 def get_path_details_route(path_id):
@@ -235,6 +275,7 @@ def get_path_details_route(path_id):
     except Exception as e:
         logger.error(f"ROUTE: /paths/<id> GET failed: {e}", exc_info=True)
         return jsonify({"error": "Failed to fetch path details."}), 500
+
 
 @bp.route('/<int:path_id>/<wallet_address>', methods=['GET'])
 def get_path_details_for_user_route(path_id, wallet_address):
@@ -267,6 +308,7 @@ def get_path_details_for_user_route(path_id, wallet_address):
         logger.error(f"ROUTE: /paths/<id>/<wallet> GET failed: {e}", exc_info=True)
         return jsonify({"error": "Failed to fetch path details for user."}), 500
 
+
 @bp.route('/<int:path_id>', methods=['DELETE'])
 def delete_path_route(path_id):
     user_wallet = request.get_json().get('user_wallet')
@@ -287,6 +329,7 @@ def delete_path_route(path_id):
     except Exception as e:
         logger.error(f"ROUTE: /paths/DELETE failed for path {path_id}: {e}", exc_info=True)
         return jsonify({"error": "Failed to delete path."}), 500
+
 
 @bp.route('/<int:path_id>/levels/<int:level_num>', methods=['GET'])
 def get_level_content_route(path_id, level_num):

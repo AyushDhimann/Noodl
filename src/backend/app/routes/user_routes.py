@@ -41,19 +41,13 @@ def get_user_route(wallet_address):
 @bp.route('/<wallet_address>/paths', methods=['GET'])
 def get_user_enrolled_paths_route(wallet_address):
     """
-    Gets all learning paths a user is enrolled in (i.e., has started).
-    Includes progress details like completion status and number of completed levels.
+    Gets all learning paths a user is associated with (enrolled in or created by them).
+    Includes progress details like completion status and number of completed levels for enrolled paths.
+    Ordered by most recent activity (start date or creation date).
     """
     logger.info(f"ROUTE: /users/<wallet>/paths GET for wallet: {wallet_address}")
     try:
-
-        user_res = user_service.supabase_service.get_user_by_wallet(wallet_address)
-        if not user_res or not user_res.data:
-            return jsonify([])
-
-        user_id = user_res.data['id']
-
-        paths_res = user_service.supabase_service.get_enrolled_paths_by_user(user_id)
+        paths_res = user_service.supabase_service.get_associated_paths_by_wallet(wallet_address)
 
         if not paths_res.data:
             return jsonify([])
@@ -62,7 +56,7 @@ def get_user_enrolled_paths_route(wallet_address):
 
     except Exception as e:
         logger.error(f"ROUTE: /users/<wallet>/paths GET failed: {e}", exc_info=True)
-        return jsonify({"error": "Failed to retrieve user-enrolled paths."}), 500
+        return jsonify({"error": "Failed to retrieve user-associated paths."}), 500
 
 @bp.route('/<wallet_address>/paths/count', methods=['GET'])
 def get_user_created_paths_count_route(wallet_address):
