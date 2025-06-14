@@ -58,7 +58,7 @@ def register_path_on_chain(path_id, content_hash, task_id=None, progress_callbac
 
 def check_if_nft_already_minted(user_wallet, path_id):
     """
-    FIX: Directly queries the blockchain to see if an NFT has been minted.
+    Directly queries the blockchain to see if an NFT has been minted.
     This is a read-only call and does not cost gas. It's the ultimate source of truth.
     """
     logger.info(f"CHAIN CHECK: Verifying mint status for user {user_wallet}, path {path_id} on-chain.")
@@ -74,8 +74,11 @@ def check_if_nft_already_minted(user_wallet, path_id):
         return has_minted
     except Exception as e:
         logger.error(f"CHAIN CHECK: Failed to query hasUserMinted function: {e}", exc_info=True)
-                                                                                                    
-        return True
+        # If the check itself fails, we cannot be certain.
+        # Returning False allows the minting attempt to proceed,
+        # where the contract's own logic will prevent double minting if it's truly already minted.
+        # This specifically addresses the "false message" when the check is the problem.
+        return False
 
 def mint_nft_on_chain(user_wallet, path_id):
     """
