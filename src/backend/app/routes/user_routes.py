@@ -1,8 +1,9 @@
 from flask import Blueprint, request, jsonify
 from app import logger
-from app.services import user_service                         
+from app.services import user_service, supabase_service
 
 bp = Blueprint('user_routes', __name__, url_prefix='/users')
+
 
 @bp.route('', methods=['POST'])
 def create_user_route():
@@ -13,7 +14,6 @@ def create_user_route():
         return jsonify({"error": "wallet_address is required"}), 400
 
     try:
-                                                                
         user_res = user_service.upsert_user_with_checkpoint(
             wallet_address,
             data.get('name'),
@@ -25,12 +25,12 @@ def create_user_route():
         logger.error(f"ROUTE: /users POST failed: {e}", exc_info=True)
         return jsonify({"error": "Failed to create or update user."}), 500
 
+
 @bp.route('/<wallet_address>', methods=['GET'])
 def get_user_route(wallet_address):
     logger.info(f"ROUTE: /users GET for wallet: {wallet_address}")
     try:
-                                                      
-        user_res = user_service.supabase_service.get_user_by_wallet_full(wallet_address)
+        user_res = supabase_service.get_user_by_wallet_full(wallet_address)
         if not user_res or not user_res.data:
             return jsonify({"error": "User not found"}), 404
         return jsonify(user_res.data)
@@ -38,37 +38,39 @@ def get_user_route(wallet_address):
         logger.error(f"ROUTE: /users GET failed: {e}", exc_info=True)
         return jsonify({"error": "Failed to retrieve user."}), 500
 
+
 @bp.route('/<wallet_address>/paths', methods=['GET'])
-def get_user_enrolled_paths_route(wallet_address):
+def get_user_associated_paths_route(wallet_address):
     """
-    Gets all learning paths a user is enrolled in (i.e., has started).
-    Includes progress details like completion status and number of completed levels.
+    Gets all learning paths associated with a user:
+    those they created AND those they are enrolled in (have started).
+    Ordered by most recent activity (creation or enrollment start).
     """
-    logger.info(f"ROUTE: /users/<wallet>/paths GET for wallet: {wallet_address}")
+    logger.info(f"ROUTE: /users/<wallet>/paths (ASSOCIATED) GET for wallet: {wallet_address}")
     try:
-                                            
-        user_res = user_service.supabase_service.get_user_by_wallet(wallet_address)
-        if not user_res or not user_res.data:
-            return jsonify([])                                        
+        # The RPC function get_user_associated_paths takes wallet address directly
+        paths_res = supabase_service.get_user_associated_paths_rpc(wallet_address)
 
-        user_id = user_res.data['id']
-
-        paths_res = user_service.supabase_service.get_enrolled_paths_by_user(user_id)
-
-        if not paths_res.data:
+        if paths_res.data is None:  # Check if data is None (e.g. RPC error or no user)
+            logger.warning(f"No associated paths found or RPC error for wallet {wallet_address}.")
             return jsonify([])
 
+        # The RPC directly returns the list of paths
         return jsonify(paths_res.data)
 
     except Exception as e:
-        logger.error(f"ROUTE: /users/<wallet>/paths GET failed: {e}", exc_info=True)
-        return jsonify({"error": "Failed to retrieve user-enrolled paths."}), 500
+        logger.error(f"ROUTE: /users/<wallet>/paths (ASSOCIATED) GET failed: {e}", exc_info=True)
+        # Check if the error is from PostgREST and try to return its message
+        if hasattr(e, 'message') and isinstance(e.message, dict):
+            return jsonify({"error": "Failed to retrieve user-associated paths.", "details": e.message}), 500
+        return jsonify({"error": "Failed to retrieve user-associated paths."}), 500
+
 
 @bp.route('/<wallet_address>/paths/count', methods=['GET'])
 def get_user_created_paths_count_route(wallet_address):
     logger.info(f"ROUTE: /users/<wallet>/paths/count GET for wallet: {wallet_address}")
     try:
-        count = user_service.supabase_service.get_path_count_by_creator(wallet_address)
+        count = supabase_service.get_path_count_by_creator(wallet_address)
         return jsonify({
             "creator_wallet": wallet_address,
             "path_count": count

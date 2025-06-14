@@ -7,7 +7,8 @@ from PIL import Image, ImageDraw, ImageFont
 from app import text_model, logger
 from app.config import config
 import google.generativeai as genai
-from google.generativeai.types import GenerationConfig, Part
+# Removed GenerateContentConfig from here, GenerationConfig is already imported via app/__init__.py if needed by text_model
+# but for this specific call, we'll use a dict.
 import io
 
 
@@ -246,6 +247,13 @@ def generate_certificate_image(path_title, user_name, output_file_path):
 
     try:
         image_model = genai.GenerativeModel(config.GEMINI_MODEL_VISION)
+
+        # Construct the generation_config as a dictionary
+        image_generation_config_dict = {
+            "response_modalities": ["IMAGE", "TEXT"],
+            # "response_mime_type": "image/png" # Optional: Let's see if model defaults correctly
+        }
+
         prompt_for_image_generation = (
             "You are a master artist who creates symbolic, abstract emblems for digital certificates. Your task is to generate a 128x128 pixel art icon that is a deep, metaphorical representation of a learning topic.\n\n"
             f"**TOPIC:** '{path_title}'\n\n"
@@ -259,8 +267,13 @@ def generate_certificate_image(path_title, user_name, output_file_path):
             "    - **DO NOT generate literal, real-world objects** like cars, houses, or people unless the topic is specifically about them. Focus on symbolism.\n"
             "    - The result must be the image data only. If you also generate text, that's fine, but the primary output I need is the image."
         )
-        logger.info(f"IMAGE_GEN_SERVICE: Sending prompt to Gemini model: {prompt_for_image_generation}")
-        response = image_model.generate_content(prompt_for_image_generation)
+        logger.info(f"IMAGE_GEN_SERVICE: Sending prompt to Gemini model with specific GenerationConfig dictionary.")
+
+        response = image_model.generate_content(
+            contents=prompt_for_image_generation,
+            generation_config=image_generation_config_dict
+        )
+
         logger.info(f"IMAGE_GEN_SERVICE: Received response from Gemini model.")
 
         base_image_bytes = None
@@ -300,7 +313,7 @@ def generate_certificate_image(path_title, user_name, output_file_path):
 
         if not base_image_bytes:
             logger.error(
-                f"IMAGE_GEN_SERVICE: AI model '{config.GEMINI_MODEL_VISION}' did not return usable image data bytes. Full response: {response}")
+                f"IMAGE_GEN_SERVICE: AI model '{config.GEMINI_MODEL_VISION}' did not return usable image data bytes after processing parts. Full response: {response}")
             if response.prompt_feedback and response.prompt_feedback.block_reason:
                 logger.error(
                     f"IMAGE_GEN_SERVICE: Prompt feedback block reason: {response.prompt_feedback.block_reason_message}")
