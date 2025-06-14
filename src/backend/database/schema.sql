@@ -195,7 +195,7 @@ CREATE INDEX IF NOT EXISTS trgm_idx_paths_long_desc ON learning_paths USING gin 
 -- CREATE INDEX ON learning_paths USING ivfflat (title_embedding vector_cosine_ops) WITH (lists = 100);
 
 
--- 13. FUNCTION TO GET LEVEL COMPLETION STATUS FOR A USER AND PATH (NEW)
+-- 13. FUNCTION TO GET LEVEL COMPLETION STATUS FOR A USER AND PATH (UPDATED)
 CREATE OR REPLACE FUNCTION get_level_completion_for_path(p_user_id bigint, p_path_id bigint)
 RETURNS TABLE(level_number int, is_complete boolean)
 LANGUAGE plpgsql
@@ -212,3 +212,72 @@ BEGIN
     up.path_id = p_path_id;
 END;
 $$;
+
+-- 14. USER NFTS TABLE (UPDATED)
+CREATE TABLE user_nfts (
+    id BIGINT PRIMARY KEY GENERATED ALWAYS AS IDENTITY,
+    user_id BIGINT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    path_id BIGINT NOT NULL REFERENCES learning_paths(id) ON DELETE CASCADE,
+    token_id BIGINT NOT NULL,
+    nft_contract_address TEXT NOT NULL,
+    metadata_url TEXT, -- To store the IPFS URL
+    minted_at TIMESTAMPTZ DEFAULT now(),
+    UNIQUE(user_id, path_id),
+    UNIQUE(token_id)
+);
+
+-- Index for fast lookup of user's NFTs
+CREATE INDEX IF NOT EXISTS idx_user_nfts_user_id ON user_nfts(user_id);
+
+-- 15. FUNCTION TO AUTOMATICALLY COMPLETE A PATH (NEW)
+CREATE OR REPLACE FUNCTION check_and_complete_path(p_progress_id bigint)
+RETURNS void AS $$
+DECLARE
+    v_path_id bigint;
+    v_user_id bigint;
+    total_levels_in_path int;
+    completed_levels_for_user int;
+BEGIN
+    -- Get user_id and path_id from the progress record
+    SELECT user_id, path_id INTO v_user_id, v_path_id
+    FROM user_progress
+    WHERE id = p_progress_id;
+
+    -- Get the total number of levels for this path
+    SELECT total_levels INTO total_levels_in_path
+    FROM learning_paths
+    WHERE id = v_path_id;
+
+    -- Count how many levels the user has completed for this path
+    SELECT count(*) INTO completed_levels_for_user
+    FROM level_progress
+    WHERE progress_id = p_progress_id AND is_complete = true;
+
+    -- If the counts match, the path is complete
+    IF total_levels_in_path > 0 AND completed_levels_for_user >= total_levels_in_path THEN
+        UPDATE user_progress
+        SET
+            is_complete = true,
+            completed_at = now()
+        WHERE id = p_progress_id AND is_complete = false; -- Only update if not already complete
+    END IF;
+END;
+$$ LANGUAGE plpgsql;
+
+
+-- 16. FUNCTION TO GET A SINGLE LEVEL'S COMPLETION STATUS (NEW)
+CREATE OR REPLACE FUNCTION get_single_level_completion(p_user_id bigint, p_path_id bigint, p_level_number int)
+RETURNS boolean AS $$
+DECLARE
+    v_is_complete boolean;
+BEGIN
+    SELECT lp.is_complete INTO v_is_complete
+    FROM level_progress lp
+    JOIN user_progress up ON lp.progress_id = up.id
+    WHERE up.user_id = p_user_id
+      AND up.path_id = p_path_id
+      AND lp.level_number = p_level_number;
+
+    RETURN COALESCE(v_is_complete, false);
+END;
+$$ LANGUAGE plpgsql;

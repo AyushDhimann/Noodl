@@ -61,6 +61,7 @@ def generation_worker(task_id, original_topic, new_title, creator_wallet, countr
         for i, level_title in enumerate(curriculum_titles):
             try:
                 level_number = i + 1
+                is_final_level = (level_number == total_levels)
                 update_progress(task_id, f"  - Lesson {level_number}: '{level_title}'")
 
                 level_res = supabase_service.create_level(new_path_id, level_number, level_title)
@@ -75,9 +76,9 @@ def generation_worker(task_id, original_topic, new_title, creator_wallet, countr
                     new_level_id = level_res.data['id']
 
                 if intent == 'learn':
-                    interleaved_items = ai_service.generate_learn_level_content(new_title, level_title)
+                    interleaved_items = ai_service.generate_learn_level_content(new_title, level_title, is_final_level)
                 else:  # intent == 'help'
-                    interleaved_items = ai_service.generate_help_level_content(new_title, level_title)
+                    interleaved_items = ai_service.generate_help_level_content(new_title, level_title, is_final_level)
 
                 all_content_for_hash.append({"level": level_title, "items": interleaved_items})
 

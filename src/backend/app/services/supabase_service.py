@@ -27,7 +27,7 @@ def get_paths_by_creator(wallet_address):
 def get_path_count_by_creator(wallet_address):
     """Efficiently gets the count of paths created by a user."""
     response = supabase_client.table('learning_paths').select('id', count='exact').eq('creator_wallet',
-                                                                                      wallet_address).execute()
+                                                                                       wallet_address).execute()
     return response.count
 
 
@@ -57,7 +57,7 @@ def get_full_path_details(path_id):
 
 def get_full_path_details_for_user(path_id, user_wallet):
     """
-    Fetches full path details and enriches each level with the user-specific completion status.
+    Fetches full path details and enriches it with user-specific completion and minting status.
     """
     # 1. Get the generic path details
     path_res = get_full_path_details(path_id)
@@ -65,32 +65,34 @@ def get_full_path_details_for_user(path_id, user_wallet):
         return None
     path_data = path_res.data
 
-    # 2. Get user-specific completion data for all levels in this path
+    # 2. Get user ID
     user_res = get_user_by_wallet(user_wallet)
-    if not user_res or not user_res.data:
-        # If user not found, no levels are complete for them
-        user_id = None
-        level_completion_map = {}
-    else:
-        user_id = user_res.data['id']
-        # Fetch all level progress for this user and path
+    user_id = user_res.data['id'] if user_res and user_res.data else None
+
+    # 3. Get user-specific completion data for all levels in this path
+    if user_id:
         progress_res = supabase_client.rpc('get_level_completion_for_path', {
             'p_user_id': user_id,
             'p_path_id': path_id
         }).execute()
+        level_completion_map = {item['level_number']: item['is_complete'] for item in
+                                progress_res.data} if progress_res.data else {}
+    else:
+        level_completion_map = {}
 
-        level_completion_map = {
-            item['level_number']: item['is_complete'] for item in progress_res.data
-        } if progress_res.data else {}
-
-    # 3. Inject the 'is_complete' flag into each level
+    # 4. Inject the 'is_complete' flag into each level
     if 'levels' in path_data and path_data['levels']:
         for level in path_data['levels']:
             level_num = level.get('level_number')
             level['is_complete'] = level_completion_map.get(level_num, False)
 
-    # Also add overall completion status for the entire path
+    # 5. Add overall path completion and NFT minted status
     path_data['is_complete'] = get_path_completion_status(user_wallet, path_id)
+    if user_id:
+        nft_res = supabase_client.table('user_nfts').select('id', count='exact').eq('user_id', user_id).eq('path_id', path_id).execute()
+        path_data['is_minted'] = nft_res.count > 0
+    else:
+        path_data['is_minted'] = False
 
     return path_data
 
@@ -131,7 +133,7 @@ def create_content_items(items_to_insert):
 
 def get_content_items_for_level(level_id):
     return supabase_client.table('content_items').select('id, item_index, item_type, content').eq('level_id',
-                                                                                                  level_id).order(
+                                                                                                   level_id).order(
         'item_index').execute()
 
 
@@ -252,8 +254,8 @@ def _create_progress_record(user_id, path_id):
 
 def upsert_level_progress(user_wallet, path_id, level_index, correct_answers, total_questions):
     """
-    Handles starting a path if it doesn't exist and updating the score for a specific level.
-    A level is marked as complete as soon as any progress is submitted for it.
+    Handles starting a path if it doesn't exist, updating the score for a specific level,
+    and automatically marking the entire path as complete if all levels are done.
     """
     # 1. Get User ID
     user_res = get_user_by_wallet(user_wallet)
@@ -263,7 +265,7 @@ def upsert_level_progress(user_wallet, path_id, level_index, correct_answers, to
 
     # 2. Get or Create Progress Record
     progress_res = supabase_client.table('user_progress').select('id').eq('user_id', user_id).eq('path_id',
-                                                                                                 path_id).maybe_single().execute()
+                                                                                                   path_id).maybe_single().execute()
 
     if progress_res and progress_res.data:
         progress_id = progress_res.data['id']
@@ -275,13 +277,17 @@ def upsert_level_progress(user_wallet, path_id, level_index, correct_answers, to
     # 3. Upsert Level Score and mark as complete
     logger.info(
         f"DB: Upserting level progress for progress_id {progress_id}, level {level_index} with score {correct_answers}/{total_questions} and marking as complete.")
-    return supabase_client.table('level_progress').upsert({
+    supabase_client.table('level_progress').upsert({
         'progress_id': progress_id,
         'level_number': level_index,
         'correct_answers': correct_answers,
         'total_questions': total_questions,
         'is_complete': True
     }, on_conflict='progress_id, level_number').execute()
+
+    # 4. Check if this completes the whole path
+    logger.info(f"DB: Checking if path is now complete for progress_id {progress_id}")
+    supabase_client.rpc('check_and_complete_path', {'p_progress_id': progress_id}).execute()
 
 
 def get_level_score(user_wallet, path_id, level_index):
@@ -295,7 +301,7 @@ def get_level_score(user_wallet, path_id, level_index):
     user_id = user_res.data['id']
 
     progress_res = supabase_client.table('user_progress').select('id').eq('user_id', user_id).eq('path_id',
-                                                                                                 path_id).maybe_single().execute()
+                                                                                                   path_id).maybe_single().execute()
     if not progress_res or not progress_res.data:
         logger.warning(f"DB: No progress record found for user {user_id} on path {path_id}.")
         return None
@@ -304,7 +310,7 @@ def get_level_score(user_wallet, path_id, level_index):
 
     logger.info(f"DB: Querying level_progress for progress_id {progress_id} and level_number {level_index}.")
     score_res = supabase_client.table('level_progress').select('correct_answers, total_questions').eq('progress_id',
-                                                                                                      progress_id).eq(
+                                                                                                        progress_id).eq(
         'level_number', level_index).maybe_single().execute()
 
     return score_res.data if score_res else None
@@ -312,26 +318,28 @@ def get_level_score(user_wallet, path_id, level_index):
 
 def get_user_scores(user_id):
     """
-    Aggregates scores for a user across all their learning paths.
+    Aggregates scores for a user across all their learning paths they have started.
     """
-    res = supabase_client.table('level_progress').select(
-        'correct_answers, total_questions, user_progress(path_id, learning_paths(title))'
-    ).eq('user_progress.user_id', user_id).execute()
+    # FIX: Query starts from user_progress to include all started paths, even those
+    # without quiz scores yet.
+    res = supabase_client.table('user_progress').select(
+        'path_id, learning_paths(title), level_progress(correct_answers, total_questions)'
+    ).eq('user_id', user_id).execute()
 
     if not res.data:
         return []
 
     path_scores = {}
-    for record in res.data:
-        if not record.get('user_progress') or not record['user_progress'].get('path_id'):
+    # The structure of res.data will be a list of user_progress records.
+    for progress_record in res.data:
+        path_id = progress_record.get('path_id')
+        if not path_id:
             continue
 
-        progress_data = record['user_progress']
-        path_id = progress_data['path_id']
-
-        path_info = progress_data.get('learning_paths') or {}
+        path_info = progress_record.get('learning_paths') or {}
         path_title = path_info.get('title', f'Deleted Path ({path_id})')
 
+        # Initialize the dict for this path
         if path_id not in path_scores:
             path_scores[path_id] = {
                 "path_id": path_id,
@@ -340,9 +348,13 @@ def get_user_scores(user_id):
                 "total_questions_answered": 0
             }
 
-        path_scores[path_id]["correct_answers"] += record.get('correct_answers', 0)
-        path_scores[path_id]["total_questions_answered"] += record.get('total_questions', 0)
+        # Aggregate scores from nested level_progress records for this path
+        level_progress_list = progress_record.get('level_progress', [])
+        for level_score in level_progress_list:
+            path_scores[path_id]["correct_answers"] += level_score.get('correct_answers', 0)
+            path_scores[path_id]["total_questions_answered"] += level_score.get('total_questions', 0)
 
+    # The rest of the function for calculating percentage is the same.
     final_scores = []
     for path_id, scores in path_scores.items():
         total = scores['total_questions_answered']
@@ -362,9 +374,11 @@ def set_path_completed(user_wallet, path_id):
         raise ValueError(f"User not found for wallet {user_wallet}")
     user_id = user_res.data['id']
 
-    progress_res = supabase_client.table('user_progress').select('id').eq('user_id', user_id).eq('path_id', path_id).maybe_single().execute()
+    progress_res = supabase_client.table('user_progress').select('id').eq('user_id', user_id).eq('path_id',
+                                                                                                   path_id).maybe_single().execute()
     if not progress_res or not progress_res.data:
-        logger.warning(f"DB: No progress record found for user {user_id} on path {path_id}. Creating one to mark as complete.")
+        logger.warning(
+            f"DB: No progress record found for user {user_id} on path {path_id}. Creating one to mark as complete.")
         _create_progress_record(user_id, path_id)
 
     return supabase_client.table('user_progress').update({
@@ -381,7 +395,8 @@ def get_user_progress_for_paths(user_wallet, path_ids: list):
         return {}
     user_id = user_res.data['id']
 
-    progress_res = supabase_client.table('user_progress').select('path_id, is_complete').eq('user_id', user_id).in_('path_id', path_ids).execute()
+    progress_res = supabase_client.table('user_progress').select('path_id, is_complete').eq('user_id', user_id).in_(
+        'path_id', path_ids).execute()
 
     if not progress_res.data:
         return {}
@@ -397,9 +412,73 @@ def get_path_completion_status(user_wallet, path_id):
         return False
     user_id = user_res.data['id']
 
-    progress_res = supabase_client.table('user_progress').select('is_complete').eq('user_id', user_id).eq('path_id', path_id).maybe_single().execute()
+    progress_res = supabase_client.table('user_progress').select('is_complete').eq('user_id', user_id).eq('path_id',
+                                                                                                          path_id).maybe_single().execute()
 
     if progress_res and progress_res.data:
         return progress_res.data.get('is_complete', False)
 
     return False
+
+
+def get_level_completion_status(user_wallet, path_id, level_index):
+    """Checks if a specific level is marked as complete for a user."""
+    logger.info(f"DB: Getting level completion for wallet {user_wallet}, path {path_id}, level {level_index}.")
+    user_res = get_user_by_wallet(user_wallet)
+    if not user_res or not user_res.data:
+        return False  # User not found, so not complete
+    user_id = user_res.data['id']
+
+    res = supabase_client.rpc('get_single_level_completion', {
+        'p_user_id': user_id,
+        'p_path_id': path_id,
+        'p_level_number': level_index
+    }).execute()
+
+    return res.data
+# --- NFT Functions ---
+def save_user_nft(user_wallet, path_id, token_id, contract_address, metadata_url, image_gateway_url):
+    """Saves a record of a minted NFT for a user."""
+    logger.info(f"DB: Saving NFT record for wallet {user_wallet}, path {path_id}, token {token_id}")
+    user_res = get_user_by_wallet(user_wallet)
+    if not user_res or not user_res.data:
+        raise ValueError(f"User not found for wallet {user_wallet}")
+    user_id = user_res.data['id']
+
+    return supabase_client.table('user_nfts').insert({
+        'user_id': user_id,
+        'path_id': path_id,
+        'token_id': token_id,
+        'nft_contract_address': contract_address,
+        'metadata_url': metadata_url,
+        'image_gateway_url': image_gateway_url
+    }).execute()
+
+
+def get_nfts_by_user(wallet_address):
+    """Retrieves all NFTs owned by a specific user."""
+    logger.info(f"DB: Fetching all NFTs for wallet {wallet_address}")
+    user_res = get_user_by_wallet_full(wallet_address)
+    if not user_res or not user_res.data:
+        return []
+    user_id = user_res.data['id']
+
+    response = supabase_client.table('user_nfts').select(
+        'path_id, token_id, nft_contract_address, metadata_url, image_gateway_url, minted_at, learning_paths(title)'
+    ).eq('user_id', user_id).order('minted_at', desc=True).execute()
+
+    return response.data if response.data else []
+
+
+def get_user_and_path_for_nft(user_wallet, path_id):
+    """A helper function to get user and path info needed for NFT generation."""
+    user_res = get_user_by_wallet_full(user_wallet)
+    path_res = get_path_by_id(path_id)
+
+    if not user_res or not user_res.data or not path_res or not path_res.data:
+        return None
+
+    return {
+        "user_name": user_res.data.get('name'),
+        "path_title": path_res.data.get('title')
+    }

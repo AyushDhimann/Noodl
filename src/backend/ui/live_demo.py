@@ -137,7 +137,7 @@ def start_learning_path(path_id, user_wallet):
         gr.Warning(f"Invalid Path ID: '{path_id}'. Please enter a number.")
         return None, 0, 0, {}, gr.Tabs(selected=1), None, gr.Button(visible=False), gr.Markdown(visible=False)
 
-    path_data = make_api_request("GET", f"{BACKEND_URL}/paths/{path_id_int}")
+    path_data = make_api_request("GET", f"{BACKEND_URL}/paths/{path_id_int}/{user_wallet}")
     if "error" in path_data:
         gr.Error(f"Could not load path: {path_data['error']}")
         return None, 0, 0, {}, gr.Tabs(selected=1), None, gr.Button(visible=False), gr.Markdown(visible=False)
@@ -312,17 +312,38 @@ def mint_nft_for_path(path_data, user_wallet):
         yield f"### ❌ Minting Failed\n\n**Reason:** {response.get('error')}\n\n**Details:** {error_detail}"
         return
 
+    # Get all the necessary data from the single API call
     token_id = response.get('token_id')
     contract_address = response.get('nft_contract_address')
+    image_url = response.get('image_gateway_url')
+    explorer_url = response.get('explorer_url')
 
+    # Construct the success message with the image and link
     success_message = f"""
     ### 🎉 NFT Minted Successfully!
 
     Congratulations! Your unique Certificate of Completion has been minted to the blockchain.
 
+    <br>
+    <div style="text-align: center;">
+        <img src="{image_url}" alt="Your NFT Certificate" width="256" height="256">
+    </div>
+    <br>
+
     **Token ID:** `{token_id}`
     **NFT Contract Address:** `{contract_address}`
 
+    ---
+    """
+
+    if explorer_url:
+        success_message += f"""
+        <a href="{explorer_url}" target="_blank" style="text-decoration: none;">
+            <button class="gradio-button">🔗 View Mint Transaction on Block Explorer</button>
+        </a>
+        """
+
+    success_message += f"""
     ---
 
     #### 🦊 How to Add Your NFT to MetaMask
