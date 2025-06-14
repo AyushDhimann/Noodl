@@ -4,7 +4,6 @@ from app.services import supabase_service
 
 bp = Blueprint('search_routes', __name__, url_prefix='/search')
 
-
 @bp.route('', methods=['GET'])
 def search_paths_route():
     query = request.args.get('q')
@@ -12,7 +11,7 @@ def search_paths_route():
         return jsonify({"error": "Query parameter 'q' is required."}), 400
 
     if len(query) < 2:
-        return jsonify([]) # Return empty list if query is too short
+        return jsonify([])                                          
 
     logger.info(f"ROUTE: /search GET for query: '{query}'")
     try:

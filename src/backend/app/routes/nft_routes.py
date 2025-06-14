@@ -6,7 +6,6 @@ import os
 
 bp = Blueprint('nft_routes', __name__)
 
-
 @bp.route('/paths/<int:path_id>/complete', methods=['POST'])
 def complete_path_and_mint_nft_route(path_id):
     if not config.FEATURE_FLAG_ENABLE_NFT_MINTING:
@@ -17,12 +16,28 @@ def complete_path_and_mint_nft_route(path_id):
         return jsonify({"error": "user_wallet is required"}), 400
 
     try:
-        # --- Pre-check: Ensure the path is actually complete ---
+                                                                                       
+        existing_nft_db = supabase_service.get_nft_by_user_and_path(user_wallet, path_id)
+        if existing_nft_db:
+            logger.warning(f"NFT: DB check blocked re-mint for user {user_wallet}, path {path_id}.")
+            return jsonify({
+                "error": "Certificate has already been minted.",
+                "detail": "Our database shows that an NFT certificate has already been awarded for this path.",
+                "nft_data": existing_nft_db
+            }), 409
+
+        is_already_minted_on_chain = blockchain_service.check_if_nft_already_minted(user_wallet, path_id)
+        if is_already_minted_on_chain:
+            logger.warning(f"NFT: Blockchain check blocked re-mint for user {user_wallet}, path {path_id}.")
+            return jsonify({
+                "error": "Certificate has already been minted.",
+                "detail": "The blockchain confirms that an NFT certificate has already been awarded for this path.",
+            }), 409
+
         is_complete = supabase_service.get_path_completion_status(user_wallet, path_id)
         if not is_complete:
             return jsonify({"error": "Path is not yet complete. Cannot mint NFT."}), 400
 
-        # --- Step 1: Generate the certificate image locally ---
         nft_details = supabase_service.get_user_and_path_for_nft(user_wallet, path_id)
         if not nft_details:
             return jsonify({"error": "Could not find user or path details."}), 404
@@ -40,7 +55,6 @@ def complete_path_and_mint_nft_route(path_id):
             if not generated_path:
                 return jsonify({"error": "Failed to generate NFT image."}), 500
 
-        # --- Step 2: Upload the image to IPFS ---
         image_cid = ipfs_service.upload_to_ipfs(file_path=image_file_path)
         if not image_cid:
             return jsonify({"error": "Failed to upload certificate image to IPFS."}), 500
@@ -48,11 +62,10 @@ def complete_path_and_mint_nft_route(path_id):
         image_ipfs_url = f"ipfs://{image_cid}"
         image_gateway_url = f"{config.PINATA_GATEWAY_URL}/{image_cid}"
 
-        # --- Step 3: Create and upload the metadata JSON to IPFS ---
         metadata = {
             "name": f"KODO Certificate: {path_title}",
             "description": f"This certificate proves that {user_name} successfully completed the '{path_title}' learning path on KODO.",
-            "image": image_gateway_url,  # Use the full gateway URL in the metadata
+            "image": image_gateway_url,
             "attributes": [
                 {"trait_type": "Platform", "value": "KODO"},
                 {"trait_type": "Recipient", "value": user_name}
@@ -65,14 +78,12 @@ def complete_path_and_mint_nft_route(path_id):
 
         metadata_ipfs_url = f"ipfs://{metadata_cid}"
 
-        # --- Step 4: Mint the NFT to get a Token ID ---
         minted_token_id = blockchain_service.mint_nft_on_chain(user_wallet, path_id)
         if minted_token_id is None:
             return jsonify({"error": "Minting failed, did not receive a Token ID."}), 500
 
         logger.info(f"NFT: Mint successful for user {user_wallet}, path {path_id}. Token ID: {minted_token_id}")
 
-        # --- Step 5: Save the record to our database ---
         try:
             supabase_service.save_user_nft(
                 user_wallet, path_id, minted_token_id, config.NFT_CONTRACT_ADDRESS,
@@ -83,7 +94,6 @@ def complete_path_and_mint_nft_route(path_id):
             logger.error(f"DB: CRITICAL! Failed to save NFT record after minting. Error: {db_e}")
             return jsonify({"error": "Minting succeeded but failed to save record to DB."}), 500
 
-        # --- Step 6: Set the Token URI on the contract ---
         set_uri_receipt = blockchain_service.set_token_uri_on_chain(minted_token_id, metadata_ipfs_url)
         if not set_uri_receipt:
             logger.error(f"NFT: Failed to set Token URI for {minted_token_id} in second transaction.")
@@ -114,7 +124,6 @@ def complete_path_and_mint_nft_route(path_id):
             detail = "An unknown blockchain error occurred."
         logger.error(f"NFT: Minting process failed. Detail: {detail} | Original Error: {e}")
         return jsonify({"error": "NFT minting failed.", "detail": detail}), 500
-
 
 @bp.route('/nfts/<wallet_address>', methods=['GET'])
 def get_user_nfts_route(wallet_address):

@@ -7,9 +7,8 @@ from PIL import Image, ImageDraw, ImageFont
 from app import text_model, logger
 from app.config import config
 import google.generativeai as genai
-from google.genai import types
+from google.generativeai.types import GenerationConfig
 import io
-
 
 def _call_gemini_with_retry(prompt, retries=3, delay=5):
     """A wrapper to call the Gemini API with retry logic."""
@@ -18,7 +17,7 @@ def _call_gemini_with_retry(prompt, retries=3, delay=5):
             response = text_model.generate_content(prompt)
             if response.text:
                 cleaned_response = response.text.strip().replace("```json", "").replace("```", "")
-                json.loads(cleaned_response)  # Validate JSON before returning
+                json.loads(cleaned_response)
                 return cleaned_response
             else:
                 raise ValueError("AI returned an empty response.")
@@ -29,7 +28,6 @@ def _call_gemini_with_retry(prompt, retries=3, delay=5):
                 raise
             time.sleep(delay)
     raise Exception("AI: Generation failed after all retries.")
-
 
 def classify_topic_intent(topic):
     """Classifies the user's topic as either 'learn' or 'help'."""
@@ -51,13 +49,11 @@ def classify_topic_intent(topic):
     cleaned_response = _call_gemini_with_retry(prompt)
     return json.loads(cleaned_response)['intent']
 
-
 def get_embedding(text):
     """Generates a vector embedding for a given text."""
     logger.info(f"AI: Generating embedding for text: '{text[:30]}...'")
     result = genai.embed_content(model=config.GEMINI_MODEL_EMBEDDING, content=text)
     return result['embedding']
-
 
 def rephrase_topic_with_emoji(topic):
     """Asks the AI to rephrase a topic into a catchy, simple title."""
@@ -78,7 +74,6 @@ def rephrase_topic_with_emoji(topic):
     cleaned_response = _call_gemini_with_retry(prompt)
     return json.loads(cleaned_response)['new_title']
 
-
 def generate_path_description(topic_title):
     """Generates an engaging, frontend-ready description for the learning path."""
     logger.info(f"AI: Generating description for topic: '{topic_title}'")
@@ -96,11 +91,11 @@ def generate_path_description(topic_title):
     cleaned_response = _call_gemini_with_retry(prompt)
     return json.loads(cleaned_response)
 
-
 def generate_learn_curriculum(topic, country=None):
     """Asks AI to generate a dynamic curriculum for a 'learn' intent."""
     logger.info(f"AI: Generating 'learn' curriculum for topic: '{topic}' with country context: {country}")
     country_context = f"The user is from {country}, so you can use local examples or spellings if relevant, but it's not a requirement." if country else ""
+                                                                      
     prompt = f"""You are an expert curriculum designer. For the course titled "{topic}", create a detailed, logical syllabus. The goal is to take a user from beginner to competent, respecting their intelligence. {country_context}
 
     **RULES:**
@@ -113,17 +108,17 @@ def generate_learn_curriculum(topic, country=None):
 
     **IMPORTANT:** The number of levels should be appropriate for the topic's complexity.
     - For simple, everyday topics, use 3-4 levels.
-    - For complex, academic, or broad topics, use 7-10 levels.
+    - For complex, academic, or broad topics, use 5-8 levels.
 
     Do not include any text outside of the JSON object.
     """
     cleaned_response = _call_gemini_with_retry(prompt)
     return json.loads(cleaned_response)['levels']
 
-
 def generate_help_curriculum(topic):
     """Generates a step-by-step guide for a 'help' intent."""
     logger.info(f"AI: Generating 'help' curriculum for topic: '{topic}'")
+                                                                      
     prompt = f"""You are a helpful and clear technical writer. A user needs help with: "{topic}".
     Your task is to break down the solution into a series of simple, logical, and actionable steps. These steps will become the titles of a short guide.
 
@@ -135,11 +130,12 @@ def generate_help_curriculum(topic):
     5.  Each title MUST start with a single, relevant emoji.
     6.  Each title MUST NOT start with a number (e.g., "1.", "2.").
 
+    **IMPORTANT:** The number of levels should be appropriate for the topic's complexity, typically between 3 and 5 levels.
+
     Do not include any text outside of the JSON object.
     """
     cleaned_response = _call_gemini_with_retry(prompt)
     return json.loads(cleaned_response)['levels']
-
 
 def generate_learn_level_content(topic, level_title, is_final_level=False):
     """Generates rich, interleaved content for a single 'learn' level."""
@@ -152,19 +148,25 @@ def generate_learn_level_content(topic, level_title, is_final_level=False):
     )
 
     prompt = f"""
-    You are an expert educator creating a lesson for a mobile learning app. The main course is "{topic}", and this specific lesson is "{level_title}".
-    Your task is to create an insightful, interleaved learning experience.
+    You are an expert educator and content designer creating a lesson for a mobile learning app. The main course is "{topic}", and this specific lesson is "{level_title}".
+    Your task is to create an insightful, visually engaging, and well-structured learning experience using markdown.
 
     The output MUST be a single, valid JSON object with one key: "items". "items" must be an array of objects. Each object must have a "type" ('slide' or 'quiz') and a "content" field.
 
     **Content Guidelines:**
-    1.  **Mobile First & Insightful:** Keep paragraphs short (2-3 sentences). Your explanation should be intelligent and go beyond the basics. Provide context, interesting facts, or a novel perspective. Avoid simply stating the obvious. Use markdown `### Subheadings`, `**bold**`, and bullet points (`* item`).
-    2.  **Logical Flow:** A good level should have multiple slides. Explain a concept over a minimum of 3 slides before checking for understanding. A typical level should have 5-8 items in total.
-    3.  **Meaningful Quizzes:** Include a quiz only when it makes sense to test a key piece of knowledge.
+    1.  **Rich & Structured Markdown:** Your content is the UI. Make it beautiful and easy to read.
+        - Use `###` for subheadings to break up content.
+        - Use `**bold text**` for emphasis and key terms.
+        - Use `*italic text*` for nuance or definitions.
+        - Use bulleted lists (`* Item 1`) for non-sequential points.
+        - Use numbered lists (`1. Step 1`) for sequential steps.
+        - Use blockquotes (`> A notable quote or important takeaway.`) to highlight critical information.
+    2.  **Insightful & Mobile-First:** Keep paragraphs short (2-4 sentences). Go beyond basic facts and provide context, analogies, or interesting perspectives.
+    3.  **Logical Flow:** A good level should have multiple slides. Explain a concept over a minimum of 3 slides before checking for understanding. A typical level should have 5-8 items in total.
     {final_level_guideline}
 
     **'slide' item format:**
-    - "content" should be a string with detailed, informative markdown in clear, intelligent English.
+    - "content" should be a string with detailed, informative, and richly formatted markdown in clear, intelligent English.
 
     **'quiz' item format:**
     - "content" should be a JSON object with four keys: "question" (string), "options" (array of 4 strings), "correctAnswerIndex" (integer 0-3), and "explanation" (string).
@@ -174,7 +176,6 @@ def generate_learn_level_content(topic, level_title, is_final_level=False):
     """
     cleaned_response = _call_gemini_with_retry(prompt)
     return json.loads(cleaned_response)['items']
-
 
 def generate_help_level_content(topic, step_title, is_final_level=False):
     """Generates rich, interleaved content for a single 'help' step."""
@@ -188,18 +189,23 @@ def generate_help_level_content(topic, step_title, is_final_level=False):
 
     prompt = f"""
     You are an expert guide creating a helpful, interactive lesson for a mobile app. The user's main goal is "{topic}", and this specific step is "{step_title}".
-    Your task is to create an clear and effective interleaved learning experience.
+    Your task is to create a clear, effective, and visually structured learning experience using markdown.
 
     The output MUST be a single, valid JSON object with one key: "items". "items" must be an array of objects. Each object must have a "type" ('slide' or 'quiz') and a "content" field.
 
     **Content Guidelines:**
-    1.  **Mobile First & Clear:** Keep paragraphs short (2-3 sentences). Use markdown `### Subheadings`, `**bold**`, and bullet points (`* item`) to make instructions easy to follow. Avoid jargon where possible.
-    2.  **Focused Content:** A good step-by-step guide should have multiple slides to explain the process clearly. A typical step should have 3-5 items in total.
+    1.  **Rich & Structured Markdown:** Your content is the UI. Make it beautiful and easy to follow.
+        - Use `###` for subheadings to break up content.
+        - Use `**bold text**` for emphasis and key actions.
+        - Use numbered lists (`1. Step 1`) for sequential actions.
+        - Use bulleted lists (`* A point to remember`) for tips or notes.
+        - Use blockquotes (`> Important safety warning or key insight.`) to highlight critical information.
+    2.  **Clear & Focused:** Keep paragraphs short (2-3 sentences). Avoid jargon. Focus on the action for the current step.
     3.  **Check for Understanding:** Include a quiz if it makes sense to test a key piece of knowledge or a critical safety step.
     {final_level_guideline}
 
     **'slide' item format:**
-    - "content" should be a string with a clear, concise, and easy-to-follow explanation for this single step.
+    - "content" should be a string with a clear, concise, and easy-to-follow explanation for this single step, using rich markdown.
 
     **'quiz' item format:**
     - "content" should be a JSON object with four keys: "question" (string), "options" (array of 4 strings), "correctAnswerIndex" (integer 0-3), and "explanation" (string).
@@ -209,7 +215,6 @@ def generate_help_level_content(topic, step_title, is_final_level=False):
     """
     cleaned_response = _call_gemini_with_retry(prompt)
     return json.loads(cleaned_response)['items']
-
 
 def generate_random_topic():
     """Asks the AI to generate a single, random, interesting topic for a learning path."""
@@ -230,7 +235,6 @@ def generate_random_topic():
     cleaned_response = _call_gemini_with_retry(prompt)
     return json.loads(cleaned_response)['topic']
 
-
 def generate_certificate_image(path_title, user_name, output_file_path):
     """
     Generates a base image using the Gemini API based on the path title,
@@ -238,24 +242,25 @@ def generate_certificate_image(path_title, user_name, output_file_path):
     """
     logger.info(f"IMAGE: Starting AI NFT image generation for topic: {path_title}")
 
-    # 1. Generate the base image using Gemini
     base_image = None
     try:
         image_model = genai.GenerativeModel("gemini-2.0-flash-preview-image-generation")
 
         prompt = (
-            f"Create a vibrant, high-contrast 128x128 pixel digital art NFT image representing the TOPIC: '{path_title}'. "
-            "The image should be richly colored with a harmonious palette, featuring bold outlines and intricate pixel details "
-            "that fully use the canvas. The style should be modern pixel art with a slight 3D effect, glowing highlights, "
-            "and smooth shading to make the image pop. The composition must be balanced and visually appealing, suitable for a "
-            "collectible NFT series with consistent artistic style and color harmony across variations."
+            "You are a master artist who creates symbolic, abstract emblems for digital certificates. Your task is to generate a 128x128 pixel art icon that is a deep, metaphorical representation of a learning topic.\n\n"
+            f"**TOPIC:** '{path_title}'\n\n"
+            "**ARTISTIC INSTRUCTIONS:**\n"
+            "1.  **Deconstruct the Topic:** First, identify the core concepts and emotions of the topic. For 'Understand crypto investment psychology', the concepts are 'mind', 'emotion', 'finance', 'digital', 'growth', 'risk'.\n"
+            "2.  **Create a Symbol:** Design a central, abstract symbol that merges these concepts. For the crypto example, this could be a glowing brain icon intertwined with a rising chart line, or a heart shape made of circuits.\n"
+            "3.  **Style:** Modern pixel art. It must be clean, elegant, and iconic. Use bold outlines, a harmonious and vibrant color palette, and subtle glowing highlights to make it feel like a premium digital badge.\n"
+            "4.  **Composition:** The symbol must be centered and balanced.\n"
+            "5.  **STRICT NEGATIVE CONSTRAINTS:**\n"
+            "    - **ABSOLUTELY NO text, letters, or numbers.**\n"
+            "    - **DO NOT generate literal, real-world objects** like cars, houses, or people unless the topic is specifically about them. Focus on symbolism.\n"
+            "    - The result must be the image data only."
         )
 
-        # CORRECTED: Pass the generation_config as a dictionary.
-        response = image_model.generate_content(
-            contents=prompt,
-            generation_config={"response_modalities": ["IMAGE", "TEXT"]}
-        )
+        response = image_model.generate_content(prompt)
 
         base_image_bytes = None
         if response.candidates and response.candidates[0].content.parts:
@@ -282,7 +287,6 @@ def generate_certificate_image(path_title, user_name, output_file_path):
         draw.text((10, 10), "AI Gen\nFailed", fill=(255, 0, 0), font=font_fallback)
         logger.warning("IMAGE: Created a fallback placeholder image.")
 
-    # 2. Frame the image and add text using Pillow
     try:
         W, H = 512, 512
         FRAME_THICKNESS = 25

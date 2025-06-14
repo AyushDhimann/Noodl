@@ -3,19 +3,16 @@ from web3 import Web3
 from app import w3, account, logger
 from app.config import config
 
-# Load ABIs from JSON files
 with open('contracts/NoodlCertificate.json', 'r') as f:
     NFT_ABI = json.load(f)
 
 with open('contracts/LearningPathRegistry.json', 'r') as f:
     PATH_REGISTRY_ABI = json.load(f)
 
-# Initialize Contracts
 path_registry_contract = w3.eth.contract(address=Web3.to_checksum_address(config.PATH_REGISTRY_CONTRACT_ADDRESS),
                                          abi=PATH_REGISTRY_ABI)
 nft_contract = w3.eth.contract(address=Web3.to_checksum_address(config.NFT_CONTRACT_ADDRESS), abi=NFT_ABI)
 logger.info("Blockchain service and contracts initialized.")
-
 
 def send_tx_and_get_receipt(contract_function, task_id=None, progress_callback=None):
     """Sends a transaction and uses a callback for progress updates."""
@@ -54,12 +51,31 @@ def send_tx_and_get_receipt(contract_function, task_id=None, progress_callback=N
         update_status(f"Blockchain transaction failed: {str(e)}")
         raise e
 
-
 def register_path_on_chain(path_id, content_hash, task_id=None, progress_callback=None):
     return send_tx_and_get_receipt(
         path_registry_contract.functions.registerPath(path_id, content_hash), task_id, progress_callback
     )
 
+def check_if_nft_already_minted(user_wallet, path_id):
+    """
+    FIX: Directly queries the blockchain to see if an NFT has been minted.
+    This is a read-only call and does not cost gas. It's the ultimate source of truth.
+    """
+    logger.info(f"CHAIN CHECK: Verifying mint status for user {user_wallet}, path {path_id} on-chain.")
+    try:
+        has_minted = nft_contract.functions.hasUserMinted(
+            Web3.to_checksum_address(user_wallet),
+            path_id
+        ).call()
+        if has_minted:
+            logger.warning(f"CHAIN CHECK: Confirmed user {user_wallet} HAS already minted for path {path_id}.")
+        else:
+            logger.info(f"CHAIN CHECK: Confirmed user {user_wallet} has NOT minted for path {path_id}.")
+        return has_minted
+    except Exception as e:
+        logger.error(f"CHAIN CHECK: Failed to query hasUserMinted function: {e}", exc_info=True)
+                                                                                                    
+        return True
 
 def mint_nft_on_chain(user_wallet, path_id):
     """
@@ -70,8 +86,7 @@ def mint_nft_on_chain(user_wallet, path_id):
     receipt = send_tx_and_get_receipt(
         nft_contract.functions.safeMint(Web3.to_checksum_address(user_wallet), path_id)
     )
-    # The MismatchedABI error is a warning, but we can still robustly get the tokenId
-    # by processing the event log for the Transfer event.
+
     try:
         transfer_event = nft_contract.events.Transfer().process_receipt(receipt)
         if transfer_event:
@@ -79,11 +94,11 @@ def mint_nft_on_chain(user_wallet, path_id):
             logger.info(f"NFT Mint (1/2): Successfully parsed tokenId {token_id} from Transfer event.")
             return token_id
     except Exception as e:
-        logger.error(f"Could not parse Transfer event from receipt, even though transaction succeeded. Error: {e}", exc_info=True)
+        logger.error(f"Could not parse Transfer event from receipt, even though transaction succeeded. Error: {e}",
+                     exc_info=True)
 
     logger.warning("Could not find Transfer event in transaction logs. Mint may have failed silently.")
     return None
-
 
 def set_token_uri_on_chain(token_id, metadata_url):
     """

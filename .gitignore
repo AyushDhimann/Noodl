@@ -5,6 +5,6 @@
 EXTRA.md
 .DS_Store
 __pycache__/
-src/backend/MERGER.js
-src/backend/all.txt
+src/backend/maintenance/MERGER.js
+src/backend/maintenance/all.txt
 certificates/

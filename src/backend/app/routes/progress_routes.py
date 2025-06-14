@@ -4,7 +4,6 @@ from app.services import supabase_service
 
 bp = Blueprint('progress_routes', __name__, url_prefix='/progress')
 
-
 @bp.route('/level', methods=['POST'])
 def upsert_level_progress_route():
     """
@@ -39,7 +38,6 @@ def upsert_level_progress_route():
         logger.error(f"ROUTE: /progress/level failed: {e}", exc_info=True)
         return jsonify({"error": "Failed to update level progress."}), 500
 
-
 @bp.route('/path/<int:path_id>/<wallet_address>/completed', methods=['GET'])
 def get_path_completion_route(path_id, wallet_address):
     """Checks if a user has completed a specific learning path."""
@@ -50,7 +48,6 @@ def get_path_completion_route(path_id, wallet_address):
         logger.error(f"ROUTE: /progress/path/completed failed: {e}", exc_info=True)
         return jsonify({"error": "Failed to get path completion status."}), 500
 
-
 @bp.route('/level/<int:path_id>/<int:level_index>/<wallet_address>/completed', methods=['GET'])
 def get_level_completion_route(path_id, level_index, wallet_address):
     """Checks if a user has completed a specific level of a path."""
@@ -60,7 +57,6 @@ def get_level_completion_route(path_id, level_index, wallet_address):
     except Exception as e:
         logger.error(f"ROUTE: /progress/level/completed failed: {e}", exc_info=True)
         return jsonify({"error": "Failed to get level completion status."}), 500
-
 
 @bp.route('/scores/level', methods=['GET'])
 def get_level_score_route():
@@ -86,7 +82,6 @@ def get_level_score_route():
     except Exception as e:
         logger.error(f"ROUTE: /scores/level failed: {e}", exc_info=True)
         return jsonify({"error": "Failed to retrieve level score."}), 500
-
 
 @bp.route('/scores/<wallet_address>', methods=['GET'])
 def get_user_scores_route(wallet_address):

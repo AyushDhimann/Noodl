@@ -9,7 +9,6 @@ from app.config import config
 
 bp = Blueprint('path_routes', __name__, url_prefix='/paths')
 
-
 def update_progress(task_id, status, data=None):
     """Updates the progress log for a given task in the database."""
     log_entry = {"status": status}
@@ -18,31 +17,27 @@ def update_progress(task_id, status, data=None):
     supabase_service.update_task_log(task_id, log_entry)
     logger.info(f"TASK [{task_id}]: {status}")
 
-
 def generation_worker(task_id, original_topic, new_title, creator_wallet, country=None):
     """The actual long-running task that generates the path sequentially."""
     new_path_id = None
     try:
-        # Step 1: Classify the user's intent
+                                            
         update_progress(task_id, "🤔 Analyzing your request...")
         intent = ai_service.classify_topic_intent(original_topic)
         update_progress(task_id, f"Request analyzed. Intent: **{intent.upper()}**")
 
-        # Step 2: Generate curriculum based on intent
         update_progress(task_id, "✅ Designing your curriculum...")
         if intent == 'learn':
             curriculum_titles = ai_service.generate_learn_curriculum(new_title, country)
-        else:  # intent == 'help'
+        else:                    
             curriculum_titles = ai_service.generate_help_curriculum(new_title)
         total_levels = len(curriculum_titles)
         update_progress(task_id, f"Curriculum designed with {total_levels} lessons.")
 
-        # Step 3: Generate an engaging description
         update_progress(task_id, "✍️ Writing a course description...")
         description_data = ai_service.generate_path_description(new_title)
         update_progress(task_id, "Description generated.")
 
-        # Step 4: Save the initial path to get an ID
         update_progress(task_id, "📝 Saving path outline...")
         path_res = supabase_service.create_learning_path(
             title=new_title,
@@ -55,7 +50,6 @@ def generation_worker(task_id, original_topic, new_title, creator_wallet, countr
         )
         new_path_id = path_res.data[0]['id']
 
-        # Step 5: Generate and save content for each level based on intent
         update_progress(task_id, f"🧠 Generating content for {total_levels} lessons...")
         all_content_for_hash = []
         for i, level_title in enumerate(curriculum_titles):
@@ -77,7 +71,7 @@ def generation_worker(task_id, original_topic, new_title, creator_wallet, countr
 
                 if intent == 'learn':
                     interleaved_items = ai_service.generate_learn_level_content(new_title, level_title, is_final_level)
-                else:  # intent == 'help'
+                else:                    
                     interleaved_items = ai_service.generate_help_level_content(new_title, level_title, is_final_level)
 
                 all_content_for_hash.append({"level": level_title, "items": interleaved_items})
@@ -90,13 +84,11 @@ def generation_worker(task_id, original_topic, new_title, creator_wallet, countr
                 error_msg = f"  - ❌ Failed to generate content for level {i+1} ('{level_title}'). Error: {level_e}"
                 logger.error(f"TASK [{task_id}]: {error_msg}", exc_info=True)
                 update_progress(task_id, error_msg)
-                # Continue to the next level instead of crashing
+                                                                
                 continue
-
 
         update_progress(task_id, "✅ All lesson content has been generated and saved.")
 
-        # Step 6: Register on the blockchain
         if config.FEATURE_FLAG_ENABLE_BLOCKCHAIN_REGISTRATION:
             update_progress(task_id, "🔗 Registering path on the blockchain...")
             full_content_string = json.dumps(all_content_for_hash, sort_keys=True)
@@ -138,7 +130,6 @@ def generation_worker(task_id, original_topic, new_title, creator_wallet, countr
             except Exception as cleanup_e:
                 logger.error(f"TASK [{task_id}]: CRITICAL! Cleanup FAILED for path ID {new_path_id}: {cleanup_e}")
                 update_progress(task_id, f"CRITICAL! Path cleanup failed. Please notify an admin.")
-
 
 @bp.route('/generate', methods=['POST'])
 def generate_new_path_route():
@@ -186,8 +177,6 @@ def generate_new_path_route():
         logger.error(f"GENERATE ROUTE: Failed during pre-generation step: {e}", exc_info=True)
         return jsonify({"error": "Failed to start generation process. Check server logs."}), 500
 
-
-# FIX: New route for the "I'm Feeling Lucky" feature
 @bp.route('/random-topic', methods=['GET'])
 def get_random_topic_route():
     try:
@@ -196,7 +185,6 @@ def get_random_topic_route():
     except Exception as e:
         logger.error(f"RANDOM TOPIC ROUTE: Failed: {e}", exc_info=True)
         return jsonify({"error": "Failed to generate a random topic."}), 500
-
 
 @bp.route('/generate/status/<task_id>', methods=['GET'])
 def get_generation_status(task_id):
@@ -209,7 +197,6 @@ def get_generation_status(task_id):
         logger.error(f"STATUS ROUTE: Failed for task {task_id}: {e}", exc_info=True)
         return jsonify({"error": "Failed to retrieve task status."}), 500
 
-
 @bp.route('', methods=['GET'])
 def get_all_paths_route():
     logger.info("ROUTE: /paths GET")
@@ -219,7 +206,6 @@ def get_all_paths_route():
     except Exception as e:
         logger.error(f"ROUTE: /paths GET failed: {e}", exc_info=True)
         return jsonify({"error": "Failed to fetch paths."}), 500
-
 
 @bp.route('/<int:path_id>', methods=['GET'])
 def get_path_details_route(path_id):
@@ -250,7 +236,6 @@ def get_path_details_route(path_id):
         logger.error(f"ROUTE: /paths/<id> GET failed: {e}", exc_info=True)
         return jsonify({"error": "Failed to fetch path details."}), 500
 
-
 @bp.route('/<int:path_id>/<wallet_address>', methods=['GET'])
 def get_path_details_for_user_route(path_id, wallet_address):
     """
@@ -263,7 +248,6 @@ def get_path_details_for_user_route(path_id, wallet_address):
         if not path_data:
             return jsonify({"error": "Path not found"}), 404
 
-        # Calculate total slides and questions
         total_slides = 0
         total_questions = 0
         if 'levels' in path_data and path_data['levels']:
@@ -282,7 +266,6 @@ def get_path_details_for_user_route(path_id, wallet_address):
     except Exception as e:
         logger.error(f"ROUTE: /paths/<id>/<wallet> GET failed: {e}", exc_info=True)
         return jsonify({"error": "Failed to fetch path details for user."}), 500
-
 
 @bp.route('/<int:path_id>', methods=['DELETE'])
 def delete_path_route(path_id):
@@ -304,7 +287,6 @@ def delete_path_route(path_id):
     except Exception as e:
         logger.error(f"ROUTE: /paths/DELETE failed for path {path_id}: {e}", exc_info=True)
         return jsonify({"error": "Failed to delete path."}), 500
-
 
 @bp.route('/<int:path_id>/levels/<int:level_num>', methods=['GET'])
 def get_level_content_route(path_id, level_num):
