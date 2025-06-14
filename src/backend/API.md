@@ -32,9 +32,9 @@ Endpoints for managing user profiles and their created content.
 
 ---
 
-### Get User-Created Paths
+### Get User-Enrolled Paths
 - **Endpoint:** `GET /users/<wallet_address>/paths`
-- **Description:** Retrieves a list of all learning paths created by a specific user, ordered by most recent first.
+- **Description:** Retrieves a list of all learning paths a user is enrolled in (has started), ordered by most recent first.
 - **Success (200):** Returns an array of path objects.
 
 ---
@@ -152,8 +152,6 @@ Endpoints for generating, retrieving, and managing learning paths and their cont
 
 ## 📈 Progress & Scoring Endpoints
 
-Endpoints for tracking and retrieving user progress and scores.
-
 ---
 
 ### Upsert Level Progress
@@ -198,7 +196,7 @@ Endpoints for tracking and retrieving user progress and scores.
 ---
 
 ### Get All User Scores
-- **Endpoint:** `GET /scores/<wallet_address>`
+- **Endpoint:** `GET /progress/scores/<wallet_address>`
 - **Description:** Retrieves an aggregated summary of scores for all paths a user has made progress on.
 - **Success (200):** Returns an array of score summary objects.
 

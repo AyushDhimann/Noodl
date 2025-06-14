@@ -5,29 +5,41 @@ from . import ai_service
 
 # --- User Functions ---
 def get_user_by_wallet(wallet_address):
-    return supabase_client.table('users').select('id').eq('wallet_address', wallet_address).maybe_single().execute()
+    return supabase_client.table('users').select('id').eq('wallet_address', wallet_address.lower()).maybe_single().execute()
 
 
 def get_user_by_wallet_full(wallet_address):
     """Fetches the full user object, not just the ID."""
-    return supabase_client.table('users').select('*').eq('wallet_address', wallet_address).maybe_single().execute()
+    return supabase_client.table('users').select('*').eq('wallet_address', wallet_address.lower()).maybe_single().execute()
 
 
 def upsert_user(wallet_address, name, country):
     return supabase_client.table('users').upsert({
-        'wallet_address': wallet_address, 'name': name, 'country': country
+        'wallet_address': wallet_address.lower(), 'name': name, 'country': country
     }, on_conflict='wallet_address').execute()
 
 
 def get_paths_by_creator(wallet_address):
     return supabase_client.table('learning_paths').select("id, title, short_description, total_levels, created_at").eq(
-        'creator_wallet', wallet_address).order('created_at', desc=True).execute()
+        'creator_wallet', wallet_address.lower()).order('created_at', desc=True).execute()
+
+
+def get_enrolled_paths_by_user(user_id):
+    """Fetches all paths a user has started (i.e., has a progress record for)."""
+    logger.info(f"DB: Fetching all enrolled paths for user_id: {user_id}")
+    # The join syntax is `foreign_table(columns)`.
+    # The select on user_progress will return a list of objects, each containing a learning_paths object.
+    return supabase_client.table('user_progress').select(
+        'learning_paths(id, title, short_description, total_levels, created_at)'
+    ).eq('user_id', user_id).order(
+        'created_at', foreign_table='learning_paths', desc=True
+    ).execute()
 
 
 def get_path_count_by_creator(wallet_address):
     """Efficiently gets the count of paths created by a user."""
     response = supabase_client.table('learning_paths').select('id', count='exact').eq('creator_wallet',
-                                                                                       wallet_address).execute()
+                                                                                       wallet_address.lower()).execute()
     return response.count
 
 
@@ -101,7 +113,7 @@ def create_learning_path(title, short_description, long_description, creator_wal
                          embedding):
     return supabase_client.table('learning_paths').insert({
         "title": title, "short_description": short_description, "long_description": long_description,
-        "creator_wallet": creator_wallet, "total_levels": total_levels, "intent_type": intent_type,
+        "creator_wallet": creator_wallet.lower(), "total_levels": total_levels, "intent_type": intent_type,
         "title_embedding": embedding
     }).execute()
 
@@ -436,6 +448,8 @@ def get_level_completion_status(user_wallet, path_id, level_index):
     }).execute()
 
     return res.data
+
+
 # --- NFT Functions ---
 def save_user_nft(user_wallet, path_id, token_id, contract_address, metadata_url, image_gateway_url):
     """Saves a record of a minted NFT for a user."""

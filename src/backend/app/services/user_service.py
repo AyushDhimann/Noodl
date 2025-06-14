@@ -7,6 +7,7 @@ def upsert_user_with_checkpoint(wallet_address, name=None, country=None):
     Creates a user or updates them only if name or country are missing.
     This prevents overwriting existing data with nulls.
     """
+    wallet_address = wallet_address.lower()
     logger.info(f"SERVICE: Upserting user {wallet_address} with checkpoint.")
 
     # First, check if the user exists and get their current data

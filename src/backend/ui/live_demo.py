@@ -48,7 +48,7 @@ def refresh_dashboard(wallet):
 
     my_paths_data = make_api_request("GET", f"{BACKEND_URL}/users/{wallet}/paths")
     all_paths_data = make_api_request("GET", f"{BACKEND_URL}/paths")
-    my_scores_data = make_api_request("GET", f"{BACKEND_URL}/scores/{wallet}")
+    my_scores_data = make_api_request("GET", f"{BACKEND_URL}/progress/scores/{wallet}")
 
     my_paths_formatted = [[p.get('id'), p.get('title'), p.get('total_levels')] for p in my_paths_data] if isinstance(
         my_paths_data, list) else []
@@ -332,18 +332,14 @@ def mint_nft_for_path(path_data, user_wallet):
 
     **Token ID:** `{token_id}`
     **NFT Contract Address:** `{contract_address}`
-
-    ---
     """
 
     if explorer_url:
         success_message += f"""
-        <a href="{explorer_url}" target="_blank" style="text-decoration: none;">
-            <button class="gradio-button">🔗 View Mint Transaction on Block Explorer</button>
-        </a>
+        \n\n[🔗 View Mint Transaction on Block Explorer]({explorer_url})\n\n
         """
 
-    success_message += f"""
+    success_message += """
     ---
 
     #### 🦊 How to Add Your NFT to MetaMask
@@ -360,7 +356,7 @@ def mint_nft_for_path(path_data, user_wallet):
         {token_id}
         ```
     6.  Click **"Add"** and your Noodl certificate will appear in your wallet!
-    """
+    """.format(contract_address=contract_address, token_id=token_id)
     yield success_message
 
 
@@ -428,7 +424,7 @@ def create_and_launch_demo_ui(port):
                     with gr.TabItem("My Learning Progress"):
                         my_scores_df = gr.DataFrame(headers=["Path", "Score", "Correct", "Total Answered"],
                                                     interactive=False, col_count=(4, "fixed"))
-                    with gr.TabItem("My Created Paths"):
+                    with gr.TabItem("My Enrolled Paths"):
                         my_paths_df = gr.DataFrame(headers=["ID", "Title", "Levels"], interactive=False,
                                                    col_count=(3, "fixed"))
                     with gr.TabItem("All Public Paths"):
