@@ -65,7 +65,7 @@ void showBottomOptionsDialog({required BuildContext context}) {
                       ),
                       SvgPicture.asset('assets/images/noodl_alt.svg', height: 25),
                       Text(
-                        'Version 0.0.0',
+                        'Version Ramen (0.1)',
                         style: TextStyle(
                           fontSize: 12,
                           color: appColors.white.withOpacity(0.4),

@@ -110,7 +110,7 @@ class _LevelWidgetState extends State<LevelWidget> {
                       child: FittedBox(
                         fit: BoxFit.cover,
                         child: Text(
-                          'LESSON',
+                          'CHAPTER',
                           style: TextStyle(
                             color: appColors.white.withOpacity(0.025),
                             fontFamily: 'NSansB',
@@ -140,7 +140,7 @@ class _LevelWidgetState extends State<LevelWidget> {
                                 color: appColors.primary.withOpacity(0.25),
                               ),
                               child: Text(
-                                'Lesson ${widget.data.levelNumber}',
+                                'Chapter ${widget.data.levelNumber}',
                                 style: TextStyle(
                                   color: appColors.white,
                                   fontSize: 16,

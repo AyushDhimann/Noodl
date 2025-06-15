@@ -91,7 +91,7 @@ class _ResultScreenState extends State<ResultScreen> {
                           SizedBox(height: 5),
                           Text(
                             isLastLevel
-                                ? 'From your first stir to final slurp, brilliance all the way through. In short, you\'ve completed all the lessons in this Noodl. Congratulations!'
+                                ? 'From your first stir to final slurp, brilliance all the way through. In short, you\'ve completed all the chapters in this Noodl. Congratulations!'
                                 : 'You’ve stirred the pot, just a few more steps to your perfect Noodl!',
                             style: TextStyle(
                               fontFamily: 'NSansL',
@@ -223,7 +223,7 @@ class _ResultScreenState extends State<ResultScreen> {
                                         ? SizedBox.shrink()
                                         : ResultsPageButton(
                                             text:
-                                                'Lesson ${widget.shortData.levelNumber + 1}',
+                                                'Chapter ${widget.shortData.levelNumber + 1}',
                                             onTap: () {
                                               // add api endpoint to push score
                                               provider.zeroScore();
@@ -252,7 +252,7 @@ class _ResultScreenState extends State<ResultScreen> {
                                             },
                                           ),
                                     ResultsPageButton(
-                                      text: 'All Lessons',
+                                      text: 'All Chapters',
                                       onTap: () {
                                         provider.zeroScore();
                                         provider.setNoSelectedOption();

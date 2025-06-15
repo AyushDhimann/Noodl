@@ -46,7 +46,7 @@ void showQuitDialog(BuildContext context){
                 ),
                 const SizedBox(height: 5,),
                 Text(
-                  "You will lose progress on quitting in between a lesson.",
+                  "You will lose progress on quitting in between a chapter.",
                   textAlign: TextAlign.center,
                   style: TextStyle(
                     color: appColors.white.withOpacity(0.75),

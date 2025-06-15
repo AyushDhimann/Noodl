@@ -63,6 +63,7 @@ class LogsDisplay extends StatelessWidget {
               child: Padding(
                 padding: EdgeInsets.symmetric(horizontal: 8, vertical: 5),
                 child: ListView(
+                  padding: EdgeInsets.zero,
                   scrollDirection: Axis.vertical,
                   controller: provider.logsDisplayScrollController,
                   children: [

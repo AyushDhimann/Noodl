@@ -71,7 +71,7 @@ class GenerateNoodlPage extends StatelessWidget {
                         padding: const EdgeInsets.only(top: 24),
                         child: CupertinoActivityIndicator(),
                       ):SizedBox.shrink(),
-                      provider.generatingTaskID != null
+                      provider.generatingTaskID != null && !provider.similarExists
                         ? StreamBuilder(
                             stream: Stream.periodic(const Duration(seconds: 2))
                                 .asyncMap((_) => APIservice.generatingNoodlProgress(

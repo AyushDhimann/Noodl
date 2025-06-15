@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:frontend/models/noodl_model.dart';
 import 'package:frontend/widgets/generate/logs_display.dart';
 
 class GeneratePageProvider extends ChangeNotifier{
@@ -70,5 +71,27 @@ class GeneratePageProvider extends ChangeNotifier{
     isRandomTopicLoading = false;
     notifyListeners();
   }
+
+  bool similarExists = false;
+
+  NoodlModel? similarNoodl;
+
+
+    void similarExistsTrue() {
+      similarExists = true;
+      notifyListeners();
+  }
+
+  void similarExistsFalse() {
+      similarExists = false;
+      similarNoodl = null;
+      notifyListeners();
+  }
+
+  setSimilarNoodl(NoodlModel noodl){
+    similarNoodl = noodl;
+    notifyListeners();
+  }
+
 
 }

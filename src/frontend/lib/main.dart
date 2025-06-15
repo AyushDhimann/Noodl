@@ -16,19 +16,24 @@ import 'constants/colors.dart' as appColors;
 
 void main() {
   WidgetsFlutterBinding.ensureInitialized();
-  runApp(const MyApp());
+  SystemChrome.setSystemUIOverlayStyle(SystemUiOverlayStyle.light);
+  SystemChrome.setSystemUIOverlayStyle(
+    const SystemUiOverlayStyle(statusBarColor: Colors.transparent, statusBarBrightness: Brightness.light),
+  );
+  SystemChrome.setPreferredOrientations(
+    [DeviceOrientation.portraitUp]
+  ).then((value) {
+    runApp(const MyApp());
+    
+  },);
 }
 
 class MyApp extends StatelessWidget {
   const MyApp({super.key});
 
+    // Set status bar style
   @override
   Widget build(BuildContext context) {
-    // Set status bar style
-    SystemChrome.setSystemUIOverlayStyle(SystemUiOverlayStyle.light);
-    SystemChrome.setSystemUIOverlayStyle(
-      const SystemUiOverlayStyle(statusBarColor: Colors.transparent),
-    );
 
     return MultiProvider(
       providers: [

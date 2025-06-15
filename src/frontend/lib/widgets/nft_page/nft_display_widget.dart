@@ -2,6 +2,7 @@ import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_svg/svg.dart';
+import 'package:frontend/constants/env.dart';
 import 'package:frontend/models/user_nft_model.dart';
 import 'package:frontend/constants/colors.dart' as appColors;
 import 'package:frontend/services/copy_to_clipboard.dart';
@@ -90,6 +91,7 @@ class NftDisplayWidget extends StatelessWidget {
                     Expanded(
                       child: SelectableText(
                         data.nftContractAdd,
+                        // nftContractAddFinal,
                         maxLines: 1,
                         style: TextStyle(
                           color: appColors.white.withOpacity(0.7),

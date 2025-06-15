@@ -35,11 +35,12 @@ class APIservice {
         body: jsonEncode({"topic": prompt, "creator_wallet": walletAdd}),
       );
 
-      // print(response.statusCode);
-      // print(response.body);
+      print('GEN NOODL OUTPUT');
+      print(response.statusCode);
+      print(response.body);
       return jsonDecode(response.body);
     } catch (e) {
-      print("ERROR: $e");
+      print("ERROR @ NOODL GEN: $e");
       return {"message": "E"};
     }
   }
@@ -244,7 +245,7 @@ class APIservice {
               learningPathTitle: i['learning_paths']['title'].toString(),
               metaDataURL: i['metadata_url'].toString(),
               nftContractAdd: i['nft_contract_address'].toString(),
-              networkImageURL: i['image_gateway_url'],
+              networkImageURL: i['image_gateway_url'].toString(),
               mintedAt: i['minted_at'].toString(),
               pathID: i['path_id'],
               tokenID: i['token_id'],
