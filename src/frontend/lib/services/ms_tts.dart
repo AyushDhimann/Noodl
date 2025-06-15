@@ -2,6 +2,7 @@ import 'dart:io';
 import 'dart:typed_data';
 
 import 'package:flutter/material.dart';
+import 'package:frontend/constants/env.dart';
 import 'package:frontend/providers/quiz_page_provider.dart';
 import 'package:http/http.dart' as http;
 import 'package:path_provider/path_provider.dart';
@@ -12,7 +13,7 @@ AudioPlayer? _ttsPlayer;
 
 /// Plays TTS using Azure and notifies when audio is finished.
 Future<void> playTtsFromFile(String text, BuildContext context) async {
-  const subscriptionKey = '05d5fe68a97847948613e036d56f4131';
+  const subscriptionKey = msSubsKey;
   const region = 'eastus';
   final endpoint = Uri.parse('https://$region.tts.speech.microsoft.com/cognitiveservices/v1');
 
