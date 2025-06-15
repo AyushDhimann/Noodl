@@ -99,7 +99,7 @@ class SlideScreen extends StatelessWidget {
                   splashColor: Colors.black12,
                   borderRadius: const BorderRadius.all(Radius.circular(25)),
                   child: Container(
-                    width: 50,
+                    width: size.width/2,
                     height: 50,
                     alignment: Alignment.center,
                     child: Icon(
