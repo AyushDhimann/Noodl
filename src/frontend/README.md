@@ -19,6 +19,43 @@ A **Web3-enabled learning app** that gamifies your journey through knowledge. Lo
   - Uses custom fonts
   - Rich UI with animated elements, gradients, and SVG branding
 
+# Environment Configuration Example
+
+This document explains the purpose and usage of the environment configuration file for your Flutter project.
+
+## File Location
+
+The example file is located at:  
+**`constants/env_example.dart`**
+
+## Purpose
+
+This file contains various environment-specific constants such as API endpoints, contract addresses, and keys for external services (e.g., Microsoft Azure, WalletConnect). It serves as a template for developers to create their own local `env.dart` file. **Important:** Do **not** commit your actual environment file (with real keys or sensitive data) to version control.
+
+## Example Contents
+
+Below is an example template for `env_example.dart`:
+
+```dart
+// constants/env_example.dart
+
+/// Example environment configuration file for the Flutter project.
+///
+/// Rename this file to `env.dart` and insert your actual configuration values.
+/// **WARNING:** Do not commit your `env.dart` with real credentials to your repository.
+
+/// Base URL for your API endpoints.
+const String baseURL = 'https://your-api-base-url.com';
+
+/// Microsoft subscription key for accessing Azure services.
+const String msSubsKey = 'your-microsoft-subscription-key';
+
+/// Microsoft Speech Region (optional)  
+/// For example: "eastus", "westeurope", etc.
+const String msSpeechRegion = 'your-speech-region';
+
+
+```
 ---
 
 ## 📸 Screenshots
