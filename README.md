@@ -218,7 +218,7 @@ cd ../frontend # If you were in src/backend
 ---
 
 ## 🧪 API Documentation
-For detailed information on all backend API endpoints, request/response formats, and examples, please refer to the `API.md` file located in the `src/backend/` directory.
+For detailed information on all backend API endpoints, request/response formats, and examples, please refer to the [API.md](https://github.com/AyushDhimann/Noodl/blob/main/src/backend/API.md) file located in the `src/backend/` directory.
 
 ---
 
@@ -254,4 +254,4 @@ If you're returning to the project or want a fresh start:
 This project was developed with passion for learning and innovation. We hope you enjoy exploring Noodl! 
 
 
-### Made with ❤️ by [Ayush Dhimann](https://github.com/AyushDhimann) and [Parth Kalia](https://github.com/TheParthK)
+### Cooked with ❤️ by [Ayush Dhiman](https://github.com/AyushDhimann) and [Parth Kalia](https://github.com/TheParthK)

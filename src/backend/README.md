@@ -146,7 +146,7 @@ python main.py
 ---
 
 ## 🧪 API Endpoints
-For a detailed list of all available API endpoints, including request/response formats and examples, refer to the `API.md` file in this directory. It provides comprehensive documentation on how to interact with the backend services.
+For a detailed list of all available API endpoints, including request/response formats and examples, refer to this [API.md](https://github.com/AyushDhimann/Noodl/blob/main/src/backend/API.md) file in this directory. It provides comprehensive documentation on how to interact with the backend services.
 
 ---
 
