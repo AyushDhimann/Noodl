@@ -1,4 +1,6 @@
+import 'package:audioplayers/audioplayers.dart';
 import 'package:flutter/material.dart';
+import 'package:frontend/services/ms_tts.dart';
 
 class QuizPageProvider extends ChangeNotifier{
 
@@ -68,6 +70,53 @@ class QuizPageProvider extends ChangeNotifier{
     selectedOption = 0;
     notifyListeners();
     }
+  }
+
+  // text to speech
+
+
+
+  // void playTts(String text, AudioPlayer audioPlayer) async {
+  //   try {
+  //     final bytes = await synthesizeSpeech(text);
+  //     await audioPlayer.play(BytesSource(bytes));
+  //   } catch (e) {
+  //     print('Error during TTS: $e');
+  //   }
+  // }
+  // AudioPlayer? _ttsPlayer;
+
+  bool ttsPlaying = false;
+
+  void ttsPlayingTrue(){
+    ttsPlaying = true;
+    notifyListeners();
+  }
+  void ttsPlayingFalse(){
+    ttsPlaying = false;
+    notifyListeners();
+  }
+
+  bool ttsLoading = false;
+
+  void ttsLoadingTrue(){
+    ttsLoading = true;
+    notifyListeners();
+  }
+  void ttsLoadingFalse(){
+    ttsLoading = false;
+    notifyListeners();
+  }
+
+  bool ttsComplete = false;
+
+  void ttsCompleteTrue(){
+    ttsComplete = true;
+    notifyListeners();
+  }
+  void ttsCompleteFalse(){
+    ttsComplete = false;
+    notifyListeners();
   }
 
 }
