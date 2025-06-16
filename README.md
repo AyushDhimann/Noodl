@@ -55,6 +55,16 @@ Noodl offers a rich set of features across its frontend and backend systems:
 
 *The Noodl mobile app provides an intuitive and visually appealing interface for learners.*
 
+### Youtube Demos
+
+1. *Pitch Deck:*
+   [![Watch the video](https://i.ytimg.com/vi_webp/kEoCuFLrOoI/sddefault.webp)](https://m.youtube.com/watch?v=kEoCuFLrOoI)
+
+2. *App Demo:*
+   [![Watch the video](https://i.ytimg.com/vi_webp/u6OgVPZA8H4/sddefault.webp)](https://m.youtube.com/watch?v=u6OgVPZA8H4)
+
+### App Screenshots
+
 | | | | |
 |---|---|---|---|
 | ![IMG_9733](https://github.com/user-attachments/assets/72793115-3fa5-4130-a108-cd7fc29738c1) | ![IMG_9734](https://github.com/user-attachments/assets/dafffa0d-ec68-493b-af08-69d6624aaddb) | ![IMG_9735](https://github.com/user-attachments/assets/de820a41-38ac-440f-9c40-9afc6c68f6ea) | ![IMG_9736](https://github.com/user-attachments/assets/98135719-1088-4bf4-af15-063df8644a28) |
